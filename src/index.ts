@@ -35,4 +35,5 @@ export {
 
 export type * from "./types";
 
-export { verifySignature, constructEvent } from "./webhook-utils";
+export { verifySignature, constructEvent, DEFAULT_TOLERANCE_MS } from "./webhook-utils";
+export type { VerifySignatureOptions } from "./webhook-utils";
