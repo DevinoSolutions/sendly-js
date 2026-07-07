@@ -1,0 +1,14 @@
+# Prettier auto-ignores node_modules, but not the build/generated/vendored trees below.
+
+# Build output
+dist/
+coverage/
+
+# Vendored OpenAPI snapshot (mirrored from the platform); reformatting would churn.
+openapi.json
+
+# Generated from openapi.json by `pnpm build:types` — never hand-format.
+src/types.generated.ts
+
+# Lockfile — large generated data.
+pnpm-lock.yaml
