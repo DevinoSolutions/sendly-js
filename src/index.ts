@@ -20,6 +20,8 @@ export { TemplatesResource } from "./resources/templates";
 export { WebhooksResource } from "./resources/webhooks";
 export type { ListWebhookCallsQuery } from "./resources/webhooks";
 export { SuppressionResource } from "./resources/suppression";
+export { EventsResource } from "./resources/events";
+export { VerifyResource } from "./resources/verify";
 
 export {
   SendlyError,

@@ -49,12 +49,13 @@ const spec = JSON.parse(readFileSync(SPEC_PATH, "utf8")) as OpenApiSpec;
 // ---------------------------------------------------------------------------
 // Spec operations the SDK deliberately does not implement yet.
 //
-// Both have request/response types in src/types.ts but no resource method.
-// This list is fail-closed: the suite fails if an entry is not a real spec
-// operation, and fails if an entry actually IS implemented (stale entry).
+// Empty: every spec operation is now mapped to a resource method. Retained
+// (with its guards) as the fail-closed seam for future spec additions — the
+// suite fails if an entry is not a real spec operation, and fails if an entry
+// actually IS implemented (stale entry).
 // ---------------------------------------------------------------------------
 
-export const NOT_YET_IMPLEMENTED: readonly string[] = ["POST /api/track", "POST /api/verify"];
+export const NOT_YET_IMPLEMENTED: readonly string[] = [];
 
 // ---------------------------------------------------------------------------
 // Invocation manifest: how to exercise each SDK method with minimal valid
@@ -125,9 +126,22 @@ const MANIFEST: readonly ManifestEntry[] = [
   { key: "suppression.list", invoke: (c) => c.suppression.list() },
   { key: "suppression.get", invoke: (c) => c.suppression.get(EMAIL) },
   { key: "suppression.remove", invoke: (c) => c.suppression.remove(EMAIL) },
+  // events
+  { key: "events.track", invoke: (c) => c.events.track({ event: "signup", email: "user@example.com" }) },
+  // verify
+  { key: "verify.email", invoke: (c) => c.verify.email({ email: "user@example.com" }) },
 ];
 
-const RESOURCE_NAMES = ["emails", "contacts", "domains", "templates", "webhooks", "suppression"] as const;
+const RESOURCE_NAMES = [
+  "emails",
+  "contacts",
+  "domains",
+  "templates",
+  "webhooks",
+  "suppression",
+  "events",
+  "verify",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers.

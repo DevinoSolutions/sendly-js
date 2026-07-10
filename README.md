@@ -117,6 +117,29 @@ const { webhook, secret } = await sendly.webhooks.create({
 await sendly.suppression.add({ email: "angry@example.com", reason: "MANUAL" });
 ```
 
+### Track a custom event
+
+Records a custom event against a contact. Works with both `sk_*` and `pk_*`
+keys (reserved system event names are rejected).
+
+```ts
+const tracked = await sendly.events.track({
+  event: "purchase.completed",
+  email: "user@example.com",
+  data: { plan: "pro", amount: 4900 },
+});
+console.log(tracked.data.contact, tracked.data.event);
+```
+
+### Verify an email address
+
+```ts
+const check = await sendly.verify.email({ email: "user@example.com" });
+if (!check.data.valid) {
+  console.log("rejecting", check.data.reason);
+}
+```
+
 ## Error handling
 
 Every non-2xx response throws a typed `SendlyError` subclass. Switch on the

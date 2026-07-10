@@ -196,6 +196,25 @@ var EmailsResource = class {
   }
 };
 
+// src/resources/events.ts
+var EventsResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * Track a custom event for a contact. Both FULL (`sk_*`) and SENDING_ONLY
+   * (`pk_*`) keys are accepted, but reserved system event names are rejected.
+   */
+  async track(body) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/track",
+      body
+    });
+  }
+};
+
 // src/resources/suppression.ts
 var SuppressionResource = class {
   constructor(client) {
@@ -282,6 +301,26 @@ var TemplatesResource = class {
       method: "DELETE",
       path: `/api/templates/${encodeURIComponent(id)}`,
       noContent: true
+    });
+  }
+};
+
+// src/resources/verify.ts
+var VerifyResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * Validate an email address — checks syntax, MX records, disposable domains,
+   * and plus-addressing. The endpoint is unauthenticated; the SDK still sends
+   * its bearer header, which the server harmlessly ignores.
+   */
+  async email(body) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/verify",
+      body
     });
   }
 };
@@ -433,6 +472,8 @@ var Sendly = class {
   templates;
   webhooks;
   suppression;
+  events;
+  verify;
   apiKey;
   baseUrl;
   fetchImpl;
@@ -460,6 +501,8 @@ var Sendly = class {
     this.templates = new TemplatesResource(this);
     this.webhooks = new WebhooksResource(this);
     this.suppression = new SuppressionResource(this);
+    this.events = new EventsResource(this);
+    this.verify = new VerifyResource(this);
   }
   /**
    * Low-level request helper. Resources call this; consumers can call it
@@ -609,6 +652,7 @@ export {
   DEFAULT_TOLERANCE_MS,
   DomainsResource,
   EmailsResource,
+  EventsResource,
   SDK_VERSION,
   Sendly,
   SendlyAuthenticationError,
@@ -622,6 +666,7 @@ export {
   SendlyValidationError,
   SuppressionResource,
   TemplatesResource,
+  VerifyResource,
   WebhooksResource,
   constructEvent,
   verifySignature

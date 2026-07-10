@@ -1,8 +1,10 @@
 import { ContactsResource } from "./resources/contacts";
 import { DomainsResource } from "./resources/domains";
 import { EmailsResource } from "./resources/emails";
+import { EventsResource } from "./resources/events";
 import { SuppressionResource } from "./resources/suppression";
 import { TemplatesResource } from "./resources/templates";
+import { VerifyResource } from "./resources/verify";
 import { WebhooksResource } from "./resources/webhooks";
 import { errorFromResponse, SendlyConnectionError, SendlyError } from "./errors";
 import type { ErrorEnvelope } from "./types";
@@ -55,6 +57,8 @@ export class Sendly {
   readonly templates: TemplatesResource;
   readonly webhooks: WebhooksResource;
   readonly suppression: SuppressionResource;
+  readonly events: EventsResource;
+  readonly verify: VerifyResource;
 
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -86,6 +90,8 @@ export class Sendly {
     this.templates = new TemplatesResource(this);
     this.webhooks = new WebhooksResource(this);
     this.suppression = new SuppressionResource(this);
+    this.events = new EventsResource(this);
+    this.verify = new VerifyResource(this);
   }
 
   /**
