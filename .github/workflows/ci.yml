@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Mondays 09:00 UTC — surface live-spec drift even without a push.
+    - cron: "0 9 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -43,5 +46,16 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Contract tests (committed spec)
+        run: pnpm test:contract
+
       - name: Build
         run: pnpm build
+
+      # Non-blocking: warn (do not fail) when the committed spec has drifted
+      # from the live public API, so external contributors are never blocked
+      # by a production change they did not make. The weekly schedule surfaces
+      # drift without a push; `pnpm sync-spec` refreshes the committed copy.
+      - name: Live spec drift (non-blocking)
+        run: pnpm check-spec-drift
+        continue-on-error: true

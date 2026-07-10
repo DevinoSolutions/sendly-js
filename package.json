@@ -44,10 +44,12 @@
     "build": "tsup src/index.ts --format esm --dts --out-dir dist --clean",
     "build:types": "openapi-typescript ./openapi.json -o src/types.generated.ts",
     "sync-spec": "node scripts/sync-spec.mjs",
+    "check-spec-drift": "node scripts/check-spec-drift.mjs",
     "lint": "eslint . --max-warnings=0",
     "format:check": "prettier --check .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
+    "test:contract": "vitest run src/__tests__/contract.test.ts",
     "clean": "rimraf dist node_modules coverage"
   },
   "devDependencies": {
