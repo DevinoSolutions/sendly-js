@@ -6,10 +6,11 @@ Type-safe email, contact, domain, template, webhook, and suppression
 operations. Generated from the public OpenAPI spec, so every endpoint and
 schema stays in sync.
 
-> This repository is a public **mirror** of the SDK developed inside the Sendly
-> platform monorepo (`packages/sdk`). Source and tests are copied verbatim from
-> the platform; the packaging (build, lint, CI) is standalone. Open issues and
-> PRs here — changes are reconciled back into the platform on the next mirror.
+> This repository is the official standalone home and source of truth for the
+> Sendly TypeScript SDK — issues and PRs are welcome here. Its surface is
+> contract-tested against Sendly's public OpenAPI spec on every change, so the
+> client never drifts from the live API. Full docs live at
+> [https://docs.sendly.now](https://docs.sendly.now).
 
 ## Install
 
