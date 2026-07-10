@@ -149,7 +149,7 @@
           "subscribed": {
             "type": "boolean"
           },
-          "data": {
+          "customFields": {
             "type": [
               "object",
               "null"
@@ -849,7 +849,7 @@
             "type": "boolean",
             "default": true
           },
-          "data": {
+          "customFields": {
             "type": "object",
             "additionalProperties": {},
             "description": "Arbitrary JSON value (string, number, boolean, null, array, or object)."
@@ -888,7 +888,7 @@
           "subscribed": {
             "type": "boolean"
           },
-          "data": {
+          "customFields": {
             "type": "object",
             "additionalProperties": {}
           }
@@ -1042,7 +1042,8 @@
                 "email.complained",
                 "email.failed",
                 "contact.created",
-                "contact.unsubscribed"
+                "contact.unsubscribed",
+                "contacts.bulk_created"
               ]
             }
           },
@@ -1570,7 +1571,8 @@
                 "email.complained",
                 "email.failed",
                 "contact.created",
-                "contact.unsubscribed"
+                "contact.unsubscribed",
+                "contacts.bulk_created"
               ]
             },
             "minItems": 1
@@ -1602,7 +1604,8 @@
                 "email.complained",
                 "email.failed",
                 "contact.created",
-                "contact.unsubscribed"
+                "contact.unsubscribed",
+                "contacts.bulk_created"
               ]
             },
             "minItems": 1

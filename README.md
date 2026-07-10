@@ -89,7 +89,7 @@ if (page.data.cursor) {
 ```ts
 const contact = await sendly.contacts.upsert({
   email: "user@example.com",
-  data: { plan: "pro", signedUpAt: new Date().toISOString() },
+  customFields: { plan: "pro", signedUpAt: new Date().toISOString() },
 });
 ```
 
@@ -196,9 +196,11 @@ pnpm build          # regenerate types from openapi.json, then bundle with tsup
 ```
 
 The type definitions in `src/types.generated.ts` are generated from
-`openapi.json` via `pnpm build:types`. `openapi.json` is a snapshot of the
-platform's public OpenAPI spec, mirrored into this repo and regenerated
-whenever the API changes.
+`openapi.json` via `pnpm build:types`. `openapi.json` is a committed snapshot
+of Sendly's public OpenAPI spec; refresh it from the live API with
+`pnpm sync-spec`, then regenerate the types (`pnpm build:types`, which
+`pnpm build` runs for you). The SDK surface is verified against this snapshot
+by the contract suite in `src/__tests__/contract.test.ts`.
 
 ## License
 

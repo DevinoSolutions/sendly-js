@@ -500,7 +500,7 @@ interface components {
             /** Format: email */
             email: string;
             subscribed: boolean;
-            data?: {
+            customFields?: {
                 [key: string]: unknown;
             } | null;
             /**
@@ -720,7 +720,7 @@ interface components {
             /** @default true */
             subscribed: boolean;
             /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
-            data?: {
+            customFields?: {
                 [key: string]: unknown;
             };
         };
@@ -732,7 +732,7 @@ interface components {
         /** @description Body for PATCH /api/contacts/{id}. `email` is immutable here — use upsert to change addresses. */
         UpdateContactBody: {
             subscribed?: boolean;
-            data?: {
+            customFields?: {
                 [key: string]: unknown;
             };
         };
@@ -784,7 +784,7 @@ interface components {
             projectId: string;
             /** Format: uri */
             url: string;
-            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed")[];
+            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
             /** @enum {string} */
             status: "ACTIVE" | "PAUSED" | "DISABLED";
             consecutiveFailures: number;
@@ -956,13 +956,13 @@ interface components {
         CreateWebhook: {
             /** Format: uri */
             url: string;
-            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed")[];
+            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
         };
         /** @description Body for PATCH /api/webhooks/{id}. */
         UpdateWebhook: {
             /** Format: uri */
             url?: string;
-            eventTypes?: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed")[];
+            eventTypes?: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
             /** @enum {string} */
             status?: "ACTIVE" | "PAUSED" | "DISABLED";
         };

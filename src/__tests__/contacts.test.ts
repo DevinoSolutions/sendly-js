@@ -14,9 +14,9 @@ describe("contacts resource", () => {
   test("upsert POSTs /api/contacts/upsert", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { id: "c_2", email: "a@b.com" } }));
-    await client.contacts.upsert({ email: "a@b.com", subscribed: true, data: { plan: "pro" } });
+    await client.contacts.upsert({ email: "a@b.com", subscribed: true, customFields: { plan: "pro" } });
     expect(getCall(fetchMock).url).toBe("http://localhost/api/contacts/upsert");
-    expect(getCallBody(fetchMock)).toMatchObject({ email: "a@b.com", data: { plan: "pro" } });
+    expect(getCallBody(fetchMock)).toMatchObject({ email: "a@b.com", customFields: { plan: "pro" } });
   });
 
   test("list serializes search + cursor params", async () => {
@@ -32,7 +32,7 @@ describe("contacts resource", () => {
   test("update PATCHes /api/contacts/{id}", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { id: "c_3", email: "a@b.com" } }));
-    await client.contacts.update("c_3", { data: { plan: "enterprise" } });
+    await client.contacts.update("c_3", { customFields: { plan: "enterprise" } });
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/contacts/c_3");
     expect(init.method).toBe("PATCH");

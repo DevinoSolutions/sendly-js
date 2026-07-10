@@ -43,6 +43,7 @@
     "prebuild": "pnpm run build:types",
     "build": "tsup src/index.ts --format esm --dts --out-dir dist --clean",
     "build:types": "openapi-typescript ./openapi.json -o src/types.generated.ts",
+    "sync-spec": "node scripts/sync-spec.mjs",
     "lint": "eslint . --max-warnings=0",
     "format:check": "prettier --check .",
     "check-types": "tsc --noEmit",
