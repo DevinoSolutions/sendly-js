@@ -79,8 +79,12 @@ export type ListSuppressionsQuery = NonNullable<paths["/api/suppression"]["get"]
 
 export type TrackEventRequest = components["schemas"]["TrackEvent"];
 export type TrackEventResponse = components["schemas"]["TrackEventResponse"];
+// Inner `data` payload the SDK unwraps to (the spec inlines it in the response
+// envelope, so it is derived rather than a standalone component schema).
+export type TrackEventData = TrackEventResponse["data"];
 export type VerifyEmailRequest = components["schemas"]["VerifyEmail"];
 export type VerifyEmailResponse = components["schemas"]["VerifyEmailResponse"];
+export type VerifyEmailData = VerifyEmailResponse["data"];
 
 // Re-export the raw shapes for advanced use.
 export type { components, operations, paths } from "./types.generated";

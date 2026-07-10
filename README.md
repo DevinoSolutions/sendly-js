@@ -128,15 +128,15 @@ const tracked = await sendly.events.track({
   email: "user@example.com",
   data: { plan: "pro", amount: 4900 },
 });
-console.log(tracked.data.contact, tracked.data.event);
+console.log(tracked.contact, tracked.event);
 ```
 
 ### Verify an email address
 
 ```ts
 const check = await sendly.verify.email({ email: "user@example.com" });
-if (!check.data.valid) {
-  console.log("rejecting", check.data.reason);
+if (!check.valid) {
+  console.log("rejecting", check.reason);
 }
 ```
 

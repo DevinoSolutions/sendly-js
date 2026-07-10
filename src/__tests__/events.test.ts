@@ -13,7 +13,7 @@ describe("events resource", () => {
     expect(url).toBe("http://localhost/api/track");
     expect(init.method).toBe("POST");
     expect(getCallBody(fetchMock)).toMatchObject({ event: "signup", email: "user@example.com" });
-    expect(result.data.contact).toBe("c_1");
+    expect(result.contact).toBe("c_1");
   });
 
   test("track forwards optional subscribed + data payload", async () => {

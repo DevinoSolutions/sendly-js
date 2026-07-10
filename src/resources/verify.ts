@@ -1,5 +1,5 @@
 import type { Sendly } from "../client";
-import type { VerifyEmailRequest, VerifyEmailResponse } from "../types";
+import type { VerifyEmailData, VerifyEmailRequest } from "../types";
 
 export class VerifyResource {
   constructor(private readonly client: Sendly) {}
@@ -9,11 +9,12 @@ export class VerifyResource {
    * and plus-addressing. The endpoint is unauthenticated; the SDK still sends
    * its bearer header, which the server harmlessly ignores.
    */
-  async email(body: VerifyEmailRequest): Promise<VerifyEmailResponse> {
-    return this.client.request<VerifyEmailResponse>({
+  async email(body: VerifyEmailRequest): Promise<VerifyEmailData> {
+    const envelope = await this.client.request<{ success: true; data: VerifyEmailData }>({
       method: "POST",
       path: "/api/verify",
       body,
     });
+    return this.client.unwrap(envelope);
   }
 }

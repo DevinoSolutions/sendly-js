@@ -11,17 +11,17 @@ describe("verify resource", () => {
     expect(url).toBe("http://localhost/api/verify");
     expect(init.method).toBe("POST");
     expect(getCallBody(fetchMock)).toMatchObject({ email: "user@example.com" });
-    expect(result.data.valid).toBe(true);
+    expect(result.valid).toBe(true);
   });
 
-  test("email surfaces an invalid verdict in the response envelope", async () => {
+  test("email unwraps an invalid verdict to the data payload", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(
       jsonResponse(200, { success: true, data: { email: "nope@bad", valid: false, reason: "no_mx_records" } }),
     );
     const result = await client.verify.email({ email: "nope@bad" });
-    expect(result.data.valid).toBe(false);
-    expect(result.data.reason).toBe("no_mx_records");
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("no_mx_records");
   });
 
   test("email throws SendlyValidationError on 400", async () => {

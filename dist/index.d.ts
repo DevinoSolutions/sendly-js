@@ -3816,8 +3816,10 @@ type AddSuppressionRequest = components["schemas"]["AddSuppression"];
 type ListSuppressionsQuery = NonNullable<paths["/api/suppression"]["get"]["parameters"]["query"]>;
 type TrackEventRequest = components["schemas"]["TrackEvent"];
 type TrackEventResponse = components["schemas"]["TrackEventResponse"];
+type TrackEventData = TrackEventResponse["data"];
 type VerifyEmailRequest = components["schemas"]["VerifyEmail"];
 type VerifyEmailResponse = components["schemas"]["VerifyEmailResponse"];
+type VerifyEmailData = VerifyEmailResponse["data"];
 
 interface IdempotencyOptions {
     /** Optional idempotency key (1–255 chars). Sent as `Idempotency-Key` header. Replays are deduped for 24h. */
@@ -3891,7 +3893,7 @@ declare class EventsResource {
      * Track a custom event for a contact. Both FULL (`sk_*`) and SENDING_ONLY
      * (`pk_*`) keys are accepted, but reserved system event names are rejected.
      */
-    track(body: TrackEventRequest): Promise<TrackEventResponse>;
+    track(body: TrackEventRequest): Promise<TrackEventData>;
 }
 
 declare class SuppressionResource {
@@ -3930,7 +3932,7 @@ declare class VerifyResource {
      * and plus-addressing. The endpoint is unauthenticated; the SDK still sends
      * its bearer header, which the server harmlessly ignores.
      */
-    email(body: VerifyEmailRequest): Promise<VerifyEmailResponse>;
+    email(body: VerifyEmailRequest): Promise<VerifyEmailData>;
 }
 
 type ListWebhookCallsQuery = {
@@ -4141,4 +4143,4 @@ declare function verifySignature(payload: string | Buffer, signature: string, ti
  */
 declare function constructEvent<T = Record<string, unknown>>(payload: string | Buffer, signature: string, timestamp: string, secret: string, options?: VerifySignatureOptions): T;
 
-export { type AddDomainRequest, type AddSuppressionRequest, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type ContactListResponse, type ContactRecord, ContactsResource, type CreateContactRequest, type CreateTemplateRequest, type CreateWebhookRequest, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, EmailsResource, type ErrorEnvelope, EventsResource, type IdempotencyOptions, type ListContactsQuery, type ListEmailsQuery, type ListSuppressionsQuery, type ListTemplatesQuery, type ListWebhookCallsQuery, type Pagination, type RequestOptions, SDK_VERSION, type SendEmailData, type SendEmailRequest, type SendEmailResponse, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventRequest, type TrackEventResponse, type UpdateContactRequest, type UpdateTemplateRequest, type UpdateWebhookRequest, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type components, constructEvent, type operations, type paths, verifySignature };
+export { type AddDomainRequest, type AddSuppressionRequest, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type ContactListResponse, type ContactRecord, ContactsResource, type CreateContactRequest, type CreateTemplateRequest, type CreateWebhookRequest, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, EmailsResource, type ErrorEnvelope, EventsResource, type IdempotencyOptions, type ListContactsQuery, type ListEmailsQuery, type ListSuppressionsQuery, type ListTemplatesQuery, type ListWebhookCallsQuery, type Pagination, type RequestOptions, SDK_VERSION, type SendEmailData, type SendEmailRequest, type SendEmailResponse, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateContactRequest, type UpdateTemplateRequest, type UpdateWebhookRequest, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type components, constructEvent, type operations, type paths, verifySignature };

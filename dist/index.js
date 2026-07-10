@@ -207,11 +207,12 @@ var EventsResource = class {
    * (`pk_*`) keys are accepted, but reserved system event names are rejected.
    */
   async track(body) {
-    return this.client.request({
+    const envelope = await this.client.request({
       method: "POST",
       path: "/api/track",
       body
     });
+    return this.client.unwrap(envelope);
   }
 };
 
@@ -317,11 +318,12 @@ var VerifyResource = class {
    * its bearer header, which the server harmlessly ignores.
    */
   async email(body) {
-    return this.client.request({
+    const envelope = await this.client.request({
       method: "POST",
       path: "/api/verify",
       body
     });
+    return this.client.unwrap(envelope);
   }
 };
 
