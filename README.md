@@ -14,13 +14,18 @@ schema stays in sync.
 
 ## Install
 
-The package is **not yet published to npm**. Until the first release, install
-directly from GitHub:
+```bash
+npm install @sendly/sdk
+# or
+pnpm add @sendly/sdk
+```
+
+Ships both ESM and CommonJS builds, so `import` and `require` both work.
+
+Alternatively, install the latest `main` directly from GitHub:
 
 ```bash
 npm install github:DevinoSolutions/sendly-js
-# or
-pnpm add github:DevinoSolutions/sendly-js
 ```
 
 Requires Node 20+ (or any runtime with global `fetch` and `AbortSignal.timeout`).

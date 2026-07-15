@@ -1,0 +1,62 @@
+name: Release
+
+# Publishes @sendly/sdk to npm when a version tag (vX.Y.Z) is pushed.
+# Disjoint from ci.yml (push/PR to main + weekly cron): this runs ONLY on tags,
+# re-runs the full gate, then publishes. A red SDK can never ship.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    name: Test, build & publish to npm
+    runs-on: ubuntu-latest
+    environment: release # create this GitHub Environment; optionally gate with reviewers
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: pnpm/action-setup@v6.0.8
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Version-consistency gate: the pushed tag must equal both the
+      # package.json version and the SDK_VERSION constant (User-Agent header).
+      - name: Assert tag matches package.json + SDK_VERSION
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          SDK=$(grep -oE 'SDK_VERSION = "[^"]+"' src/client.ts | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "tag=$TAG package.json=$PKG SDK_VERSION=$SDK"
+          test "$TAG" = "$PKG" || { echo "::error::tag $TAG != package.json $PKG"; exit 1; }
+          test "$TAG" = "$SDK" || { echo "::error::tag $TAG != SDK_VERSION $SDK"; exit 1; }
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm check-types
+
+      - name: Test
+        run: pnpm test
+
+      - name: Contract tests (committed spec)
+        run: pnpm test:contract
+
+      - name: Build
+        run: pnpm build
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
