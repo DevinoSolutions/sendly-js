@@ -4,13 +4,20 @@
   "description": "Official Sendly TypeScript SDK",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.js",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
@@ -41,7 +48,7 @@
   },
   "scripts": {
     "prebuild": "pnpm run build:types",
-    "build": "tsup src/index.ts --format esm --dts --out-dir dist --clean",
+    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist --clean",
     "build:types": "openapi-typescript ./openapi.json -o src/types.generated.ts",
     "sync-spec": "node scripts/sync-spec.mjs",
     "check-spec-drift": "node scripts/check-spec-drift.mjs",
