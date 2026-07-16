@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { SendlyNotFoundError } from "../index";
-import { emptyResponse, getCall, getCallBody, jsonResponse, makeClient } from "./helpers";
+import { getCall, getCallBody, jsonResponse, makeClient } from "./helpers";
 
 describe("contacts resource", () => {
   test("create POSTs /api/contacts and unwraps data", async () => {
@@ -38,9 +38,9 @@ describe("contacts resource", () => {
     expect(init.method).toBe("PATCH");
   });
 
-  test("delete sends DELETE and resolves on 204", async () => {
+  test("delete sends DELETE and resolves void on 200 { success, data: { id } }", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(emptyResponse(204));
+    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { id: "c_4" } }));
     await expect(client.contacts.delete("c_4")).resolves.toBeUndefined();
     expect(getCall(fetchMock).init.method).toBe("DELETE");
   });

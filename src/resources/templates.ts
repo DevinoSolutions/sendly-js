@@ -20,7 +20,7 @@ export class TemplatesResource {
     return this.client.unwrap(envelope);
   }
 
-  /** List templates with offset pagination + optional type filter. */
+  /** List templates with cursor pagination (`limit`/`cursor`) + optional type filter. */
   async list(query?: ListTemplatesQuery): Promise<TemplateListResponse> {
     return this.client.request<TemplateListResponse>({
       method: "GET",
@@ -48,7 +48,7 @@ export class TemplatesResource {
     return this.client.unwrap(envelope);
   }
 
-  /** Delete a template. Returns 204 unless still referenced. */
+  /** Delete a template. The API answers 200 with `{ success, data: { id } }` (409 if still referenced); the SDK resolves void. */
   async delete(id: string): Promise<void> {
     await this.client.request<void>({
       method: "DELETE",

@@ -122,7 +122,7 @@ interface paths {
         put?: never;
         /**
          * Create or update a contact by email
-         * @description Idempotent contact upsert keyed by email. Returns 201 on first create, 200 on subsequent updates.
+         * @description Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.
          */
         post: operations["upsertContact"];
         delete?: never;
@@ -166,7 +166,10 @@ interface paths {
         get: operations["getContact"];
         put?: never;
         post?: never;
-        /** Delete a contact */
+        /**
+         * Delete a contact
+         * @description Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).
+         */
         delete: operations["deleteContact"];
         options?: never;
         head?: never;
@@ -255,7 +258,7 @@ interface paths {
         };
         /**
          * List templates
-         * @description Page-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.
+         * @description Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.
          */
         get: operations["listTemplates"];
         put?: never;
@@ -283,7 +286,7 @@ interface paths {
         post?: never;
         /**
          * Delete a template
-         * @description Refuses with 409 if the template is still attached to a workflow step or active campaign.
+         * @description Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.
          */
         delete: operations["deleteTemplate"];
         options?: never;
@@ -472,11 +475,16 @@ interface paths {
 }
 interface components {
     schemas: {
-        /** @description Standard error envelope returned by all 4xx/5xx responses. */
+        /** @description Standard error envelope returned by all 4xx/5xx responses. Migrated routes include `success: false`; 422 validation errors add `error.details.errors`. */
         Error: {
+            /** @enum {boolean} */
+            success?: false;
             error: {
                 message: string;
                 code: string;
+                details?: {
+                    errors: unknown[];
+                };
             };
         };
         /** @description Bare success envelope with no payload. */
@@ -484,12 +492,14 @@ interface components {
             /** @enum {boolean} */
             success: true;
         };
-        /** @description Page-based pagination metadata. */
-        Pagination: {
-            page: number;
-            pageSize: number;
-            total: number;
-            totalPages: number;
+        /** @description Success envelope carrying the affected resource's id, e.g. after a delete. */
+        IdResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: uuid */
+                id: string;
+            };
         };
         /** @description A subscriber/contact within a project. */
         Contact: {
@@ -518,11 +528,13 @@ interface components {
         ContactListResponse: {
             /** @enum {boolean} */
             success: true;
-            data: components["schemas"]["Contact"][];
-            total: number;
-            nextCursor?: string | null;
-            cursor?: string | null;
-            hasMore?: boolean;
+            data: {
+                data: components["schemas"]["Contact"][];
+                total: number;
+                /** @description Cursor for the next page, or null on the last page. */
+                nextCursor: string | null;
+                hasMore: boolean;
+            };
         };
         /** @description A reusable email template. */
         Template: {
@@ -552,11 +564,17 @@ interface components {
              */
             updatedAt: string;
         };
-        /** @description Page-paginated list of templates. */
+        /** @description Cursor-paginated list of templates. */
         TemplateListResponse: {
-            success: boolean;
-            data: components["schemas"]["Template"][];
-            pagination?: components["schemas"]["Pagination"];
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                data: components["schemas"]["Template"][];
+                total: number;
+                /** @description Cursor for the next page; omitted on the last page. */
+                cursor?: string;
+                hasMore: boolean;
+            };
         };
         /** @description A sending domain registered with SES. */
         Domain: {
@@ -1434,6 +1452,15 @@ interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Rate limit or billing limit exceeded */
             429: {
                 headers: {
@@ -1516,6 +1543,15 @@ interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Rate limit or billing limit exceeded */
             429: {
                 headers: {
@@ -1549,21 +1585,8 @@ interface operations {
             };
         };
         responses: {
-            /** @description Existing contact updated */
+            /** @description Contact created or updated */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {boolean} */
-                        success: true;
-                        data: components["schemas"]["Contact"];
-                    };
-                };
-            };
-            /** @description Contact created */
-            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1595,6 +1618,15 @@ interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1682,6 +1714,15 @@ interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Rate limit or billing limit exceeded */
             429: {
                 headers: {
@@ -1750,6 +1791,15 @@ interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1869,11 +1919,13 @@ interface operations {
         requestBody?: never;
         responses: {
             /** @description Contact deleted */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["IdResponse"];
+                };
             };
             /** @description Validation error */
             400: {
@@ -1988,6 +2040,15 @@ interface operations {
             };
             /** @description Resource not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2472,8 +2533,8 @@ interface operations {
     listTemplates: {
         parameters: {
             query?: {
-                page?: number;
-                pageSize?: number;
+                limit?: number;
+                cursor?: string;
                 search?: string;
                 type?: "MARKETING" | "TRANSACTIONAL" | "HEADLESS";
             };
@@ -2512,6 +2573,15 @@ interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2585,6 +2655,15 @@ interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2704,11 +2783,13 @@ interface operations {
         requestBody?: never;
         responses: {
             /** @description Template deleted */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["IdResponse"];
+                };
             };
             /** @description Validation error */
             400: {
@@ -2832,6 +2913,15 @@ interface operations {
             };
             /** @description Resource not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3773,7 +3863,8 @@ interface operations {
 
 type ErrorEnvelope = components["schemas"]["Error"];
 type SuccessEmpty = components["schemas"]["SuccessEmpty"];
-type Pagination = components["schemas"]["Pagination"];
+/** `{ success, data: { id } }` envelope returned by delete endpoints (formerly the page-based `Pagination` schema, now removed in favor of cursor pagination). */
+type IdResponse = components["schemas"]["IdResponse"];
 type SendEmailRequest = components["schemas"]["SendEmail"];
 type SendEmailData = components["schemas"]["SendEmailData"];
 type SendEmailResponse = components["schemas"]["SendEmailResponse"];
@@ -3857,7 +3948,7 @@ declare class ContactsResource {
     get(id: string): Promise<ContactRecord>;
     /** Patch a contact (partial update of `data`, `subscribed`, etc.). */
     update(id: string, body: UpdateContactRequest): Promise<ContactRecord>;
-    /** Delete a contact. Returns 204. */
+    /** Delete a contact. The API answers 200 with `{ success, data: { id } }`; the SDK resolves void. */
     delete(id: string): Promise<void>;
 }
 
@@ -3914,13 +4005,13 @@ declare class TemplatesResource {
     constructor(client: Sendly);
     /** Create a reusable email template. */
     create(body: CreateTemplateRequest): Promise<TemplateRecord>;
-    /** List templates with offset pagination + optional type filter. */
+    /** List templates with cursor pagination (`limit`/`cursor`) + optional type filter. */
     list(query?: ListTemplatesQuery): Promise<TemplateListResponse>;
     /** Fetch a single template by id. */
     get(id: string): Promise<TemplateRecord>;
     /** Patch an existing template. */
     update(id: string, body: UpdateTemplateRequest): Promise<TemplateRecord>;
-    /** Delete a template. Returns 204 unless still referenced. */
+    /** Delete a template. The API answers 200 with `{ success, data: { id } }` (409 if still referenced); the SDK resolves void. */
     delete(id: string): Promise<void>;
 }
 
@@ -4044,7 +4135,7 @@ declare class SendlyError extends Error {
     readonly body: unknown;
     constructor(statusCode: number, errorCode: string, message: string, body?: unknown);
 }
-/** 400 — request body or query failed validation. */
+/** 400 or 422 — request body or query failed validation. */
 declare class SendlyValidationError extends SendlyError {
     constructor(statusCode: number, errorCode: string, message: string, body?: unknown);
 }
@@ -4143,4 +4234,4 @@ declare function verifySignature(payload: string | Buffer, signature: string, ti
  */
 declare function constructEvent<T = Record<string, unknown>>(payload: string | Buffer, signature: string, timestamp: string, secret: string, options?: VerifySignatureOptions): T;
 
-export { type AddDomainRequest, type AddSuppressionRequest, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type ContactListResponse, type ContactRecord, ContactsResource, type CreateContactRequest, type CreateTemplateRequest, type CreateWebhookRequest, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, EmailsResource, type ErrorEnvelope, EventsResource, type IdempotencyOptions, type ListContactsQuery, type ListEmailsQuery, type ListSuppressionsQuery, type ListTemplatesQuery, type ListWebhookCallsQuery, type Pagination, type RequestOptions, SDK_VERSION, type SendEmailData, type SendEmailRequest, type SendEmailResponse, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateContactRequest, type UpdateTemplateRequest, type UpdateWebhookRequest, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type components, constructEvent, type operations, type paths, verifySignature };
+export { type AddDomainRequest, type AddSuppressionRequest, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type ContactListResponse, type ContactRecord, ContactsResource, type CreateContactRequest, type CreateTemplateRequest, type CreateWebhookRequest, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, EmailsResource, type ErrorEnvelope, EventsResource, type IdResponse, type IdempotencyOptions, type ListContactsQuery, type ListEmailsQuery, type ListSuppressionsQuery, type ListTemplatesQuery, type ListWebhookCallsQuery, type RequestOptions, SDK_VERSION, type SendEmailData, type SendEmailRequest, type SendEmailResponse, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateContactRequest, type UpdateTemplateRequest, type UpdateWebhookRequest, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type components, constructEvent, type operations, type paths, verifySignature };

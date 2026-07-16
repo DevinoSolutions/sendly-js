@@ -17,7 +17,7 @@ export class SendlyError extends Error {
   }
 }
 
-/** 400 — request body or query failed validation. */
+/** 400 or 422 — request body or query failed validation. */
 export class SendlyValidationError extends SendlyError {
   constructor(statusCode: number, errorCode: string, message: string, body?: unknown) {
     super(statusCode, errorCode, message, body);
@@ -83,7 +83,7 @@ export class SendlyConnectionError extends SendlyError {
 
 /** Map an HTTP status + error envelope to the appropriate error subclass. */
 export function errorFromResponse(statusCode: number, errorCode: string, message: string, body?: unknown): SendlyError {
-  if (statusCode === 400) return new SendlyValidationError(statusCode, errorCode, message, body);
+  if (statusCode === 400 || statusCode === 422) return new SendlyValidationError(statusCode, errorCode, message, body);
   if (statusCode === 401) return new SendlyAuthenticationError(statusCode, errorCode, message, body);
   if (statusCode === 403) return new SendlyPermissionError(statusCode, errorCode, message, body);
   if (statusCode === 404) return new SendlyNotFoundError(statusCode, errorCode, message, body);

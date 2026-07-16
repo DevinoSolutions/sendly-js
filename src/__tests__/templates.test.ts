@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { SendlyConflictError } from "../index";
-import { emptyResponse, getCall, jsonResponse, makeClient } from "./helpers";
+import { getCall, jsonResponse, makeClient } from "./helpers";
 
 describe("templates resource", () => {
   test("create POSTs /api/templates", async () => {
@@ -16,13 +16,13 @@ describe("templates resource", () => {
     expect(getCall(fetchMock).url).toBe("http://localhost/api/templates");
   });
 
-  test("list serializes page + pageSize", async () => {
+  test("list serializes limit + cursor", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { items: [] } }));
-    await client.templates.list({ page: 2, pageSize: 25 });
+    await client.templates.list({ limit: 25, cursor: "c_abc" });
     const { url } = getCall(fetchMock);
-    expect(url).toContain("page=2");
-    expect(url).toContain("pageSize=25");
+    expect(url).toContain("limit=25");
+    expect(url).toContain("cursor=c_abc");
   });
 
   test("update PATCHes", async () => {
@@ -32,10 +32,11 @@ describe("templates resource", () => {
     expect(getCall(fetchMock).init.method).toBe("PATCH");
   });
 
-  test("delete sends DELETE and resolves on 204", async () => {
+  test("delete sends DELETE and resolves void on 200 { success, data: { id } }", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(emptyResponse(204));
+    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { id: "t_1" } }));
     await expect(client.templates.delete("t_1")).resolves.toBeUndefined();
+    expect(getCall(fetchMock).init.method).toBe("DELETE");
   });
 
   test("delete throws SendlyConflictError on 409", async () => {
