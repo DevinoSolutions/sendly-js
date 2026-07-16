@@ -183,6 +183,23 @@ Each error exposes:
 - `message` — human-readable message
 - `body` — full parsed response body for debugging
 
+Invalid input is reported as `SendlyValidationError`. The API returns **422**
+(`errorCode: "VALIDATION_ERROR"`) for schema validation failures; the SDK maps
+both `400` and `422` to `SendlyValidationError`, so existing `instanceof`
+checks keep working. Field-level detail, when present, is on
+`err.body.error.details.errors`:
+
+```ts
+if (err instanceof SendlyValidationError) {
+  const fields = (err.body as { error?: { details?: { errors?: unknown[] } } })?.error?.details?.errors;
+  console.warn("validation failed:", err.errorCode, fields);
+}
+```
+
+The error envelope is `{ success: false, error: { message, code, details? } }`.
+Contact bulk operations that previously failed with a `NO_PROJECT` code now
+surface as `VALIDATION_ERROR`.
+
 ## Idempotency
 
 Pass `idempotencyKey` on any write that supports it (`emails.send`,

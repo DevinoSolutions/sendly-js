@@ -70,7 +70,7 @@ var ContactsResource = class {
     });
     return this.client.unwrap(envelope);
   }
-  /** Delete a contact. Returns 204. */
+  /** Delete a contact. The API answers 200 with `{ success, data: { id } }`; the SDK resolves void. */
   async delete(id) {
     await this.client.request({
       method: "DELETE",
@@ -271,7 +271,7 @@ var TemplatesResource = class {
     });
     return this.client.unwrap(envelope);
   }
-  /** List templates with offset pagination + optional type filter. */
+  /** List templates with cursor pagination (`limit`/`cursor`) + optional type filter. */
   async list(query) {
     return this.client.request({
       method: "GET",
@@ -296,7 +296,7 @@ var TemplatesResource = class {
     });
     return this.client.unwrap(envelope);
   }
-  /** Delete a template. Returns 204 unless still referenced. */
+  /** Delete a template. The API answers 200 with `{ success, data: { id } }` (409 if still referenced); the SDK resolves void. */
   async delete(id) {
     await this.client.request({
       method: "DELETE",
@@ -454,7 +454,7 @@ var SendlyConnectionError = class extends SendlyError {
   }
 };
 function errorFromResponse(statusCode, errorCode, message, body) {
-  if (statusCode === 400) return new SendlyValidationError(statusCode, errorCode, message, body);
+  if (statusCode === 400 || statusCode === 422) return new SendlyValidationError(statusCode, errorCode, message, body);
   if (statusCode === 401) return new SendlyAuthenticationError(statusCode, errorCode, message, body);
   if (statusCode === 403) return new SendlyPermissionError(statusCode, errorCode, message, body);
   if (statusCode === 404) return new SendlyNotFoundError(statusCode, errorCode, message, body);

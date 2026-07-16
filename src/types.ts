@@ -9,7 +9,8 @@ import type { components, paths } from "./types.generated";
 
 export type ErrorEnvelope = components["schemas"]["Error"];
 export type SuccessEmpty = components["schemas"]["SuccessEmpty"];
-export type Pagination = components["schemas"]["Pagination"];
+/** `{ success, data: { id } }` envelope returned by delete endpoints (formerly the page-based `Pagination` schema, now removed in favor of cursor pagination). */
+export type IdResponse = components["schemas"]["IdResponse"];
 
 // ---------- Emails ----------
 

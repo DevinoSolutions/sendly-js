@@ -87,7 +87,7 @@ export class ContactsResource {
     return this.client.unwrap(envelope);
   }
 
-  /** Delete a contact. Returns 204. */
+  /** Delete a contact. The API answers 200 with `{ success, data: { id } }`; the SDK resolves void. */
   async delete(id: string): Promise<void> {
     await this.client.request<void>({
       method: "DELETE",

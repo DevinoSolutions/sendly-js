@@ -123,7 +123,7 @@ export interface paths {
         put?: never;
         /**
          * Create or update a contact by email
-         * @description Idempotent contact upsert keyed by email. Returns 201 on first create, 200 on subsequent updates.
+         * @description Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.
          */
         post: operations["upsertContact"];
         delete?: never;
@@ -167,7 +167,10 @@ export interface paths {
         get: operations["getContact"];
         put?: never;
         post?: never;
-        /** Delete a contact */
+        /**
+         * Delete a contact
+         * @description Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).
+         */
         delete: operations["deleteContact"];
         options?: never;
         head?: never;
@@ -256,7 +259,7 @@ export interface paths {
         };
         /**
          * List templates
-         * @description Page-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.
+         * @description Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.
          */
         get: operations["listTemplates"];
         put?: never;
@@ -284,7 +287,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a template
-         * @description Refuses with 409 if the template is still attached to a workflow step or active campaign.
+         * @description Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.
          */
         delete: operations["deleteTemplate"];
         options?: never;
@@ -474,11 +477,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Standard error envelope returned by all 4xx/5xx responses. */
+        /** @description Standard error envelope returned by all 4xx/5xx responses. Migrated routes include `success: false`; 422 validation errors add `error.details.errors`. */
         Error: {
+            /** @enum {boolean} */
+            success?: false;
             error: {
                 message: string;
                 code: string;
+                details?: {
+                    errors: unknown[];
+                };
             };
         };
         /** @description Bare success envelope with no payload. */
@@ -486,12 +494,14 @@ export interface components {
             /** @enum {boolean} */
             success: true;
         };
-        /** @description Page-based pagination metadata. */
-        Pagination: {
-            page: number;
-            pageSize: number;
-            total: number;
-            totalPages: number;
+        /** @description Success envelope carrying the affected resource's id, e.g. after a delete. */
+        IdResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: uuid */
+                id: string;
+            };
         };
         /** @description A subscriber/contact within a project. */
         Contact: {
@@ -520,11 +530,13 @@ export interface components {
         ContactListResponse: {
             /** @enum {boolean} */
             success: true;
-            data: components["schemas"]["Contact"][];
-            total: number;
-            nextCursor?: string | null;
-            cursor?: string | null;
-            hasMore?: boolean;
+            data: {
+                data: components["schemas"]["Contact"][];
+                total: number;
+                /** @description Cursor for the next page, or null on the last page. */
+                nextCursor: string | null;
+                hasMore: boolean;
+            };
         };
         /** @description A reusable email template. */
         Template: {
@@ -554,11 +566,17 @@ export interface components {
              */
             updatedAt: string;
         };
-        /** @description Page-paginated list of templates. */
+        /** @description Cursor-paginated list of templates. */
         TemplateListResponse: {
-            success: boolean;
-            data: components["schemas"]["Template"][];
-            pagination?: components["schemas"]["Pagination"];
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                data: components["schemas"]["Template"][];
+                total: number;
+                /** @description Cursor for the next page; omitted on the last page. */
+                cursor?: string;
+                hasMore: boolean;
+            };
         };
         /** @description A sending domain registered with SES. */
         Domain: {
@@ -1437,6 +1455,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Rate limit or billing limit exceeded */
             429: {
                 headers: {
@@ -1519,6 +1546,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Rate limit or billing limit exceeded */
             429: {
                 headers: {
@@ -1552,21 +1588,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Existing contact updated */
+            /** @description Contact created or updated */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {boolean} */
-                        success: true;
-                        data: components["schemas"]["Contact"];
-                    };
-                };
-            };
-            /** @description Contact created */
-            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1598,6 +1621,15 @@ export interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1685,6 +1717,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Rate limit or billing limit exceeded */
             429: {
                 headers: {
@@ -1753,6 +1794,15 @@ export interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1872,11 +1922,13 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Contact deleted */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["IdResponse"];
+                };
             };
             /** @description Validation error */
             400: {
@@ -1991,6 +2043,15 @@ export interface operations {
             };
             /** @description Resource not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2475,8 +2536,8 @@ export interface operations {
     listTemplates: {
         parameters: {
             query?: {
-                page?: number;
-                pageSize?: number;
+                limit?: number;
+                cursor?: string;
                 search?: string;
                 type?: "MARKETING" | "TRANSACTIONAL" | "HEADLESS";
             };
@@ -2515,6 +2576,15 @@ export interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2588,6 +2658,15 @@ export interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2707,11 +2786,13 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Template deleted */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["IdResponse"];
+                };
             };
             /** @description Validation error */
             400: {
@@ -2835,6 +2916,15 @@ export interface operations {
             };
             /** @description Resource not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

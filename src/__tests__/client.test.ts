@@ -70,6 +70,25 @@ describe("Sendly client", () => {
     });
   });
 
+  test("maps 422 -> SendlyValidationError and preserves error.details.errors", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(422, {
+        success: false,
+        error: { message: "validation failed", code: "VALIDATION_ERROR", details: { errors: [{ path: "email" }] } },
+      }),
+    );
+    try {
+      await client.request({ method: "POST", path: "/api/contacts", body: {} });
+      throw new Error("expected throw");
+      // eslint-disable-next-line sendly/no-silent-catch -- test catch asserting on the caught error; the expect() failures surface loudly
+    } catch (error) {
+      expect(error).toBeInstanceOf(SendlyValidationError);
+      expect(error).toMatchObject({ statusCode: 422, errorCode: "VALIDATION_ERROR", message: "validation failed" });
+      expect((error as SendlyError).body).toMatchObject({ error: { details: { errors: [{ path: "email" }] } } });
+    }
+  });
+
   test("maps 401 -> SendlyAuthenticationError", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(401, { error: { message: "no key", code: "unauthorized" } }));
