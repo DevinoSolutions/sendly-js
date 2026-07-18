@@ -641,25 +641,31 @@ interface components {
              */
             updatedAt: string;
         };
-        /** @description Per-send result returned by `executeSendEmail`. */
+        /** @description Per-recipient result: the upserted `contact` (id + email) and `email` — the id of the queued email record for that recipient. */
+        SendEmailRecipientResult: {
+            contact: {
+                /** Format: uuid */
+                id: string;
+                /** Format: email */
+                email: string;
+            };
+            /** Format: uuid */
+            email: string;
+        };
+        /** @description Result of a send (`executeSendEmail`): one `emails` entry per recipient — a single request with an array `to` fans out to several — plus the send `timestamp`. */
         SendEmailData: {
-            /** Format: uuid */
-            contact?: string;
-            /** Format: uuid */
-            email?: string;
+            emails: components["schemas"]["SendEmailRecipientResult"][];
             /**
              * Format: date-time
              * @description ISO 8601 datetime string
              */
-            timestamp?: string;
-        } & {
-            [key: string]: unknown;
+            timestamp: string;
         };
-        /** @description Successful send response. `data` is a single object for single sends, an array of `{index,status,data?,error?}` for batch. */
+        /** @description Successful response for `POST /api/emails`. `data.emails[i].email` is the queued email id for recipient `i`; poll `GET /api/emails/{id}` for its delivery status. */
         SendEmailResponse: {
             /** @enum {boolean} */
             success: true;
-            data: components["schemas"]["SendEmailData"] | components["schemas"]["SendEmailData"][];
+            data: components["schemas"]["SendEmailData"];
         };
         /** @description Per-row result in a batch send response. */
         BatchEntryResult: {
@@ -3919,8 +3925,16 @@ interface IdempotencyOptions {
 declare class EmailsResource {
     private readonly client;
     constructor(client: Sendly);
-    /** Send a single transactional email. */
-    send(body: SendEmailRequest, opts?: IdempotencyOptions): Promise<SendEmailData | SendEmailData[]>;
+    /**
+     * Send a single transactional email.
+     *
+     * Resolves the response's `data`: `{ emails, timestamp }`, where `emails`
+     * has one entry per recipient (an array `to` fans out to several). Each
+     * entry is `{ contact: { id, email }, email }` — `email` being the id of
+     * the queued email record for that recipient (poll `emails.get(id)` for
+     * its delivery status).
+     */
+    send(body: SendEmailRequest, opts?: IdempotencyOptions): Promise<SendEmailData>;
     /** Send a batch (up to 100) of transactional emails in one call. */
     batch(body: BatchSendRequest, opts?: IdempotencyOptions): Promise<BatchSendResponse>;
     /** List emails with cursor-based pagination + filters. */
@@ -4054,7 +4068,7 @@ declare class WebhooksResource {
 }
 
 /** Build-time package version (kept in sync with package.json). */
-declare const SDK_VERSION = "0.1.0";
+declare const SDK_VERSION = "0.2.0";
 /** Default production API base. Override via `baseUrl` for staging or self-hosted deployments. */
 declare const DEFAULT_BASE_URL = "https://api.sendly.now";
 interface SendlyClientOptions {

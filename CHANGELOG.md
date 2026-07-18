@@ -3,6 +3,29 @@
 All notable changes to `@sendly/sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 0.2.0
+
+### Changed (breaking type change; runtime unchanged)
+
+- **`emails.send()` response type corrected to match the real server
+  contract.** The server has always returned
+  `{ emails: [{ contact: { id, email }, email }], timestamp }` — one `emails`
+  entry per recipient (an array `to` fans out to several), where the nested
+  `email` is the id of the queued email record for that recipient. The spec and
+  the generated types previously declared a **flat** `{ contact, email,
+timestamp }` and typed `send()` as `SendEmailData | SendEmailData[]`, so
+  callers doing `const { email } = await sendly.emails.send(...)` got
+  `undefined`. `send()` now resolves the single corrected `SendEmailData`
+  (`{ emails, timestamp }`). Read a recipient's queued id via
+  `result.emails[0].email`.
+
+  This is a **type-only** change: the SDK already returned the response's
+  unwrapped `data` verbatim at runtime, so no runtime behavior changed. The
+  committed `openapi.json` was corrected to match the server (the platform owner
+  ruled the server shape canonical), and `src/types.generated.ts` was
+  regenerated from it. Batch send (`emails.batch`) is unaffected — its rows'
+  `data` was already typed as `SendEmailData`.
+
 ## Unreleased
 
 Re-mirrored against the latest committed Sendly OpenAPI spec (the "route seam"

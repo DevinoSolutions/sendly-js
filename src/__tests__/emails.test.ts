@@ -3,9 +3,17 @@ import { SendlyValidationError } from "../index";
 import { emptyResponse, getCall, getCallBody, jsonResponse, makeClient } from "./helpers";
 
 describe("emails resource", () => {
-  test("send POSTs /api/emails with bearer + body", async () => {
+  test("send POSTs /api/emails with bearer + body, unwrapping { emails, timestamp }", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { id: "em_1", status: "PENDING" } }));
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        success: true,
+        data: {
+          emails: [{ contact: { id: "ct_1", email: "c@d.com" }, email: "em_1" }],
+          timestamp: "2026-07-18T00:00:00.000Z",
+        },
+      }),
+    );
     const result = await client.emails.send({
       from: "a@b.com",
       to: "c@d.com",
@@ -18,12 +26,24 @@ describe("emails resource", () => {
     const headers = init.headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
     expect(getCallBody(fetchMock)).toMatchObject({ from: "a@b.com", subject: "hi" });
-    expect((result as { id: string }).id).toBe("em_1");
+    // Response is unwrapped to `data`: one `emails[]` entry per recipient plus a timestamp.
+    expect(result.timestamp).toBe("2026-07-18T00:00:00.000Z");
+    expect(result.emails).toHaveLength(1);
+    // `emails[i].email` is the queued email-record id for recipient `i`.
+    expect(result.emails[0]).toEqual({ contact: { id: "ct_1", email: "c@d.com" }, email: "em_1" });
   });
 
   test("send forwards Idempotency-Key header when given", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { id: "em_2", status: "PENDING" } }));
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        success: true,
+        data: {
+          emails: [{ contact: { id: "ct_2", email: "c@d.com" }, email: "em_2" }],
+          timestamp: "2026-07-18T00:00:00.000Z",
+        },
+      }),
+    );
     await client.emails.send(
       { from: "a@b.com", to: "c@d.com", subject: "hi", body: "<p>hi</p>" },
       { idempotencyKey: "idem-123" },
@@ -34,7 +54,15 @@ describe("emails resource", () => {
 
   test("send omits Idempotency-Key header when not given", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { id: "em_3", status: "PENDING" } }));
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        success: true,
+        data: {
+          emails: [{ contact: { id: "ct_3", email: "c@d.com" }, email: "em_3" }],
+          timestamp: "2026-07-18T00:00:00.000Z",
+        },
+      }),
+    );
     await client.emails.send({ from: "a@b.com", to: "c@d.com", subject: "hi", body: "<p>hi</p>" });
     const headers = getCall(fetchMock).init.headers as Record<string, string>;
     expect(headers["Idempotency-Key"]).toBeUndefined();

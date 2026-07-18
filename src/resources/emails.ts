@@ -23,9 +23,17 @@ function idemHeader(opts?: IdempotencyOptions): Record<string, string> | undefin
 export class EmailsResource {
   constructor(private readonly client: Sendly) {}
 
-  /** Send a single transactional email. */
-  async send(body: SendEmailRequest, opts?: IdempotencyOptions): Promise<SendEmailData | SendEmailData[]> {
-    const envelope = await this.client.request<{ success: true; data: SendEmailData | SendEmailData[] }>({
+  /**
+   * Send a single transactional email.
+   *
+   * Resolves the response's `data`: `{ emails, timestamp }`, where `emails`
+   * has one entry per recipient (an array `to` fans out to several). Each
+   * entry is `{ contact: { id, email }, email }` — `email` being the id of
+   * the queued email record for that recipient (poll `emails.get(id)` for
+   * its delivery status).
+   */
+  async send(body: SendEmailRequest, opts?: IdempotencyOptions): Promise<SendEmailData> {
+    const envelope = await this.client.request<{ success: true; data: SendEmailData }>({
       method: "POST",
       path: "/api/emails",
       body,

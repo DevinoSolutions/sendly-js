@@ -643,25 +643,31 @@ export interface components {
              */
             updatedAt: string;
         };
-        /** @description Per-send result returned by `executeSendEmail`. */
+        /** @description Per-recipient result: the upserted `contact` (id + email) and `email` — the id of the queued email record for that recipient. */
+        SendEmailRecipientResult: {
+            contact: {
+                /** Format: uuid */
+                id: string;
+                /** Format: email */
+                email: string;
+            };
+            /** Format: uuid */
+            email: string;
+        };
+        /** @description Result of a send (`executeSendEmail`): one `emails` entry per recipient — a single request with an array `to` fans out to several — plus the send `timestamp`. */
         SendEmailData: {
-            /** Format: uuid */
-            contact?: string;
-            /** Format: uuid */
-            email?: string;
+            emails: components["schemas"]["SendEmailRecipientResult"][];
             /**
              * Format: date-time
              * @description ISO 8601 datetime string
              */
-            timestamp?: string;
-        } & {
-            [key: string]: unknown;
+            timestamp: string;
         };
-        /** @description Successful send response. `data` is a single object for single sends, an array of `{index,status,data?,error?}` for batch. */
+        /** @description Successful response for `POST /api/emails`. `data.emails[i].email` is the queued email id for recipient `i`; poll `GET /api/emails/{id}` for its delivery status. */
         SendEmailResponse: {
             /** @enum {boolean} */
             success: true;
-            data: components["schemas"]["SendEmailData"] | components["schemas"]["SendEmailData"][];
+            data: components["schemas"]["SendEmailData"];
         };
         /** @description Per-row result in a batch send response. */
         BatchEntryResult: {

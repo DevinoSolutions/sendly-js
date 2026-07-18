@@ -75,6 +75,13 @@ const result = await sendly.emails.send(
   },
   { idempotencyKey: "order-confirm-12345" }, // optional, replays deduped 24h
 );
+
+// `result` is `{ emails, timestamp }` with one `emails` entry per recipient —
+// an array `to` fans out to several. Each entry is
+// `{ contact: { id, email }, email }`, where `email` is the id of the queued
+// email record for that recipient. Poll `emails.get(id)` for its status.
+const emailId = result.emails[0].email;
+console.log("queued", emailId, "at", result.timestamp);
 ```
 
 ### List emails with filters and cursor pagination
