@@ -559,16 +559,45 @@
         ],
         "description": "A sent (or queued) transactional email."
       },
-      "SendEmailData": {
+      "SendEmailRecipientResult": {
         "type": "object",
         "properties": {
           "contact": {
-            "type": "string",
-            "format": "uuid"
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              }
+            },
+            "required": [
+              "id",
+              "email"
+            ]
           },
           "email": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": [
+          "contact",
+          "email"
+        ],
+        "description": "Per-recipient result: the upserted `contact` (id + email) and `email` — the id of the queued email record for that recipient."
+      },
+      "SendEmailData": {
+        "type": "object",
+        "properties": {
+          "emails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SendEmailRecipientResult"
+            }
           },
           "timestamp": {
             "type": "string",
@@ -576,8 +605,11 @@
             "description": "ISO 8601 datetime string"
           }
         },
-        "additionalProperties": {},
-        "description": "Per-send result returned by `executeSendEmail`."
+        "required": [
+          "emails",
+          "timestamp"
+        ],
+        "description": "Result of a send (`executeSendEmail`): one `emails` entry per recipient — a single request with an array `to` fans out to several — plus the send `timestamp`."
       },
       "SendEmailResponse": {
         "type": "object",
@@ -589,24 +621,14 @@
             ]
           },
           "data": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SendEmailData"
-              },
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/SendEmailData"
-                }
-              }
-            ]
+            "$ref": "#/components/schemas/SendEmailData"
           }
         },
         "required": [
           "success",
           "data"
         ],
-        "description": "Successful send response. `data` is a single object for single sends, an array of `{index,status,data?,error?}` for batch."
+        "description": "Successful response for `POST /api/emails`. `data.emails[i].email` is the queued email id for recipient `i`; poll `GET /api/emails/{id}` for its delivery status."
       },
       "BatchEntryResult": {
         "type": "object",

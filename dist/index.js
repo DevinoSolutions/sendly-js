@@ -153,7 +153,15 @@ var EmailsResource = class {
     this.client = client;
   }
   client;
-  /** Send a single transactional email. */
+  /**
+   * Send a single transactional email.
+   *
+   * Resolves the response's `data`: `{ emails, timestamp }`, where `emails`
+   * has one entry per recipient (an array `to` fans out to several). Each
+   * entry is `{ contact: { id, email }, email }` — `email` being the id of
+   * the queued email record for that recipient (poll `emails.get(id)` for
+   * its delivery status).
+   */
   async send(body, opts) {
     const envelope = await this.client.request({
       method: "POST",
@@ -465,7 +473,7 @@ function errorFromResponse(statusCode, errorCode, message, body) {
 }
 
 // src/client.ts
-var SDK_VERSION = "0.1.0";
+var SDK_VERSION = "0.2.0";
 var DEFAULT_BASE_URL = "https://api.sendly.now";
 var Sendly = class {
   emails;

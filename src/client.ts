@@ -10,7 +10,7 @@ import { errorFromResponse, SendlyConnectionError, SendlyError } from "./errors"
 import type { ErrorEnvelope } from "./types";
 
 /** Build-time package version (kept in sync with package.json). */
-export const SDK_VERSION = "0.1.0";
+export const SDK_VERSION = "0.2.0";
 
 /** Default production API base. Override via `baseUrl` for staging or self-hosted deployments. */
 export const DEFAULT_BASE_URL = "https://api.sendly.now";
