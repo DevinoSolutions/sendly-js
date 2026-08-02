@@ -1,9 +1,13 @@
 # Changelog
 
-All notable changes to `@sendly/sdk` are documented here. This project follows
+All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
 ## 0.2.0
+
+First published release, as unscoped **`sendly-sdk`** on npm (the package was
+previously named `@sendly/sdk` in-repo but was never published under that name;
+the import surface is unchanged).
 
 ### Changed (breaking type change; runtime unchanged)
 
@@ -60,4 +64,4 @@ unchanged, but response shapes and error codes callers observe have moved.
 - Regenerated `src/types.generated.ts` from the new `openapi.json`.
 - The removed page-based `Pagination` schema is replaced by `IdResponse`
   (the `{ success, data: { id } }` delete envelope), re-exported from
-  `@sendly/sdk` as the `IdResponse` type.
+  `sendly-sdk` as the `IdResponse` type.

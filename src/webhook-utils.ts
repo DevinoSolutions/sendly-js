@@ -75,7 +75,7 @@ export function verifySignature(
  *
  * @example
  * ```ts
- * import { constructEvent } from '@sendly/sdk';
+ * import { constructEvent } from 'sendly-sdk';
  * // Express
  * app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
  *   const event = constructEvent(

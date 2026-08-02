@@ -4232,7 +4232,7 @@ declare function verifySignature(payload: string | Buffer, signature: string, ti
  *
  * @example
  * ```ts
- * import { constructEvent } from '@sendly/sdk';
+ * import { constructEvent } from 'sendly-sdk';
  * // Express
  * app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
  *   const event = constructEvent(

@@ -1,9 +1,9 @@
 /**
- * @sendly/sdk — official TypeScript SDK for the Sendly REST API.
+ * sendly-sdk — official TypeScript SDK for the Sendly REST API.
  *
  * @example
  * ```ts
- * import { Sendly } from '@sendly/sdk';
+ * import { Sendly } from 'sendly-sdk';
  * const sendly = new Sendly({ apiKey: process.env.SENDLY_API_KEY! });
  * await sendly.emails.send({ from: 'a@b.com', to: 'c@d.com', subject: 'hi', html: '<p>hi</p>' });
  * ```

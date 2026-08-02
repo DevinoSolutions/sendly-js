@@ -1,5 +1,5 @@
 {
-  "name": "@sendly/sdk",
+  "name": "sendly-sdk",
   "version": "0.2.0",
   "description": "Official Sendly TypeScript SDK",
   "license": "MIT",

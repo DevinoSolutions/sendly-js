@@ -1,4 +1,4 @@
-# @sendly/sdk
+# sendly-sdk
 
 Official TypeScript SDK for the [Sendly](https://sendly.now) REST API.
 
@@ -15,9 +15,9 @@ schema stays in sync.
 ## Install
 
 ```bash
-npm install @sendly/sdk
+npm install sendly-sdk
 # or
-pnpm add @sendly/sdk
+pnpm add sendly-sdk
 ```
 
 Ships both ESM and CommonJS builds, so `import` and `require` both work.
@@ -35,7 +35,7 @@ The API base is `https://api.sendly.now`; full docs live at
 ## Quick start
 
 ```ts
-import { Sendly } from "@sendly/sdk";
+import { Sendly } from "sendly-sdk";
 
 const sendly = new Sendly({ apiKey: process.env.SENDLY_API_KEY! });
 
@@ -164,7 +164,7 @@ import {
   SendlyNotFoundError,
   SendlyRateLimitError,
   SendlyServerError,
-} from "@sendly/sdk";
+} from "sendly-sdk";
 
 try {
   await sendly.emails.send({ from, to, subject, html });
