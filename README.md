@@ -32,6 +32,26 @@ Requires Node 20+ (or any runtime with global `fetch` and `AbortSignal.timeout`)
 The API base is `https://api.sendly.now`; full docs live at
 [https://docs.sendly.now](https://docs.sendly.now).
 
+## Already on Resend, SendGrid, Postmark, Mailgun, or Plunk?
+
+You don't even need this SDK to try Sendly. The API also speaks the
+transactional-send dialect of those providers — keep the vendor SDK you already
+run and change **two things**: the base URL and the API key.
+
+```ts
+import { Resend } from "resend"; // your existing Resend integration
+
+const resend = new Resend("sk_your_sendly_key", {
+  baseUrl: "https://api.sendly.now/api/compat/resend",
+});
+// resend.emails.send(...) now sends through Sendly — same code, same shapes.
+```
+
+Every compat request runs through the same pipeline as the native API (domain
+verification, suppression, limits), and anything a dialect can express that
+Sendly doesn't support returns a clean error in that vendor's own error shape.
+Per-provider guides: [docs.sendly.now/migrate](https://docs.sendly.now/migrate).
+
 ## Quick start
 
 ```ts
