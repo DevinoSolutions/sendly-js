@@ -1,8 +1,11 @@
 name: Release
 
-# Publishes @sendly/sdk to npm when a version tag (vX.Y.Z) is pushed.
+# Publishes sendly-sdk to npm when a version tag (vX.Y.Z) is pushed.
 # Disjoint from ci.yml (push/PR to main + weekly cron): this runs ONLY on tags,
 # re-runs the full gate, then publishes. A red SDK can never ship.
+#
+# Auth is npm Trusted Publishing (OIDC): the npm package's trusted publisher is
+# pinned to this repo + release.yml, so no token secret is stored or needed.
 on:
   push:
     tags: ["v*"]
@@ -56,7 +59,10 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # OIDC token exchange needs npm >= 11.5.1; fail loud if the Node image
+      # ever ships an older bundled npm instead of falling back to tokens.
+      - name: Publish to npm (Trusted Publishing / OIDC)
+        run: |
+          NPM_V=$(npm --version)
+          printf '11.5.1\n%s\n' "$NPM_V" | sort -V -C || { echo "::error::npm $NPM_V < 11.5.1 cannot do OIDC trusted publishing"; exit 1; }
+          npm publish --provenance --access public
