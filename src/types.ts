@@ -7,8 +7,8 @@ import type { components, paths } from "./types.generated";
 
 // ---------- Codegen corrections ----------
 //
-// Two places where the generated types are stricter than the API actually is.
-// Both corrections are applied only to the aliases below, never by editing
+// The generated types are stricter than the API actually is in one place.
+// The correction is applied only to the alias below, never by editing
 // `types.generated.ts` (which `pnpm build:types` overwrites).
 
 /** Make `K` optional on `T`, leaving every other member as generated. */
@@ -17,16 +17,17 @@ type PartialKeys<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 /**
  * Any JSON value.
  *
- * The spec renders free-form maps (`data`, `context`) with values typed
- * `object` even though its own description reads "string, number, boolean,
- * null, array, or object" — an artifact of how the platform's zod schemas are
- * projected into OpenAPI. Generated verbatim that would reject
- * `data: { plan: "pro" }`, which the API accepts and the legacy `/api/track`
- * endpoint has always accepted, so the aliases below use this instead.
+ * @deprecated No longer needed — the generated spec types accept arbitrary
+ * JSON since 0.3.1; will be removed in the next minor.
  */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-/** A free-form JSON object, as accepted by `data` / `context` request fields. */
+/**
+ * A free-form JSON object.
+ *
+ * @deprecated No longer needed — the generated spec types accept arbitrary
+ * JSON since 0.3.1; will be removed in the next minor.
+ */
 export type JsonObject = { [key: string]: JsonValue };
 
 // ---------- Generic envelopes ----------
@@ -175,10 +176,7 @@ export type WorkflowExecutionV1 = components["schemas"]["WorkflowExecutionV1"];
 export type WorkflowExecutionListV1 = components["schemas"]["WorkflowExecutionV1List"];
 export type CreateWorkflowV1Request = components["schemas"]["WorkflowCreateV1"];
 export type UpdateWorkflowV1Request = components["schemas"]["WorkflowUpdateV1"];
-/** `context` holds arbitrary JSON, not only nested objects — see {@link JsonValue}. */
-export type StartWorkflowExecutionV1Request = Omit<components["schemas"]["WorkflowExecutionStartV1"], "context"> & {
-  context?: JsonObject;
-};
+export type StartWorkflowExecutionV1Request = components["schemas"]["WorkflowExecutionStartV1"];
 
 export type ListWorkflowsV1Query = NonNullable<paths["/api/v1/workflows"]["get"]["parameters"]["query"]>;
 export type ListWorkflowExecutionsV1Query = NonNullable<
@@ -192,8 +190,7 @@ export type EventV1 = components["schemas"]["EventV1"];
 export type EventListV1 = components["schemas"]["EventV1List"];
 export type EventNamesV1 = components["schemas"]["EventNamesV1"];
 export type EventStatsV1 = components["schemas"]["EventStatsV1"];
-/** `data` holds arbitrary JSON, not only nested objects — see {@link JsonValue}. */
-export type RecordEventV1Request = Omit<components["schemas"]["EventTrackV1"], "data"> & { data?: JsonObject };
+export type RecordEventV1Request = components["schemas"]["EventTrackV1"];
 
 export type ListEventsV1Query = NonNullable<paths["/api/v1/events"]["get"]["parameters"]["query"]>;
 export type EventStatsV1Query = NonNullable<paths["/api/v1/events/stats"]["get"]["parameters"]["query"]>;
