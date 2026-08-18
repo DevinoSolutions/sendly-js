@@ -341,8 +341,10 @@ surface as `VALIDATION_ERROR`.
 
 Pass `idempotencyKey` on any write that supports it (`emails.send`,
 `emails.batch`, `contacts.create`, `contacts.upsert`, `contacts.bulkCreate`,
-`campaigns.create`, `campaigns.send`, `events.record`) to make retries safe.
-Replays within 24 hours return the original result instead of acting twice.
+and on `/api/v1` exactly `campaigns.create` and `campaigns.send`) to make
+retries safe. Replays within 24 hours return the original result instead of
+acting twice. `events.record` deliberately takes no key — events are
+append-only, high-volume writes.
 
 ```ts
 await sendly.emails.send({ from, to, subject, html }, { idempotencyKey: `signup-${userId}` });

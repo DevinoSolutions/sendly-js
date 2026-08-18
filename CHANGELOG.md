@@ -22,7 +22,13 @@ from 0.2.0 requires no code changes.
   `POST /api/track`; `record` is the same capability on `/api/v1/events` and is
   named differently only because `track` was taken.
 - **`sendly.lists`** — `subscribe` and `unsubscribe` for the legacy
-  `/api/lists/{id}/*` endpoints, which the SDK had never wrapped.
+  `/api/lists/{id}/*` endpoints, which the SDK had never wrapped. Two behaviors
+  worth knowing: on a `doubleOptIn` list the membership comes back `PENDING`
+  with a `confirmToken`, and Sendly does **not** send the confirmation email —
+  your application delivers `/api/lists/confirm?token=…` to the contact.
+  Re-subscribing an address that previously opted out fails with
+  `409 RESUBSCRIBE_CONFIRMATION_REQUIRED` unless the body sets
+  `allowResubscribe: true`.
 - **Auto-pagination.** Every cursor-paginated v1 list has a companion async
   generator that walks the pages for you and yields individual items:
   `campaigns.listAll`, `segments.listAll`, `segments.listContactsAll`,
