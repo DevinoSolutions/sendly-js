@@ -1,5 +1,6 @@
 import type { Sendly } from "../client";
-import type { IdempotencyOptions } from "./emails";
+import { idemHeader } from "./idempotency";
+import type { IdempotencyOptions } from "./idempotency";
 import type {
   BulkCreateContactsRequest,
   BulkDeleteContactsRequest,
@@ -9,11 +10,6 @@ import type {
   ListContactsQuery,
   UpdateContactRequest,
 } from "../types";
-
-function idemHeader(opts?: IdempotencyOptions): Record<string, string> | undefined {
-  if (!opts?.idempotencyKey) return undefined;
-  return { "Idempotency-Key": opts.idempotencyKey };
-}
 
 export class ContactsResource {
   constructor(private readonly client: Sendly) {}

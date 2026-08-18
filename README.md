@@ -3,8 +3,9 @@
 Official TypeScript SDK for the [Sendly](https://sendly.now) REST API.
 
 Type-safe email, contact, domain, template, webhook, and suppression
-operations. Generated from the public OpenAPI spec, so every endpoint and
-schema stays in sync.
+operations, plus the versioned `/api/v1` surface — campaigns, segments,
+workflows, analytics, and usage. Generated from the public OpenAPI spec, so
+every endpoint and schema stays in sync.
 
 > This repository is the official standalone home and source of truth for the
 > Sendly TypeScript SDK — issues and PRs are welcome here. Its surface is
@@ -172,6 +173,72 @@ if (!check.valid) {
 }
 ```
 
+## The `/api/v1` surface
+
+Campaigns, segments, workflows, analytics, usage, and events live on Sendly's
+versioned API. They hang off the same client and the same base URL, but they
+speak a different dialect from the `/api/*` resources above:
+
+- **Responses are the bare resource**, not a `{ success, data }` envelope, and
+  fields are `snake_case`.
+- **Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem
+  documents** (`application/problem+json`) — see below.
+- **Lists are cursor-paginated only** — `{ data, has_more, next_cursor }`, no
+  total.
+
+```ts
+const campaign = await sendly.campaigns.create(
+  {
+    name: "August launch",
+    subject: "We shipped it",
+    body: "<p>Read all about it.</p>",
+    from: "hello@your-domain.com",
+    audience_type: "SEGMENT",
+    segment_id: segment.id,
+  },
+  { idempotencyKey: `launch-${releaseId}` },
+);
+
+// Creating never sends. Send now, or schedule it:
+await sendly.campaigns.send(campaign.id, { scheduled_for: "2026-09-01T10:00:00Z" });
+
+const stats = await sendly.campaigns.stats(campaign.id);
+console.log(stats.delivered, stats.open_rate);
+```
+
+### Pagination
+
+Every v1 list takes `limit` (1–100, default 20) and `after` (an opaque cursor
+from the previous response's `next_cursor`). Page manually, or let the SDK do
+it — each list has a companion `*All` async generator that walks the pages and
+yields individual items:
+
+```ts
+// Manual: stop when has_more goes false.
+let page = await sendly.campaigns.list({ limit: 50 });
+while (page.has_more && page.next_cursor) {
+  page = await sendly.campaigns.list({ limit: 50, after: page.next_cursor });
+}
+
+// Automatic: campaigns.listAll, segments.listAll, segments.listContactsAll,
+// workflows.listAll, workflows.listExecutionsAll, events.listAll.
+for await (const campaign of sendly.campaigns.listAll({ limit: 50 })) {
+  console.log(campaign.id, campaign.status);
+}
+```
+
+Keep the filter and sort arguments **fixed for the whole walk** — the cursor
+encodes them, and changing them mid-pagination is answered with
+`422 validation_error` telling you to restart from the first page. There is
+deliberately no total count.
+
+### Events: `track` vs `record`
+
+`events.track` is the legacy `POST /api/track` endpoint and is unchanged.
+`events.record` is the same capability on `/api/v1/events` — a different name
+only because `track` was taken. New integrations should prefer `record`, which
+also unlocks `events.list`, `events.listNames`, and `events.stats`.
+
 ## Error handling
 
 Every non-2xx response throws a typed `SendlyError` subclass. Switch on the
@@ -209,6 +276,49 @@ Each error exposes:
 - `errorCode` — stable machine code from the API envelope
 - `message` — human-readable message
 - `body` — full parsed response body for debugging
+- `requestId` — correlation id, on `/api/v1` errors only (see below)
+- `fieldErrors` — per-field failures, on `/api/v1` `422` responses only
+
+### `/api/v1` errors (RFC 9457)
+
+The versioned surface answers failures with a `application/problem+json`
+document: `{ type, title, status, detail?, instance?, code, request_id?,
+errors? }`. The SDK maps it onto the **same** error subclasses by HTTP status,
+so nothing about `instanceof` handling changes. What it adds is better detail:
+
+- `errorCode` is the problem's stable lowercase registry value —
+  `invalid_api_key`, `invalid_session`, `scope_missing`, `project_access_denied`,
+  `project_disabled`, `validation_error`, `resource_not_found`, `conflict`,
+  `rate_limited`, `quota_exhausted`, `idempotency_key_reused`, `enqueue_failed`,
+  `internal_error`.
+- `message` is the problem's `detail` (falling back to `title`).
+- `requestId` is the `request_id` — quote it in support requests.
+- `fieldErrors` is the `errors` array on a `422 validation_error`: one
+  `{ pointer, code, message }` per offending field, `pointer` being an RFC 6901
+  JSON Pointer.
+
+```ts
+try {
+  await sendly.campaigns.create({ name: "", subject: "Hi", body, from, audience_type: "ALL" });
+} catch (err) {
+  if (err instanceof SendlyValidationError) {
+    for (const field of err.fieldErrors ?? []) {
+      console.warn(`${field.pointer}: ${field.message}`);
+    }
+    console.warn("request id:", err.requestId);
+  }
+}
+```
+
+Two different situations share HTTP `429`, and `errorCode` is what separates
+them: `rate_limited` is the per-key burst limiter and clears on its own, while
+`quota_exhausted` is your billing-period quota and stays until the period resets
+or the plan is upgraded — retrying it will not help. When reading the reset
+hint, note that `X-RateLimit-Reset` is an **absolute** epoch-seconds instant
+whereas the draft-11 `RateLimit` header's `t=` is **delta** seconds. The SDK
+does not retry on your behalf.
+
+### Legacy `/api/*` errors
 
 Invalid input is reported as `SendlyValidationError`. The API returns **422**
 (`errorCode: "VALIDATION_ERROR"`) for schema validation failures; the SDK maps
@@ -230,9 +340,11 @@ surface as `VALIDATION_ERROR`.
 ## Idempotency
 
 Pass `idempotencyKey` on any write that supports it (`emails.send`,
-`emails.batch`, `contacts.create`, `contacts.upsert`, `contacts.bulkCreate`)
-to make retries safe. Replays within 24 hours return the original result
-instead of acting twice.
+`emails.batch`, `contacts.create`, `contacts.upsert`, `contacts.bulkCreate`,
+and on `/api/v1` exactly `campaigns.create` and `campaigns.send`) to make
+retries safe. Replays within 24 hours return the original result instead of
+acting twice. `events.record` deliberately takes no key — events are
+append-only, high-volume writes.
 
 ```ts
 await sendly.emails.send({ from, to, subject, html }, { idempotencyKey: `signup-${userId}` });

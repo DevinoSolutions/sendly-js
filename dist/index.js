@@ -1,8 +1,161 @@
-// src/resources/contacts.ts
+// src/resources/analytics.ts
+var AnalyticsResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /** Daily sending and engagement counts across the window. */
+  async timeseries(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/analytics/timeseries",
+      query
+    });
+  }
+  /** Campaign totals for the window: how many ran, and their average rates. */
+  async campaigns(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/analytics/campaigns",
+      query
+    });
+  }
+  /** Campaigns sent in the window ranked by open rate, capped at 50 rows. */
+  async topCampaigns(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/analytics/top-campaigns",
+      query
+    });
+  }
+};
+
+// src/pagination.ts
+async function* paginateCursor(fetchPage, startAfter) {
+  let after = startAfter;
+  for (; ; ) {
+    const page = await fetchPage(after);
+    for (const item of page.data ?? []) {
+      yield item;
+    }
+    const next = page.next_cursor;
+    if (!page.has_more || next === null || next === void 0 || next === after) return;
+    after = next;
+  }
+}
+
+// src/resources/idempotency.ts
 function idemHeader(opts) {
   if (!opts?.idempotencyKey) return void 0;
   return { "Idempotency-Key": opts.idempotencyKey };
 }
+
+// src/resources/campaigns.ts
+var CampaignsResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * List campaigns, newest first.
+   *
+   * Cursor-paginated: pass the previous response's `next_cursor` as `after` to
+   * page forward, and stop when `has_more` is false. There is deliberately no
+   * total count. Keep the filter and sort arguments identical across the whole
+   * walk — changing them mid-pagination is rejected with `422 validation_error`
+   * asking you to restart from the first page. Use {@link listAll} to let the
+   * SDK drive the loop.
+   */
+  async list(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/campaigns",
+      query
+    });
+  }
+  /** Iterate every campaign across pages, yielding one campaign at a time. */
+  async *listAll(query) {
+    yield* paginateCursor((after) => this.list({ ...query, after }), query?.after);
+  }
+  /**
+   * Create a campaign. It lands in `DRAFT` — creating never sends; call
+   * {@link send} for that.
+   */
+  async create(body, opts) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/v1/campaigns",
+      body,
+      headers: idemHeader(opts)
+    });
+  }
+  /** Retrieve a single campaign. */
+  async get(id) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}`
+    });
+  }
+  /** Patch a campaign. Only the fields you send are changed. */
+  async update(id, body) {
+    return this.client.request({
+      method: "PATCH",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}`,
+      body
+    });
+  }
+  /** Delete a campaign. Resolves `{ id, deleted }`. */
+  async delete(id) {
+    return this.client.request({
+      method: "DELETE",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}`
+    });
+  }
+  /**
+   * Send a campaign, or schedule it by passing `{ scheduled_for }`.
+   *
+   * Sending is the one irreversible campaign operation, so it takes an
+   * idempotency key: reuse the same key only to retry the identical request.
+   */
+  async send(id, body, opts) {
+    return this.client.request({
+      method: "POST",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}/send`,
+      body,
+      headers: idemHeader(opts)
+    });
+  }
+  /** Cancel a scheduled or sending campaign. */
+  async cancel(id) {
+    return this.client.request({
+      method: "POST",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}/cancel`
+    });
+  }
+  /** Pause a sending campaign. */
+  async pause(id) {
+    return this.client.request({
+      method: "POST",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}/pause`
+    });
+  }
+  /** Resume a paused campaign. */
+  async resume(id) {
+    return this.client.request({
+      method: "POST",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}/resume`
+    });
+  }
+  /** Delivery and engagement counters plus derived rates for one campaign. */
+  async stats(id) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}/stats`
+    });
+  }
+};
+
+// src/resources/contacts.ts
 var ContactsResource = class {
   constructor(client) {
     this.client = client;
@@ -144,10 +297,6 @@ var DomainsResource = class {
 };
 
 // src/resources/emails.ts
-function idemHeader2(opts) {
-  if (!opts?.idempotencyKey) return void 0;
-  return { "Idempotency-Key": opts.idempotencyKey };
-}
 var EmailsResource = class {
   constructor(client) {
     this.client = client;
@@ -167,7 +316,7 @@ var EmailsResource = class {
       method: "POST",
       path: "/api/emails",
       body,
-      headers: idemHeader2(opts)
+      headers: idemHeader(opts)
     });
     return this.client.unwrap(envelope);
   }
@@ -177,7 +326,7 @@ var EmailsResource = class {
       method: "POST",
       path: "/api/emails/batch",
       body,
-      headers: idemHeader2(opts)
+      headers: idemHeader(opts)
     });
   }
   /** List emails with cursor-based pagination + filters. */
@@ -211,8 +360,12 @@ var EventsResource = class {
   }
   client;
   /**
-   * Track a custom event for a contact. Both FULL (`sk_*`) and SENDING_ONLY
-   * (`pk_*`) keys are accepted, but reserved system event names are rejected.
+   * Track a custom event for a contact via the legacy `/api/track` endpoint.
+   * Both FULL (`sk_*`) and SENDING_ONLY (`pk_*`) keys are accepted, but
+   * reserved system event names are rejected.
+   *
+   * Prefer {@link record} for new integrations — it is the same capability on
+   * the versioned `/api/v1` surface.
    */
   async track(body) {
     const envelope = await this.client.request({
@@ -221,6 +374,180 @@ var EventsResource = class {
       body
     });
     return this.client.unwrap(envelope);
+  }
+  /**
+   * Record a custom event on the `/api/v1` surface.
+   *
+   * Named `record` rather than `track` because {@link track} already holds that
+   * name for the legacy endpoint. The two do the same job; this one resolves
+   * the bare created event (snake_case) and reports failures as RFC 9457
+   * problem documents.
+   *
+   * Takes no idempotency key: events are append-only high-volume writes, and
+   * the only `Idempotency-Key` endpoints on v1 are `campaigns.create` and
+   * `campaigns.send`.
+   */
+  async record(body) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/v1/events",
+      body
+    });
+  }
+  /**
+   * List recorded events, newest first, optionally filtered by `event_name`.
+   *
+   * Cursor-paginated on `limit` + `after` with no total count. Keep the filter
+   * fixed across the whole walk — changing it mid-pagination returns
+   * `422 validation_error` asking you to restart from the first page.
+   */
+  async list(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/events",
+      query
+    });
+  }
+  /** Iterate every event across pages, yielding one event at a time. */
+  async *listAll(query) {
+    yield* paginateCursor((after) => this.list({ ...query, after }), query?.after);
+  }
+  /**
+   * Every distinct event name in the project, most frequent first — the
+   * vocabulary to filter {@link list} by or point a workflow trigger at.
+   * Unpaginated: the set is bounded by what the integration emits.
+   */
+  async listNames() {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/events/names"
+    });
+  }
+  /** Per-name event counts over an optional `{ from, to }` window. */
+  async stats(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/events/stats",
+      query
+    });
+  }
+};
+
+// src/resources/lists.ts
+var ListsResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * Subscribe a contact to a list, creating the contact if it does not exist.
+   * Accepts SENDING_ONLY (`pk_*`) keys, so it can back a public subscribe form.
+   *
+   * **Double opt-in.** When the list has `doubleOptIn` enabled the membership
+   * is created as `PENDING` and the result carries a `confirmToken`. Sendly
+   * does **not** send the confirmation email — your application must deliver
+   * `/api/lists/confirm?token=<confirmToken>` to the contact itself. The token
+   * is valid for 24 hours.
+   *
+   * **Re-subscribing after an opt-out.** If the email already holds an
+   * `UNSUBSCRIBED` membership on this list, the call fails with
+   * `409 RESUBSCRIBE_CONFIRMATION_REQUIRED` unless the body sets
+   * `allowResubscribe: true`. Reversing an opt-out is a consent decision, so it
+   * is never the default — set the flag only when the contact themselves asked
+   * to be re-subscribed.
+   *
+   * Prefer `previousStatus` over `created` when describing the transition to a
+   * user; it reports the status held before the call, or `null` if there was no
+   * membership.
+   */
+  async subscribe(id, body) {
+    const envelope = await this.client.request({
+      method: "POST",
+      path: `/api/lists/${encodeURIComponent(id)}/subscribe`,
+      body
+    });
+    return this.client.unwrap(envelope);
+  }
+  /** Unsubscribe a contact from a list. Resolves the address that was removed. */
+  async unsubscribe(id, body) {
+    const envelope = await this.client.request({
+      method: "POST",
+      path: `/api/lists/${encodeURIComponent(id)}/unsubscribe`,
+      body
+    });
+    return this.client.unwrap(envelope);
+  }
+};
+
+// src/resources/segments.ts
+var SegmentsResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * List segments, newest first.
+   *
+   * Cursor-paginated on `limit` + `after`, with no total count. Hold the filter
+   * and sort arguments steady for the whole walk — changing them mid-pagination
+   * returns `422 validation_error` asking you to restart. {@link listAll}
+   * drives the loop for you.
+   */
+  async list(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/segments",
+      query
+    });
+  }
+  /** Iterate every segment across pages, yielding one segment at a time. */
+  async *listAll(query) {
+    yield* paginateCursor((after) => this.list({ ...query, after }), query?.after);
+  }
+  /** Create a segment. */
+  async create(body) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/v1/segments",
+      body
+    });
+  }
+  /** Retrieve a single segment. */
+  async get(id) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/segments/${encodeURIComponent(id)}`
+    });
+  }
+  /** Patch a segment. Only the fields you send are changed. */
+  async update(id, body) {
+    return this.client.request({
+      method: "PATCH",
+      path: `/api/v1/segments/${encodeURIComponent(id)}`,
+      body
+    });
+  }
+  /**
+   * Delete a segment. Resolves `{ id, deleted }`. A segment still referenced by
+   * a campaign is refused with `409 conflict`.
+   */
+  async delete(id) {
+    return this.client.request({
+      method: "DELETE",
+      path: `/api/v1/segments/${encodeURIComponent(id)}`
+    });
+  }
+  /** List the contacts currently matching a segment. Cursor-paginated. */
+  async listContacts(id, query) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/segments/${encodeURIComponent(id)}/contacts`,
+      query
+    });
+  }
+  /** Iterate every contact in a segment across pages, one contact at a time. */
+  async *listContactsAll(id, query) {
+    yield* paginateCursor((after) => this.listContacts(id, { ...query, after }), query?.after);
   }
 };
 
@@ -314,6 +641,28 @@ var TemplatesResource = class {
   }
 };
 
+// src/resources/usage.ts
+var UsageResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * Retrieve this month's email counts per source category against the monthly
+   * cap, plus today's sends against the daily ceiling.
+   *
+   * Every figure is read from an enforcement path, so what this reports and
+   * what refuses a send cannot disagree. Note the two windows differ: the
+   * monthly counters roll over on the billing period, the daily one on the day.
+   */
+  async get() {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/usage"
+    });
+  }
+};
+
 // src/resources/verify.ts
 var VerifyResource = class {
   constructor(client) {
@@ -400,58 +749,206 @@ var WebhooksResource = class {
   }
 };
 
+// src/resources/workflows.ts
+var WorkflowsResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * List workflows.
+   *
+   * Cursor-paginated on `limit` + `after`, with no total count. Keep the filter
+   * and sort arguments identical for the whole walk — changing them
+   * mid-pagination returns `422 validation_error` asking you to restart.
+   */
+  async list(query) {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/workflows",
+      query
+    });
+  }
+  /** Iterate every workflow across pages, yielding one workflow at a time. */
+  async *listAll(query) {
+    yield* paginateCursor((after) => this.list({ ...query, after }), query?.after);
+  }
+  /** Create a workflow. */
+  async create(body) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/v1/workflows",
+      body
+    });
+  }
+  /** Retrieve a single workflow. */
+  async get(id) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/workflows/${encodeURIComponent(id)}`
+    });
+  }
+  /** Patch a workflow. Only the fields you send are changed. */
+  async update(id, body) {
+    return this.client.request({
+      method: "PATCH",
+      path: `/api/v1/workflows/${encodeURIComponent(id)}`,
+      body
+    });
+  }
+  /** Delete a workflow. Resolves `{ id, deleted }`. */
+  async delete(id) {
+    return this.client.request({
+      method: "DELETE",
+      path: `/api/v1/workflows/${encodeURIComponent(id)}`
+    });
+  }
+  /**
+   * List a workflow's executions — one row per contact-run, newest first.
+   * Cursor-paginated; filter by `status` to find stuck (`WAITING`) or failed
+   * runs. Hold `status` fixed across the walk, as with every v1 cursor list.
+   */
+  async listExecutions(id, query) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/workflows/${encodeURIComponent(id)}/executions`,
+      query
+    });
+  }
+  /** Iterate every execution of a workflow across pages, one run at a time. */
+  async *listExecutionsAll(id, query) {
+    yield* paginateCursor((after) => this.listExecutions(id, { ...query, after }), query?.after);
+  }
+  /**
+   * Enter one contact into an enabled workflow. Step processing is
+   * asynchronous, so a successful call means the run was claimed — not that it
+   * finished. A workflow whose re-entry policy already covers this contact
+   * answers `409 conflict`.
+   */
+  async startExecution(id, body) {
+    return this.client.request({
+      method: "POST",
+      path: `/api/v1/workflows/${encodeURIComponent(id)}/executions`,
+      body
+    });
+  }
+  /**
+   * Cancel a single in-flight execution.
+   *
+   * Addressed by execution id alone — this route is *not* nested under the
+   * workflow, so no workflow id is needed.
+   */
+  async cancelExecution(executionId) {
+    return this.client.request({
+      method: "POST",
+      path: `/api/v1/workflows/executions/${encodeURIComponent(executionId)}/cancel`
+    });
+  }
+  /**
+   * Execution counts by status, completion rate, average duration, emails sent
+   * and per-goal conversions for one workflow. All-time unless you pass
+   * `{ from }`; there is no 90-day ceiling here, unlike `analytics.*`.
+   */
+  async stats(id, query) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/workflows/${encodeURIComponent(id)}/stats`,
+      query
+    });
+  }
+};
+
 // src/errors.ts
+function isProblemFieldError(value) {
+  if (!value || typeof value !== "object") return false;
+  const entry = value;
+  return typeof entry.pointer === "string" && typeof entry.code === "string" && typeof entry.message === "string";
+}
+function asProblemDocument(body, contentType) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return void 0;
+  const candidate = body;
+  if (typeof candidate.code !== "string") return void 0;
+  const declared = typeof contentType === "string" && contentType.toLowerCase().includes("application/problem+json");
+  const shaped = typeof candidate.type === "string" && typeof candidate.title === "string";
+  if (!declared && !shaped) return void 0;
+  const errors = Array.isArray(candidate.errors) ? candidate.errors.filter(isProblemFieldError) : void 0;
+  return {
+    type: typeof candidate.type === "string" ? candidate.type : "about:blank",
+    title: typeof candidate.title === "string" ? candidate.title : "",
+    status: typeof candidate.status === "number" ? candidate.status : 0,
+    detail: typeof candidate.detail === "string" ? candidate.detail : void 0,
+    instance: typeof candidate.instance === "string" ? candidate.instance : void 0,
+    code: candidate.code,
+    request_id: typeof candidate.request_id === "string" ? candidate.request_id : void 0,
+    errors: errors && errors.length > 0 ? errors : void 0
+  };
+}
 var SendlyError = class extends Error {
   statusCode;
   errorCode;
   body;
-  constructor(statusCode, errorCode, message, body) {
+  /**
+   * Correlation id from an RFC 9457 problem document's `request_id` (`/api/v1`
+   * errors only). Quote it in support requests. Undefined on legacy `/api/*`
+   * errors and transport failures.
+   */
+  requestId;
+  /**
+   * Field-level failures from an RFC 9457 problem document's `errors` array —
+   * populated on `422 validation_error` responses from `/api/v1`. Undefined
+   * everywhere else.
+   */
+  fieldErrors;
+  constructor(statusCode, errorCode, message, body, problem) {
     super(message);
     this.name = "SendlyError";
     this.statusCode = statusCode;
     this.errorCode = errorCode;
     this.body = body;
+    const doc = problem ?? asProblemDocument(body);
+    this.requestId = doc?.request_id;
+    this.fieldErrors = doc?.errors;
   }
 };
 var SendlyValidationError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body) {
-    super(statusCode, errorCode, message, body);
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
     this.name = "SendlyValidationError";
   }
 };
 var SendlyAuthenticationError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body) {
-    super(statusCode, errorCode, message, body);
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
     this.name = "SendlyAuthenticationError";
   }
 };
 var SendlyPermissionError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body) {
-    super(statusCode, errorCode, message, body);
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
     this.name = "SendlyPermissionError";
   }
 };
 var SendlyNotFoundError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body) {
-    super(statusCode, errorCode, message, body);
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
     this.name = "SendlyNotFoundError";
   }
 };
 var SendlyConflictError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body) {
-    super(statusCode, errorCode, message, body);
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
     this.name = "SendlyConflictError";
   }
 };
 var SendlyRateLimitError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body) {
-    super(statusCode, errorCode, message, body);
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
     this.name = "SendlyRateLimitError";
   }
 };
 var SendlyServerError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body) {
-    super(statusCode, errorCode, message, body);
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
     this.name = "SendlyServerError";
   }
 };
@@ -461,19 +958,22 @@ var SendlyConnectionError = class extends SendlyError {
     this.name = "SendlyConnectionError";
   }
 };
-function errorFromResponse(statusCode, errorCode, message, body) {
-  if (statusCode === 400 || statusCode === 422) return new SendlyValidationError(statusCode, errorCode, message, body);
-  if (statusCode === 401) return new SendlyAuthenticationError(statusCode, errorCode, message, body);
-  if (statusCode === 403) return new SendlyPermissionError(statusCode, errorCode, message, body);
-  if (statusCode === 404) return new SendlyNotFoundError(statusCode, errorCode, message, body);
-  if (statusCode === 409) return new SendlyConflictError(statusCode, errorCode, message, body);
-  if (statusCode === 429) return new SendlyRateLimitError(statusCode, errorCode, message, body);
-  if (statusCode >= 500) return new SendlyServerError(statusCode, errorCode, message, body);
-  return new SendlyError(statusCode, errorCode, message, body);
+function errorFromResponse(statusCode, errorCode, message, body, contentType) {
+  const problem = asProblemDocument(body, contentType);
+  const code = problem?.code ?? errorCode;
+  const text = problem ? problem.detail ?? (problem.title || message) : message;
+  if (statusCode === 400 || statusCode === 422) return new SendlyValidationError(statusCode, code, text, body, problem);
+  if (statusCode === 401) return new SendlyAuthenticationError(statusCode, code, text, body, problem);
+  if (statusCode === 403) return new SendlyPermissionError(statusCode, code, text, body, problem);
+  if (statusCode === 404) return new SendlyNotFoundError(statusCode, code, text, body, problem);
+  if (statusCode === 409) return new SendlyConflictError(statusCode, code, text, body, problem);
+  if (statusCode === 429) return new SendlyRateLimitError(statusCode, code, text, body, problem);
+  if (statusCode >= 500) return new SendlyServerError(statusCode, code, text, body, problem);
+  return new SendlyError(statusCode, code, text, body, problem);
 }
 
 // src/client.ts
-var SDK_VERSION = "0.2.0";
+var SDK_VERSION = "0.3.0";
 var DEFAULT_BASE_URL = "https://api.sendly.now";
 var Sendly = class {
   emails;
@@ -484,6 +984,17 @@ var Sendly = class {
   suppression;
   events;
   verify;
+  lists;
+  /** Campaigns on the versioned `/api/v1` surface. */
+  campaigns;
+  /** Segments on the versioned `/api/v1` surface. */
+  segments;
+  /** Automation workflows on the versioned `/api/v1` surface. */
+  workflows;
+  /** Sending analytics on the versioned `/api/v1` surface. */
+  analytics;
+  /** Usage against enforced limits, on the versioned `/api/v1` surface. */
+  usage;
   apiKey;
   baseUrl;
   fetchImpl;
@@ -513,14 +1024,22 @@ var Sendly = class {
     this.suppression = new SuppressionResource(this);
     this.events = new EventsResource(this);
     this.verify = new VerifyResource(this);
+    this.lists = new ListsResource(this);
+    this.campaigns = new CampaignsResource(this);
+    this.segments = new SegmentsResource(this);
+    this.workflows = new WorkflowsResource(this);
+    this.analytics = new AnalyticsResource(this);
+    this.usage = new UsageResource(this);
   }
   /**
    * Low-level request helper. Resources call this; consumers can call it
    * directly for endpoints not yet wrapped by a resource.
    *
-   * Returns the parsed JSON body of a successful response — the API
-   * contract is `{ success: true, data: ... }` (or empty `{ success: true }`).
-   * Errors are thrown as {@link SendlyError} subclasses based on status.
+   * Returns the parsed JSON body of a successful response verbatim. On the
+   * legacy `/api/*` surface that is a `{ success: true, data: ... }` envelope
+   * the caller unwraps via {@link unwrap}; on `/api/v1` it is already the bare
+   * resource. Errors are thrown as {@link SendlyError} subclasses based on
+   * status, in either dialect.
    */
   async request(options) {
     const url = this.buildUrl(options.path, options.query);
@@ -557,6 +1076,7 @@ var Sendly = class {
       }
       return void 0;
     }
+    const contentType = response.headers?.get("content-type") ?? void 0;
     let parsed = void 0;
     const text = await response.text();
     if (text.length > 0) {
@@ -578,7 +1098,7 @@ var Sendly = class {
       const envelope = parsed;
       const errorMessage = envelope?.error?.message ?? `Sendly request failed with status ${response.status}`;
       const errorCode = envelope?.error?.code ?? `http_${response.status}`;
-      throw errorFromResponse(response.status, errorCode, errorMessage, parsed);
+      throw errorFromResponse(response.status, errorCode, errorMessage, parsed, contentType);
     }
     return parsed;
   }
@@ -627,7 +1147,13 @@ var Sendly = class {
     const envelope = body;
     const errorMessage = envelope?.error?.message ?? `Sendly request failed with status ${response.status}`;
     const errorCode = envelope?.error?.code ?? `http_${response.status}`;
-    throw errorFromResponse(response.status, errorCode, errorMessage, body);
+    throw errorFromResponse(
+      response.status,
+      errorCode,
+      errorMessage,
+      body,
+      response.headers?.get("content-type") ?? void 0
+    );
   }
 };
 
@@ -657,13 +1183,17 @@ function constructEvent(payload, signature, timestamp, secret, options = {}) {
   return JSON.parse(body);
 }
 export {
+  AnalyticsResource,
+  CampaignsResource,
   ContactsResource,
   DEFAULT_BASE_URL,
   DEFAULT_TOLERANCE_MS,
   DomainsResource,
   EmailsResource,
   EventsResource,
+  ListsResource,
   SDK_VERSION,
+  SegmentsResource,
   Sendly,
   SendlyAuthenticationError,
   SendlyConflictError,
@@ -676,8 +1206,12 @@ export {
   SendlyValidationError,
   SuppressionResource,
   TemplatesResource,
+  UsageResource,
   VerifyResource,
   WebhooksResource,
+  WorkflowsResource,
+  asProblemDocument,
   constructEvent,
+  paginateCursor,
   verifySignature
 };

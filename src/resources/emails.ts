@@ -1,4 +1,6 @@
 import type { Sendly } from "../client";
+import { idemHeader } from "./idempotency";
+import type { IdempotencyOptions } from "./idempotency";
 import type {
   BatchSendRequest,
   BatchSendResponse,
@@ -10,15 +12,10 @@ import type {
   SuccessEmpty,
 } from "../types";
 
-export interface IdempotencyOptions {
-  /** Optional idempotency key (1–255 chars). Sent as `Idempotency-Key` header. Replays are deduped for 24h. */
-  idempotencyKey?: string;
-}
-
-function idemHeader(opts?: IdempotencyOptions): Record<string, string> | undefined {
-  if (!opts?.idempotencyKey) return undefined;
-  return { "Idempotency-Key": opts.idempotencyKey };
-}
+// `IdempotencyOptions` now lives in ./idempotency, shared with every other
+// resource that takes a replay key. Re-exported here so the long-standing
+// `sendly-sdk` -> resources/emails import path keeps resolving.
+export type { IdempotencyOptions } from "./idempotency";
 
 export class EmailsResource {
   constructor(private readonly client: Sendly) {}

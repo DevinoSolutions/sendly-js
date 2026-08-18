@@ -13,7 +13,7 @@ export { Sendly, DEFAULT_BASE_URL, SDK_VERSION } from "./client";
 export type { SendlyClientOptions, RequestOptions } from "./client";
 
 export { EmailsResource } from "./resources/emails";
-export type { IdempotencyOptions } from "./resources/emails";
+export type { IdempotencyOptions } from "./resources/idempotency";
 export { ContactsResource } from "./resources/contacts";
 export { DomainsResource } from "./resources/domains";
 export { TemplatesResource } from "./resources/templates";
@@ -22,6 +22,17 @@ export type { ListWebhookCallsQuery } from "./resources/webhooks";
 export { SuppressionResource } from "./resources/suppression";
 export { EventsResource } from "./resources/events";
 export { VerifyResource } from "./resources/verify";
+export { ListsResource } from "./resources/lists";
+
+// /api/v1 resources — bare responses, snake_case fields, RFC 9457 errors.
+export { CampaignsResource } from "./resources/campaigns";
+export { SegmentsResource } from "./resources/segments";
+export { WorkflowsResource } from "./resources/workflows";
+export { AnalyticsResource } from "./resources/analytics";
+export { UsageResource } from "./resources/usage";
+
+export { paginateCursor } from "./pagination";
+export type { CursorPage, CursorPageQuery } from "./pagination";
 
 export {
   SendlyError,
@@ -33,7 +44,9 @@ export {
   SendlyRateLimitError,
   SendlyServerError,
   SendlyConnectionError,
+  asProblemDocument,
 } from "./errors";
+export type { ProblemDocument, ProblemFieldError } from "./errors";
 
 export type * from "./types";
 

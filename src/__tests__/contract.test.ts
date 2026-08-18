@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
 
 import type { Sendly } from "../client";
-import type { CreateContactRequest, SendEmailRequest } from "../types";
+import type { CreateCampaignV1Request, CreateContactRequest, SendEmailRequest } from "../types";
 import { getCallBody, jsonResponse, makeClient } from "./helpers";
 
 /**
@@ -35,6 +35,7 @@ interface OpenApiOperation {
   requestBody?: {
     content?: Record<string, { schema?: JsonSchema }>;
   };
+  responses?: Record<string, { content?: Record<string, { schema?: JsonSchema }> }>;
 }
 
 interface OpenApiSpec {
@@ -67,6 +68,7 @@ export const NOT_YET_IMPLEMENTED: readonly string[] = [];
 
 const ID = "__ID__";
 const EMAIL = "__EMAIL__";
+const EXECUTION_ID = "__EXECUTION_ID__";
 
 interface ManifestEntry {
   /** "<resource>.<method>" */
@@ -126,10 +128,64 @@ const MANIFEST: readonly ManifestEntry[] = [
   { key: "suppression.list", invoke: (c) => c.suppression.list() },
   { key: "suppression.get", invoke: (c) => c.suppression.get(EMAIL) },
   { key: "suppression.remove", invoke: (c) => c.suppression.remove(EMAIL) },
-  // events
+  // events (legacy)
   { key: "events.track", invoke: (c) => c.events.track({ event: "signup", email: "user@example.com" }) },
   // verify
   { key: "verify.email", invoke: (c) => c.verify.email({ email: "user@example.com" }) },
+  // lists
+  { key: "lists.subscribe", invoke: (c) => c.lists.subscribe(ID, { email: "user@example.com" }) },
+  { key: "lists.unsubscribe", invoke: (c) => c.lists.unsubscribe(ID, { email: "user@example.com" }) },
+
+  // --- /api/v1 ---
+  // campaigns
+  { key: "campaigns.list", invoke: (c) => c.campaigns.list() },
+  { key: "campaigns.listAll", invoke: (c) => c.campaigns.listAll().next() },
+  {
+    key: "campaigns.create",
+    invoke: (c) =>
+      c.campaigns.create({ name: "n", subject: "s", body: "b", from: "sender@example.com", audience_type: "ALL" }),
+  },
+  { key: "campaigns.get", invoke: (c) => c.campaigns.get(ID) },
+  { key: "campaigns.update", invoke: (c) => c.campaigns.update(ID, {}) },
+  { key: "campaigns.delete", invoke: (c) => c.campaigns.delete(ID) },
+  { key: "campaigns.send", invoke: (c) => c.campaigns.send(ID) },
+  { key: "campaigns.cancel", invoke: (c) => c.campaigns.cancel(ID) },
+  { key: "campaigns.pause", invoke: (c) => c.campaigns.pause(ID) },
+  { key: "campaigns.resume", invoke: (c) => c.campaigns.resume(ID) },
+  { key: "campaigns.stats", invoke: (c) => c.campaigns.stats(ID) },
+  // segments
+  { key: "segments.list", invoke: (c) => c.segments.list() },
+  { key: "segments.listAll", invoke: (c) => c.segments.listAll().next() },
+  { key: "segments.create", invoke: (c) => c.segments.create({ name: "n" }) },
+  { key: "segments.get", invoke: (c) => c.segments.get(ID) },
+  { key: "segments.update", invoke: (c) => c.segments.update(ID, {}) },
+  { key: "segments.delete", invoke: (c) => c.segments.delete(ID) },
+  { key: "segments.listContacts", invoke: (c) => c.segments.listContacts(ID) },
+  { key: "segments.listContactsAll", invoke: (c) => c.segments.listContactsAll(ID).next() },
+  // workflows
+  { key: "workflows.list", invoke: (c) => c.workflows.list() },
+  { key: "workflows.listAll", invoke: (c) => c.workflows.listAll().next() },
+  { key: "workflows.create", invoke: (c) => c.workflows.create({ name: "n", event_name: "user.signup" }) },
+  { key: "workflows.get", invoke: (c) => c.workflows.get(ID) },
+  { key: "workflows.update", invoke: (c) => c.workflows.update(ID, {}) },
+  { key: "workflows.delete", invoke: (c) => c.workflows.delete(ID) },
+  { key: "workflows.listExecutions", invoke: (c) => c.workflows.listExecutions(ID) },
+  { key: "workflows.listExecutionsAll", invoke: (c) => c.workflows.listExecutionsAll(ID).next() },
+  { key: "workflows.startExecution", invoke: (c) => c.workflows.startExecution(ID, { contact_id: ID }) },
+  { key: "workflows.cancelExecution", invoke: (c) => c.workflows.cancelExecution(EXECUTION_ID) },
+  { key: "workflows.stats", invoke: (c) => c.workflows.stats(ID) },
+  // analytics
+  { key: "analytics.timeseries", invoke: (c) => c.analytics.timeseries() },
+  { key: "analytics.campaigns", invoke: (c) => c.analytics.campaigns() },
+  { key: "analytics.topCampaigns", invoke: (c) => c.analytics.topCampaigns() },
+  // usage
+  { key: "usage.get", invoke: (c) => c.usage.get() },
+  // events (v1)
+  { key: "events.list", invoke: (c) => c.events.list() },
+  { key: "events.listAll", invoke: (c) => c.events.listAll().next() },
+  { key: "events.record", invoke: (c) => c.events.record({ name: "user.signup" }) },
+  { key: "events.listNames", invoke: (c) => c.events.listNames() },
+  { key: "events.stats", invoke: (c) => c.events.stats() },
 ];
 
 const RESOURCE_NAMES = [
@@ -141,6 +197,12 @@ const RESOURCE_NAMES = [
   "suppression",
   "events",
   "verify",
+  "lists",
+  "campaigns",
+  "segments",
+  "workflows",
+  "analytics",
+  "usage",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -164,13 +226,19 @@ function discoverMethods(client: Sendly): Set<string> {
 function normalizePath(url: string): string {
   const withoutBase = url.replace("http://localhost", "");
   const path = withoutBase.split("?")[0] ?? withoutBase;
-  return path.replace(/__ID__/g, "{id}").replace(/__EMAIL__/g, "{email}");
+  return path
+    .replace(/__EXECUTION_ID__/g, "{execution_id}")
+    .replace(/__ID__/g, "{id}")
+    .replace(/__EMAIL__/g, "{email}");
 }
 
 /** Invoke every manifest entry and capture the "VERB /path/template" it emits. */
 async function captureSdkOps(): Promise<Map<string, string>> {
   const { client, fetchMock } = makeClient();
-  fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: {} }));
+  // One fixture serving both dialects: `success`/`data` satisfy a legacy
+  // envelope, while `data`/`has_more`/`next_cursor` form a terminal v1 cursor
+  // page so the auto-pagination generators stop after a single request.
+  fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: [], has_more: false, next_cursor: null }));
   const methodToOp = new Map<string, string>();
   for (const entry of MANIFEST) {
     fetchMock.mockClear();
@@ -269,6 +337,51 @@ describe("OpenAPI contract", () => {
       expect(Object.keys(fixture)).toContain(field);
       expect(body).toHaveProperty(field);
     }
+  });
+
+  test("campaigns.create forwards every body field the spec marks required", async () => {
+    const required = requiredBodyFields("/api/v1/campaigns", "post");
+    expect(required.length).toBeGreaterThan(0);
+    const fixture: CreateCampaignV1Request = {
+      name: "Launch",
+      subject: "Hello",
+      body: "<p>hi</p>",
+      from: "sender@example.com",
+      audience_type: "ALL",
+    };
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(201, {}));
+    await client.campaigns.create(fixture);
+    const body = getCallBody(fetchMock) as Record<string, unknown>;
+    for (const field of required) {
+      expect(Object.keys(fixture)).toContain(field);
+      expect(body).toHaveProperty(field);
+    }
+  });
+
+  test("every cursor-paginated v1 list method has a companion auto-pagination generator", () => {
+    // The v1 list envelope is `{ data, has_more, next_cursor }`; any operation
+    // answering with it should be walkable without the caller managing cursors.
+    const cursorListOps = new Set<string>();
+    for (const [path, methods] of Object.entries(spec.paths)) {
+      if (!path.startsWith("/api/v1")) continue;
+      const schema = methods.get?.responses?.["200"]?.content?.["application/json"]?.schema;
+      const name = schema?.$ref?.split("/").pop();
+      const resolved = name ? spec.components?.schemas?.[name] : undefined;
+      const props = resolved?.properties ?? schema?.properties;
+      if (props && "data" in props && "has_more" in props && "next_cursor" in props) {
+        cursorListOps.add(`GET ${path}`);
+      }
+    }
+    expect(cursorListOps.size).toBeGreaterThan(0);
+
+    const missing = [...cursorListOps]
+      .filter((op) => {
+        const listMethods = [...sdkOps.entries()].filter(([, emitted]) => emitted === op).map(([key]) => key);
+        return !listMethods.some((key) => discovered.has(`${key}All`));
+      })
+      .sort();
+    expect(missing).toEqual([]);
   });
 
   test("contacts.create forwards every body field the spec marks required", async () => {
