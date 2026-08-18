@@ -1,6 +1,6 @@
 {
   "name": "sendly-sdk",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Official Sendly TypeScript SDK",
   "license": "MIT",
   "type": "module",

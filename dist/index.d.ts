@@ -8451,7 +8451,7 @@ declare class WorkflowsResource {
 }
 
 /** Build-time package version (kept in sync with package.json). */
-declare const SDK_VERSION = "0.3.0";
+declare const SDK_VERSION = "0.3.1";
 /** Default production API base. Override via `baseUrl` for staging or self-hosted deployments. */
 declare const DEFAULT_BASE_URL = "https://api.sendly.now";
 interface SendlyClientOptions {

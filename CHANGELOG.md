@@ -3,6 +3,24 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 0.3.1
+
+### Fixed
+
+- **Generated types for the free-form `data`/`context` map fields corrected.**
+  `events.record()`'s `data` and `workflows.startExecution()`'s `context` are
+  generated directly from the spec's own JSON-value union
+  (`string | number | boolean | object | array | null`) rather than the
+  hand-patched workaround type. No runtime behavior changes — these fields
+  always accepted arbitrary JSON — but the exported request types now come
+  straight from the generated schema like every other alias in `types.ts`.
+
+### Deprecated
+
+- **`JsonValue` and `JsonObject`** are no longer referenced anywhere in the
+  package (the workaround they existed for is fixed at the spec level) and
+  will be removed in the next minor.
+
 ## 0.3.0
 
 Adds the versioned **`/api/v1`** surface — campaigns, segments, workflows,
