@@ -57,15 +57,12 @@ describe("events resource (/api/v1)", () => {
     expect(recorded.id).toBe("ev_1");
   });
 
-  test("record forwards an Idempotency-Key header when given", async () => {
+  test("record sends no Idempotency-Key — events are append-only writes", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(201, { id: "ev_1" }));
 
-    await client.events.record({ name: "user.signup" }, { idempotencyKey: "idem-event" });
-    expect((getCall(fetchMock).init.headers as Record<string, string>)["Idempotency-Key"]).toBe("idem-event");
-
-    fetchMock.mockClear();
     await client.events.record({ name: "user.signup" });
+
     expect((getCall(fetchMock).init.headers as Record<string, string>)["Idempotency-Key"]).toBeUndefined();
   });
 

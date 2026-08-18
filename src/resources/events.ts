@@ -1,7 +1,5 @@
 import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
-import { idemHeader } from "./idempotency";
-import type { IdempotencyOptions } from "./idempotency";
 import type {
   EventListV1,
   EventNamesV1,
@@ -47,16 +45,17 @@ export class EventsResource {
    * Named `record` rather than `track` because {@link track} already holds that
    * name for the legacy endpoint. The two do the same job; this one resolves
    * the bare created event (snake_case) and reports failures as RFC 9457
-   * problem documents. Note that the spec documents `Idempotency-Key` on the
-   * campaign write endpoints only, so a key passed here may simply be ignored
-   * server-side.
+   * problem documents.
+   *
+   * Takes no idempotency key: events are append-only high-volume writes, and
+   * the only `Idempotency-Key` endpoints on v1 are `campaigns.create` and
+   * `campaigns.send`.
    */
-  async record(body: RecordEventV1Request, opts?: IdempotencyOptions): Promise<EventV1> {
+  async record(body: RecordEventV1Request): Promise<EventV1> {
     return this.client.request<EventV1>({
       method: "POST",
       path: "/api/v1/events",
       body,
-      headers: idemHeader(opts),
     });
   }
 
