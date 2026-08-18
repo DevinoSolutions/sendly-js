@@ -437,16 +437,17 @@ var EventsResource = class {
    * Named `record` rather than `track` because {@link track} already holds that
    * name for the legacy endpoint. The two do the same job; this one resolves
    * the bare created event (snake_case) and reports failures as RFC 9457
-   * problem documents. Note that the spec documents `Idempotency-Key` on the
-   * campaign write endpoints only, so a key passed here may simply be ignored
-   * server-side.
+   * problem documents.
+   *
+   * Takes no idempotency key: events are append-only high-volume writes, and
+   * the only `Idempotency-Key` endpoints on v1 are `campaigns.create` and
+   * `campaigns.send`.
    */
-  async record(body, opts) {
+  async record(body) {
     return this.client.request({
       method: "POST",
       path: "/api/v1/events",
-      body,
-      headers: idemHeader(opts)
+      body
     });
   }
   /**
@@ -496,22 +497,41 @@ var ListsResource = class {
   client;
   /**
    * Subscribe a contact to a list, creating the contact if it does not exist.
-   * Pass `allowResubscribe` to re-subscribe someone who previously opted out.
+   * Accepts SENDING_ONLY (`pk_*`) keys, so it can back a public subscribe form.
+   *
+   * **Double opt-in.** When the list has `doubleOptIn` enabled the membership
+   * is created as `PENDING` and the result carries a `confirmToken`. Sendly
+   * does **not** send the confirmation email — your application must deliver
+   * `/api/lists/confirm?token=<confirmToken>` to the contact itself. The token
+   * is valid for 24 hours.
+   *
+   * **Re-subscribing after an opt-out.** If the email already holds an
+   * `UNSUBSCRIBED` membership on this list, the call fails with
+   * `409 RESUBSCRIBE_CONFIRMATION_REQUIRED` unless the body sets
+   * `allowResubscribe: true`. Reversing an opt-out is a consent decision, so it
+   * is never the default — set the flag only when the contact themselves asked
+   * to be re-subscribed.
+   *
+   * Prefer `previousStatus` over `created` when describing the transition to a
+   * user; it reports the status held before the call, or `null` if there was no
+   * membership.
    */
   async subscribe(id, body) {
-    return this.client.request({
+    const envelope = await this.client.request({
       method: "POST",
       path: `/api/lists/${encodeURIComponent(id)}/subscribe`,
       body
     });
+    return this.client.unwrap(envelope);
   }
-  /** Unsubscribe a contact from a list. */
+  /** Unsubscribe a contact from a list. Resolves the address that was removed. */
   async unsubscribe(id, body) {
-    return this.client.request({
+    const envelope = await this.client.request({
       method: "POST",
       path: `/api/lists/${encodeURIComponent(id)}/unsubscribe`,
       body
     });
+    return this.client.unwrap(envelope);
   }
 };
 

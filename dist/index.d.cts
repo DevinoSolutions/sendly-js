@@ -7979,6 +7979,8 @@ type ListSubscribeRequest = PartialKeys<components["schemas"]["ListSubscribe"], 
 type ListSubscribeResponse = components["schemas"]["ListSubscribeResponse"];
 type ListUnsubscribeRequest = components["schemas"]["ListUnsubscribe"];
 type ListUnsubscribeResponse = components["schemas"]["ListUnsubscribeResponse"];
+type ListSubscribeData = ListSubscribeResponse["data"];
+type ListUnsubscribeData = ListUnsubscribeResponse["data"];
 /** RFC 9457 problem document — the error body of every `/api/v1` 4xx/5xx. */
 type Problem = components["schemas"]["Problem"];
 type CampaignV1 = components["schemas"]["CampaignV1"];
@@ -8213,11 +8215,13 @@ declare class EventsResource {
      * Named `record` rather than `track` because {@link track} already holds that
      * name for the legacy endpoint. The two do the same job; this one resolves
      * the bare created event (snake_case) and reports failures as RFC 9457
-     * problem documents. Note that the spec documents `Idempotency-Key` on the
-     * campaign write endpoints only, so a key passed here may simply be ignored
-     * server-side.
+     * problem documents.
+     *
+     * Takes no idempotency key: events are append-only high-volume writes, and
+     * the only `Idempotency-Key` endpoints on v1 are `campaigns.create` and
+     * `campaigns.send`.
      */
-    record(body: RecordEventV1Request, opts?: IdempotencyOptions): Promise<EventV1>;
+    record(body: RecordEventV1Request): Promise<EventV1>;
     /**
      * List recorded events, newest first, optionally filtered by `event_name`.
      *
@@ -8240,18 +8244,35 @@ declare class EventsResource {
 
 /**
  * Subscription management for a mailing list, on the legacy `/api/*` surface
- * (envelope responses, camelCase).
+ * (envelope responses, camelCase — the SDK unwraps to `data`).
  */
 declare class ListsResource {
     private readonly client;
     constructor(client: Sendly);
     /**
      * Subscribe a contact to a list, creating the contact if it does not exist.
-     * Pass `allowResubscribe` to re-subscribe someone who previously opted out.
+     * Accepts SENDING_ONLY (`pk_*`) keys, so it can back a public subscribe form.
+     *
+     * **Double opt-in.** When the list has `doubleOptIn` enabled the membership
+     * is created as `PENDING` and the result carries a `confirmToken`. Sendly
+     * does **not** send the confirmation email — your application must deliver
+     * `/api/lists/confirm?token=<confirmToken>` to the contact itself. The token
+     * is valid for 24 hours.
+     *
+     * **Re-subscribing after an opt-out.** If the email already holds an
+     * `UNSUBSCRIBED` membership on this list, the call fails with
+     * `409 RESUBSCRIBE_CONFIRMATION_REQUIRED` unless the body sets
+     * `allowResubscribe: true`. Reversing an opt-out is a consent decision, so it
+     * is never the default — set the flag only when the contact themselves asked
+     * to be re-subscribed.
+     *
+     * Prefer `previousStatus` over `created` when describing the transition to a
+     * user; it reports the status held before the call, or `null` if there was no
+     * membership.
      */
-    subscribe(id: string, body: ListSubscribeRequest): Promise<ListSubscribeResponse>;
-    /** Unsubscribe a contact from a list. */
-    unsubscribe(id: string, body: ListUnsubscribeRequest): Promise<ListUnsubscribeResponse>;
+    subscribe(id: string, body: ListSubscribeRequest): Promise<ListSubscribeData>;
+    /** Unsubscribe a contact from a list. Resolves the address that was removed. */
+    unsubscribe(id: string, body: ListUnsubscribeRequest): Promise<ListUnsubscribeData>;
 }
 
 /**
@@ -8726,4 +8747,4 @@ declare function verifySignature(payload: string | Buffer, signature: string, ti
  */
 declare function constructEvent<T = Record<string, unknown>>(payload: string | Buffer, signature: string, timestamp: string, secret: string, options?: VerifySignatureOptions): T;
 
-export { type AddDomainRequest, type AddSuppressionRequest, type AnalyticsCampaignStatsV1, type AnalyticsCampaignsV1Query, AnalyticsResource, type AnalyticsTimeseriesV1, type AnalyticsTimeseriesV1Query, type AnalyticsTopCampaignsV1, type AnalyticsWindowV1, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type CampaignDeletedV1, type CampaignListV1, type CampaignStatsV1, type CampaignV1, CampaignsResource, type ContactListResponse, type ContactRecord, ContactsResource, type CreateCampaignV1Request, type CreateContactRequest, type CreateSegmentV1Request, type CreateTemplateRequest, type CreateWebhookRequest, type CreateWorkflowV1Request, type CursorPage, type CursorPageQuery, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, EmailsResource, type ErrorEnvelope, type EventListV1, type EventNamesV1, type EventStatsV1, type EventStatsV1Query, type EventV1, EventsResource, type IdResponse, type IdempotencyOptions, type JsonObject, type JsonValue, type ListCampaignsV1Query, type ListContactsQuery, type ListEmailsQuery, type ListEventsV1Query, type ListSegmentContactsV1Query, type ListSegmentsV1Query, type ListSubscribeRequest, type ListSubscribeResponse, type ListSuppressionsQuery, type ListTemplatesQuery, type ListTopCampaignsV1Query, type ListUnsubscribeRequest, type ListUnsubscribeResponse, type ListWebhookCallsQuery, type ListWorkflowExecutionsV1Query, type ListWorkflowsV1Query, ListsResource, type Problem, type ProblemDocument, type ProblemFieldError, type RecordEventV1Request, type RequestOptions, SDK_VERSION, type SegmentContactListV1, type SegmentContactV1, type SegmentDeletedV1, type SegmentListV1, type SegmentV1, SegmentsResource, type SendCampaignV1Request, type SendEmailData, type SendEmailRequest, type SendEmailResponse, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type StartWorkflowExecutionV1Request, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateCampaignV1Request, type UpdateContactRequest, type UpdateSegmentV1Request, type UpdateTemplateRequest, type UpdateWebhookRequest, type UpdateWorkflowV1Request, UsageResource, type UsageV1, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type WorkflowDeletedV1, type WorkflowExecutionListV1, type WorkflowExecutionV1, type WorkflowListV1, type WorkflowStatsV1, type WorkflowStatsV1Query, type WorkflowV1, WorkflowsResource, asProblemDocument, type components, constructEvent, type operations, paginateCursor, type paths, verifySignature };
+export { type AddDomainRequest, type AddSuppressionRequest, type AnalyticsCampaignStatsV1, type AnalyticsCampaignsV1Query, AnalyticsResource, type AnalyticsTimeseriesV1, type AnalyticsTimeseriesV1Query, type AnalyticsTopCampaignsV1, type AnalyticsWindowV1, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type CampaignDeletedV1, type CampaignListV1, type CampaignStatsV1, type CampaignV1, CampaignsResource, type ContactListResponse, type ContactRecord, ContactsResource, type CreateCampaignV1Request, type CreateContactRequest, type CreateSegmentV1Request, type CreateTemplateRequest, type CreateWebhookRequest, type CreateWorkflowV1Request, type CursorPage, type CursorPageQuery, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, EmailsResource, type ErrorEnvelope, type EventListV1, type EventNamesV1, type EventStatsV1, type EventStatsV1Query, type EventV1, EventsResource, type IdResponse, type IdempotencyOptions, type JsonObject, type JsonValue, type ListCampaignsV1Query, type ListContactsQuery, type ListEmailsQuery, type ListEventsV1Query, type ListSegmentContactsV1Query, type ListSegmentsV1Query, type ListSubscribeData, type ListSubscribeRequest, type ListSubscribeResponse, type ListSuppressionsQuery, type ListTemplatesQuery, type ListTopCampaignsV1Query, type ListUnsubscribeData, type ListUnsubscribeRequest, type ListUnsubscribeResponse, type ListWebhookCallsQuery, type ListWorkflowExecutionsV1Query, type ListWorkflowsV1Query, ListsResource, type Problem, type ProblemDocument, type ProblemFieldError, type RecordEventV1Request, type RequestOptions, SDK_VERSION, type SegmentContactListV1, type SegmentContactV1, type SegmentDeletedV1, type SegmentListV1, type SegmentV1, SegmentsResource, type SendCampaignV1Request, type SendEmailData, type SendEmailRequest, type SendEmailResponse, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type StartWorkflowExecutionV1Request, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateCampaignV1Request, type UpdateContactRequest, type UpdateSegmentV1Request, type UpdateTemplateRequest, type UpdateWebhookRequest, type UpdateWorkflowV1Request, UsageResource, type UsageV1, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type WorkflowDeletedV1, type WorkflowExecutionListV1, type WorkflowExecutionV1, type WorkflowListV1, type WorkflowStatsV1, type WorkflowStatsV1Query, type WorkflowV1, WorkflowsResource, asProblemDocument, type components, constructEvent, type operations, paginateCursor, type paths, verifySignature };
