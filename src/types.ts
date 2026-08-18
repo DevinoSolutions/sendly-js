@@ -5,6 +5,30 @@
  */
 import type { components, paths } from "./types.generated";
 
+// ---------- Codegen corrections ----------
+//
+// Two places where the generated types are stricter than the API actually is.
+// Both corrections are applied only to the aliases below, never by editing
+// `types.generated.ts` (which `pnpm build:types` overwrites).
+
+/** Make `K` optional on `T`, leaving every other member as generated. */
+type PartialKeys<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+/**
+ * Any JSON value.
+ *
+ * The spec renders free-form maps (`data`, `context`) with values typed
+ * `object` even though its own description reads "string, number, boolean,
+ * null, array, or object" — an artifact of how the platform's zod schemas are
+ * projected into OpenAPI. Generated verbatim that would reject
+ * `data: { plan: "pro" }`, which the API accepts and the legacy `/api/track`
+ * endpoint has always accepted, so the aliases below use this instead.
+ */
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+/** A free-form JSON object, as accepted by `data` / `context` request fields. */
+export type JsonObject = { [key: string]: JsonValue };
+
 // ---------- Generic envelopes ----------
 
 export type ErrorEnvelope = components["schemas"]["Error"];
@@ -86,6 +110,104 @@ export type TrackEventData = TrackEventResponse["data"];
 export type VerifyEmailRequest = components["schemas"]["VerifyEmail"];
 export type VerifyEmailResponse = components["schemas"]["VerifyEmailResponse"];
 export type VerifyEmailData = VerifyEmailResponse["data"];
+
+// ---------- Lists ----------
+
+/** `allowResubscribe` defaults to `false` server-side, so it is optional here. */
+export type ListSubscribeRequest = PartialKeys<components["schemas"]["ListSubscribe"], "allowResubscribe">;
+export type ListSubscribeResponse = components["schemas"]["ListSubscribeResponse"];
+export type ListUnsubscribeRequest = components["schemas"]["ListUnsubscribe"];
+export type ListUnsubscribeResponse = components["schemas"]["ListUnsubscribeResponse"];
+
+// ===========================================================================
+// /api/v1 surface
+//
+// A different dialect from the legacy `/api/*` types above: success responses
+// are the bare resource (no `{ success, data }` envelope), errors are RFC 9457
+// problem documents, and every field is snake_case. Names carry a `V1` suffix
+// so the two dialects never get mixed up at a call site.
+// ===========================================================================
+
+/** RFC 9457 problem document — the error body of every `/api/v1` 4xx/5xx. */
+export type Problem = components["schemas"]["Problem"];
+
+// ---------- Campaigns (v1) ----------
+
+export type CampaignV1 = components["schemas"]["CampaignV1"];
+export type CampaignListV1 = components["schemas"]["CampaignV1List"];
+export type CampaignDeletedV1 = components["schemas"]["CampaignV1Deleted"];
+export type CampaignStatsV1 = components["schemas"]["CampaignV1Stats"];
+/** `type` defaults to `MARKETING` server-side, so it is optional here. */
+export type CreateCampaignV1Request = PartialKeys<components["schemas"]["CampaignV1Create"], "type">;
+export type UpdateCampaignV1Request = components["schemas"]["CampaignV1Update"];
+export type SendCampaignV1Request = components["schemas"]["CampaignV1Send"];
+
+export type ListCampaignsV1Query = NonNullable<paths["/api/v1/campaigns"]["get"]["parameters"]["query"]>;
+
+// ---------- Segments (v1) ----------
+
+export type SegmentV1 = components["schemas"]["SegmentV1"];
+export type SegmentListV1 = components["schemas"]["SegmentV1List"];
+export type SegmentDeletedV1 = components["schemas"]["SegmentV1Deleted"];
+export type SegmentContactV1 = components["schemas"]["SegmentContactV1"];
+export type SegmentContactListV1 = components["schemas"]["SegmentContactV1List"];
+/** `type` (`DYNAMIC`) and `track_membership` (`false`) default server-side. */
+export type CreateSegmentV1Request = PartialKeys<components["schemas"]["SegmentV1Create"], "type" | "track_membership">;
+export type UpdateSegmentV1Request = components["schemas"]["SegmentV1Update"];
+
+export type ListSegmentsV1Query = NonNullable<paths["/api/v1/segments"]["get"]["parameters"]["query"]>;
+export type ListSegmentContactsV1Query = NonNullable<
+  paths["/api/v1/segments/{id}/contacts"]["get"]["parameters"]["query"]
+>;
+
+// ---------- Workflows (v1) ----------
+
+export type WorkflowV1 = components["schemas"]["WorkflowV1"];
+export type WorkflowListV1 = components["schemas"]["WorkflowV1List"];
+export type WorkflowDeletedV1 = components["schemas"]["WorkflowDeletedV1"];
+export type WorkflowStatsV1 = components["schemas"]["WorkflowStatsV1"];
+export type WorkflowExecutionV1 = components["schemas"]["WorkflowExecutionV1"];
+export type WorkflowExecutionListV1 = components["schemas"]["WorkflowExecutionV1List"];
+export type CreateWorkflowV1Request = components["schemas"]["WorkflowCreateV1"];
+export type UpdateWorkflowV1Request = components["schemas"]["WorkflowUpdateV1"];
+/** `context` holds arbitrary JSON, not only nested objects — see {@link JsonValue}. */
+export type StartWorkflowExecutionV1Request = Omit<components["schemas"]["WorkflowExecutionStartV1"], "context"> & {
+  context?: JsonObject;
+};
+
+export type ListWorkflowsV1Query = NonNullable<paths["/api/v1/workflows"]["get"]["parameters"]["query"]>;
+export type ListWorkflowExecutionsV1Query = NonNullable<
+  paths["/api/v1/workflows/{id}/executions"]["get"]["parameters"]["query"]
+>;
+export type WorkflowStatsV1Query = NonNullable<paths["/api/v1/workflows/{id}/stats"]["get"]["parameters"]["query"]>;
+
+// ---------- Events (v1) ----------
+
+export type EventV1 = components["schemas"]["EventV1"];
+export type EventListV1 = components["schemas"]["EventV1List"];
+export type EventNamesV1 = components["schemas"]["EventNamesV1"];
+export type EventStatsV1 = components["schemas"]["EventStatsV1"];
+/** `data` holds arbitrary JSON, not only nested objects — see {@link JsonValue}. */
+export type RecordEventV1Request = Omit<components["schemas"]["EventTrackV1"], "data"> & { data?: JsonObject };
+
+export type ListEventsV1Query = NonNullable<paths["/api/v1/events"]["get"]["parameters"]["query"]>;
+export type EventStatsV1Query = NonNullable<paths["/api/v1/events/stats"]["get"]["parameters"]["query"]>;
+
+// ---------- Analytics + usage (v1) ----------
+
+export type AnalyticsWindowV1 = components["schemas"]["AnalyticsWindowV1"];
+export type AnalyticsTimeseriesV1 = components["schemas"]["AnalyticsTimeseriesV1"];
+export type AnalyticsCampaignStatsV1 = components["schemas"]["AnalyticsCampaignStatsV1"];
+export type AnalyticsTopCampaignsV1 = components["schemas"]["AnalyticsTopCampaignsV1"];
+export type UsageV1 = components["schemas"]["UsageV1"];
+
+export type AnalyticsTimeseriesV1Query = NonNullable<
+  paths["/api/v1/analytics/timeseries"]["get"]["parameters"]["query"]
+>;
+export type AnalyticsCampaignsV1Query = NonNullable<paths["/api/v1/analytics/campaigns"]["get"]["parameters"]["query"]>;
+export type ListTopCampaignsV1Query = NonNullable<
+  paths["/api/v1/analytics/top-campaigns"]["get"]["parameters"]["query"]
+>;
 
 // Re-export the raw shapes for advanced use.
 export type { components, operations, paths } from "./types.generated";
