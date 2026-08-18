@@ -119,6 +119,11 @@ export type ListSubscribeResponse = components["schemas"]["ListSubscribeResponse
 export type ListUnsubscribeRequest = components["schemas"]["ListUnsubscribe"];
 export type ListUnsubscribeResponse = components["schemas"]["ListUnsubscribeResponse"];
 
+// Inner `data` payloads the SDK unwraps to (the spec inlines them in the
+// response envelopes, so they are derived rather than standalone schemas).
+export type ListSubscribeData = ListSubscribeResponse["data"];
+export type ListUnsubscribeData = ListUnsubscribeResponse["data"];
+
 // ===========================================================================
 // /api/v1 surface
 //
