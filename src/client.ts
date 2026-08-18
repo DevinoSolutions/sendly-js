@@ -1,16 +1,22 @@
+import { AnalyticsResource } from "./resources/analytics";
+import { CampaignsResource } from "./resources/campaigns";
 import { ContactsResource } from "./resources/contacts";
 import { DomainsResource } from "./resources/domains";
 import { EmailsResource } from "./resources/emails";
 import { EventsResource } from "./resources/events";
+import { ListsResource } from "./resources/lists";
+import { SegmentsResource } from "./resources/segments";
 import { SuppressionResource } from "./resources/suppression";
 import { TemplatesResource } from "./resources/templates";
+import { UsageResource } from "./resources/usage";
 import { VerifyResource } from "./resources/verify";
 import { WebhooksResource } from "./resources/webhooks";
+import { WorkflowsResource } from "./resources/workflows";
 import { errorFromResponse, SendlyConnectionError, SendlyError } from "./errors";
 import type { ErrorEnvelope } from "./types";
 
 /** Build-time package version (kept in sync with package.json). */
-export const SDK_VERSION = "0.2.0";
+export const SDK_VERSION = "0.3.0";
 
 /** Default production API base. Override via `baseUrl` for staging or self-hosted deployments. */
 export const DEFAULT_BASE_URL = "https://api.sendly.now";
@@ -49,6 +55,14 @@ export interface RequestOptions {
 /**
  * Sendly SDK entry point. Construct once with an API key and reuse the
  * resource accessors (`emails`, `contacts`, ...) for all calls.
+ *
+ * The client speaks two dialects against the same base URL. The legacy
+ * `/api/*` resources return `{ success, data }` envelopes that the SDK
+ * unwraps, and fail with `{ success: false, error: { message, code } }`. The
+ * `/api/v1` resources (`campaigns`, `segments`, `workflows`, `analytics`,
+ * `usage`, and the v1 methods on `events`) return the bare resource body and
+ * fail with RFC 9457 problem documents. Both map onto the same
+ * {@link SendlyError} subclasses, so error handling does not fork.
  */
 export class Sendly {
   readonly emails: EmailsResource;
@@ -59,6 +73,18 @@ export class Sendly {
   readonly suppression: SuppressionResource;
   readonly events: EventsResource;
   readonly verify: VerifyResource;
+  readonly lists: ListsResource;
+
+  /** Campaigns on the versioned `/api/v1` surface. */
+  readonly campaigns: CampaignsResource;
+  /** Segments on the versioned `/api/v1` surface. */
+  readonly segments: SegmentsResource;
+  /** Automation workflows on the versioned `/api/v1` surface. */
+  readonly workflows: WorkflowsResource;
+  /** Sending analytics on the versioned `/api/v1` surface. */
+  readonly analytics: AnalyticsResource;
+  /** Usage against enforced limits, on the versioned `/api/v1` surface. */
+  readonly usage: UsageResource;
 
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -92,15 +118,24 @@ export class Sendly {
     this.suppression = new SuppressionResource(this);
     this.events = new EventsResource(this);
     this.verify = new VerifyResource(this);
+    this.lists = new ListsResource(this);
+
+    this.campaigns = new CampaignsResource(this);
+    this.segments = new SegmentsResource(this);
+    this.workflows = new WorkflowsResource(this);
+    this.analytics = new AnalyticsResource(this);
+    this.usage = new UsageResource(this);
   }
 
   /**
    * Low-level request helper. Resources call this; consumers can call it
    * directly for endpoints not yet wrapped by a resource.
    *
-   * Returns the parsed JSON body of a successful response — the API
-   * contract is `{ success: true, data: ... }` (or empty `{ success: true }`).
-   * Errors are thrown as {@link SendlyError} subclasses based on status.
+   * Returns the parsed JSON body of a successful response verbatim. On the
+   * legacy `/api/*` surface that is a `{ success: true, data: ... }` envelope
+   * the caller unwraps via {@link unwrap}; on `/api/v1` it is already the bare
+   * resource. Errors are thrown as {@link SendlyError} subclasses based on
+   * status, in either dialect.
    */
   async request<T = unknown>(options: RequestOptions): Promise<T> {
     const url = this.buildUrl(options.path, options.query);
@@ -144,6 +179,8 @@ export class Sendly {
       return undefined as T;
     }
 
+    const contentType = response.headers?.get("content-type") ?? undefined;
+
     let parsed: unknown = undefined;
     const text = await response.text();
     if (text.length > 0) {
@@ -164,10 +201,12 @@ export class Sendly {
     }
 
     if (!response.ok) {
+      // Legacy envelope fields; on /api/v1 the body is an RFC 9457 problem
+      // document instead and errorFromResponse overrides both from it.
       const envelope = parsed as Partial<ErrorEnvelope> | undefined;
       const errorMessage = envelope?.error?.message ?? `Sendly request failed with status ${response.status}`;
       const errorCode = envelope?.error?.code ?? `http_${response.status}`;
-      throw errorFromResponse(response.status, errorCode, errorMessage, parsed);
+      throw errorFromResponse(response.status, errorCode, errorMessage, parsed, contentType);
     }
 
     return parsed as T;
@@ -221,6 +260,12 @@ export class Sendly {
     const envelope = body as Partial<ErrorEnvelope> | undefined;
     const errorMessage = envelope?.error?.message ?? `Sendly request failed with status ${response.status}`;
     const errorCode = envelope?.error?.code ?? `http_${response.status}`;
-    throw errorFromResponse(response.status, errorCode, errorMessage, body);
+    throw errorFromResponse(
+      response.status,
+      errorCode,
+      errorMessage,
+      body,
+      response.headers?.get("content-type") ?? undefined,
+    );
   }
 }
