@@ -3,6 +3,18 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 0.4.0
+
+### Removed
+
+- **`JsonValue` and `JsonObject`**, deprecated in 0.3.1, are gone. They existed
+  only as a workaround for generated types that were stricter than the API;
+  that was fixed at the spec level in 0.3.1, after which nothing in the package
+  referenced them. If you imported either one, replace it with your own type —
+  the request and response types that used to need them (`events.record()`'s
+  `data`, `workflows.startExecution()`'s `context`) already accept arbitrary
+  JSON straight from the generated schema.
+
 ## 0.3.1
 
 ### Fixed
