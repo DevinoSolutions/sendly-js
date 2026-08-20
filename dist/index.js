@@ -973,7 +973,7 @@ function errorFromResponse(statusCode, errorCode, message, body, contentType) {
 }
 
 // src/client.ts
-var SDK_VERSION = "0.3.1";
+var SDK_VERSION = "0.4.0";
 var DEFAULT_BASE_URL = "https://api.sendly.now";
 var Sendly = class {
   emails;

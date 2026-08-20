@@ -14,22 +14,6 @@ import type { components, paths } from "./types.generated";
 /** Make `K` optional on `T`, leaving every other member as generated. */
 type PartialKeys<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
-/**
- * Any JSON value.
- *
- * @deprecated No longer needed — the generated spec types accept arbitrary
- * JSON since 0.3.1; will be removed in the next minor.
- */
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-/**
- * A free-form JSON object.
- *
- * @deprecated No longer needed — the generated spec types accept arbitrary
- * JSON since 0.3.1; will be removed in the next minor.
- */
-export type JsonObject = { [key: string]: JsonValue };
-
 // ---------- Generic envelopes ----------
 
 export type ErrorEnvelope = components["schemas"]["Error"];
