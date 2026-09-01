@@ -1,11 +1,27 @@
 // Resolve where the OpenAPI spec is read from. Shared by sync-spec.mjs and
 // check-spec-drift.mjs so the two can never disagree about the source.
 //
-// There is deliberately NO default. Syncing the vendored spec from the live
-// production API is forbidden by platform policy (see "Refreshing openapi.json"
-// in README.md), and a script that silently picks *some* remote when
-// unconfigured is the same class of bug — so an unset SENDLY_OPENAPI_URL is an
-// error with a message naming exactly what to set, not a fallback.
+// WHY PRODUCTION IS BANNED AS A SOURCE — this is the reason, not a superstition,
+// and it is written down so nobody deletes the guardrail for lack of one:
+//
+//   Vendoring the spec from the deployed API makes the SDK mirror whatever is
+//   RUNNING rather than what the repo DECLARES. Any drift between the platform's
+//   code and its committed contract is then laundered into "correct" on the way
+//   in — the SDK regenerates itself to match the deployment and the mismatch
+//   disappears silently. That destroys the one job the vendored spec has: it is
+//   the fixed reference `src/__tests__/contract.test.ts` compares against, so
+//   an SDK synced from production can no longer detect the very drift it exists
+//   to catch. It is also unreproducible (two maintainers on the same commit can
+//   get different files) and unreviewable (the diff traces to no merged change).
+//
+// So there is deliberately NO default, and a script that silently picks *some*
+// remote when unconfigured is the same class of bug — an unset
+// SENDLY_OPENAPI_URL is an error naming exactly what to set, not a fallback.
+//
+// Production is NOT hard-blocked: "what does production actually serve?" is a
+// legitimate one-off check. It is made LOUD instead (see productionWarning),
+// because quiet is the property that made the old default dangerous, not the
+// host itself.
 //
 // SENDLY_OPENAPI_URL accepts either form:
 //   - a filesystem path (absolute or relative) to a committed spec  <- normal case
@@ -14,6 +30,9 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 export const SPEC_SOURCE_ENV = "SENDLY_OPENAPI_URL";
+
+/** Host of the deployed production API. Never a legitimate unattended source. */
+export const PRODUCTION_HOST = "api.sendly.now";
 
 /** Canonical location of the contract inside the Sendly platform monorepo. */
 export const MONOREPO_SPEC_PATH = "apps/web/openapi/openapi.json";
@@ -51,6 +70,60 @@ export function resolveSpecSource() {
   // handed to fetch.
   const path = /^file:\/\//i.test(raw) ? fileURLToPath(raw) : raw;
   return { kind: "file", value: path, display: path };
+}
+
+/**
+ * True when the source is the deployed production API.
+ * @param {{ kind: "file" | "http", value: string }} source
+ */
+export function isProductionSource(source) {
+  if (source.kind !== "http") return false;
+  try {
+    return new URL(source.value).hostname.toLowerCase() === PRODUCTION_HOST;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Shout — do not refuse — when the resolved source is production.
+ *
+ * A refusal would block the legitimate "verify what production actually serves"
+ * one-off. What must not happen is this occurring QUIETLY, which is exactly how
+ * the old default went unnoticed while running on every push, every PR and a
+ * weekly cron. So it is unmissable in a scrolling log, and it annotates the run
+ * when it happens inside GitHub Actions.
+ *
+ * @param {{ kind: "file" | "http", value: string, display: string }} source
+ */
+export function warnIfProduction(source) {
+  if (!isProductionSource(source)) return false;
+
+  const banner = [
+    "!!!===========================================================================!!!",
+    "!!!  WARNING: reading the OpenAPI spec from PRODUCTION                        !!!",
+    `!!!  ${source.display}`,
+    "!!!                                                                          !!!",
+    "!!!  This is the BANNED path. Vendoring a spec from the deployed API makes    !!!",
+    "!!!  the SDK mirror what is RUNNING instead of what the repo DECLARES, which  !!!",
+    "!!!  launders code-vs-contract drift into 'correct' and destroys the SDK's    !!!",
+    "!!!  ability to detect the very drift it exists to catch.                     !!!",
+    "!!!                                                                          !!!",
+    "!!!  Only ever do this as a DELIBERATE one-off (e.g. 'what does production    !!!",
+    "!!!  actually serve right now?'). NEVER commit the result, and never wire     !!!",
+    "!!!  this host into CI or any unattended job.                                 !!!",
+    "!!!===========================================================================!!!",
+  ].join("\n");
+  console.error(banner);
+
+  if (process.env.GITHUB_ACTIONS) {
+    console.log(
+      `::warning title=OpenAPI spec read from PRODUCTION::${source.display} is the deployed API. ` +
+        `Syncing an SDK spec from production is banned — it launders code-vs-contract drift into "correct". ` +
+        `An unattended job must never be pointed at this host.`,
+    );
+  }
+  return true;
 }
 
 /**

@@ -14,7 +14,7 @@
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { loadSpec, resolveSpecSource } from "./spec-source.mjs";
+import { loadSpec, resolveSpecSource, warnIfProduction } from "./spec-source.mjs";
 
 const OUT_PATH = fileURLToPath(new URL("../openapi.json", import.meta.url));
 
@@ -25,6 +25,9 @@ try {
   console.error(`sync-spec: ${error.message}`);
   process.exit(1);
 }
+
+// Loud, but not a refusal — see warnIfProduction in spec-source.mjs.
+warnIfProduction(source);
 
 let spec;
 try {

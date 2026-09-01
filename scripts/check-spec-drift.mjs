@@ -15,7 +15,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { SPEC_SOURCE_ENV, loadSpec, resolveSpecSource } from "./spec-source.mjs";
+import { SPEC_SOURCE_ENV, loadSpec, resolveSpecSource, warnIfProduction } from "./spec-source.mjs";
 
 const COMMITTED_PATH = fileURLToPath(new URL("../openapi.json", import.meta.url));
 
@@ -43,6 +43,10 @@ async function main() {
     );
     return;
   }
+
+  // This one matters most: it is the step that runs unattended in CI, so a
+  // production source here is precisely the thing that must never be quiet.
+  warnIfProduction(source);
 
   const committed = JSON.parse(await readFile(COMMITTED_PATH, "utf8"));
 
