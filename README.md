@@ -380,11 +380,33 @@ pnpm build          # regenerate types from openapi.json, then bundle with tsup
 ```
 
 The type definitions in `src/types.generated.ts` are generated from
-`openapi.json` via `pnpm build:types`. `openapi.json` is a committed snapshot
-of Sendly's public OpenAPI spec; refresh it from the live API with
-`pnpm sync-spec`, then regenerate the types (`pnpm build:types`, which
-`pnpm build` runs for you). The SDK surface is verified against this snapshot
-by the contract suite in `src/__tests__/contract.test.ts`.
+`openapi.json` via `pnpm build:types`. `openapi.json` is a committed snapshot of
+Sendly's OpenAPI contract, and the SDK surface is verified against it by the
+contract suite in `src/__tests__/contract.test.ts`.
+
+### Refreshing `openapi.json`
+
+`pnpm sync-spec` requires `SENDLY_OPENAPI_URL`. There is **no default**, and in
+particular it does not default to production:
+
+```bash
+SENDLY_OPENAPI_URL=/path/to/sendly/apps/web/openapi/openapi.json pnpm sync-spec
+pnpm build:types   # regenerate types (pnpm build runs this for you)
+```
+
+`SENDLY_OPENAPI_URL` accepts a filesystem path (the normal case — the committed
+contract in the Sendly platform monorepo at `apps/web/openapi/openapi.json`) or
+an `http(s)://` URL of a local or staging API. Running `pnpm sync-spec` with it
+unset exits non-zero and prints what to set.
+
+**Do not point it at `https://api.sendly.now`.** The SDK spec is synced from the
+committed contract, never live-synced from the deployed API: production serves
+whatever is deployed at that instant, which makes the vendored snapshot — and
+every type generated from it — unreviewable and unreproducible.
+
+`pnpm check-spec-drift` compares the committed `openapi.json` to the same source
+and never fails the build. With `SENDLY_OPENAPI_URL` unset it skips with a notice
+rather than erroring, so CI and fork pull requests stay green.
 
 ## License
 

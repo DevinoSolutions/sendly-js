@@ -1,14 +1,22 @@
 #!/usr/bin/env node
-// Non-blocking drift check: compare the committed ./openapi.json to the live
-// public spec and emit a GitHub Actions warning annotation if they differ.
+// Non-blocking drift check: compare the committed ./openapi.json to the Sendly
+// OpenAPI contract and emit a GitHub Actions warning annotation if they differ.
 //
-// Never fails — a moved production API must not block external contributors.
-// CI runs this with continue-on-error; run it locally with
-// `pnpm check-spec-drift`. Zero-dependency, Node 20+ global fetch.
+// Never fails — a moved contract must not block external contributors.
+//
+// The source is SENDLY_OPENAPI_URL, with no default (see scripts/spec-source.mjs).
+// Unlike `sync-spec`, an unconfigured run SKIPS with a notice instead of failing:
+// this runs unattended in CI on every pull request, including from forks that
+// cannot supply a source, and turning that into a red step would report a
+// configuration gap as if it were spec drift.
+//
+// Run it locally with:
+//   SENDLY_OPENAPI_URL=/path/to/sendly/apps/web/openapi/openapi.json pnpm check-spec-drift
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-const SPEC_URL = process.env.SENDLY_OPENAPI_URL ?? "https://api.sendly.now/api/openapi.json";
+import { SPEC_SOURCE_ENV, loadSpec, resolveSpecSource } from "./spec-source.mjs";
+
 const COMMITTED_PATH = fileURLToPath(new URL("../openapi.json", import.meta.url));
 
 function warn(message) {
@@ -25,44 +33,55 @@ function operationSet(spec) {
 }
 
 async function main() {
+  let source;
+  try {
+    source = resolveSpecSource();
+  } catch {
+    console.log(
+      `spec drift check: skipped — ${SPEC_SOURCE_ENV} is not set. ` +
+        `Set it to the committed contract (apps/web/openapi/openapi.json in the platform monorepo) to compare.`,
+    );
+    return;
+  }
+
   const committed = JSON.parse(await readFile(COMMITTED_PATH, "utf8"));
 
-  let live;
+  let reference;
   try {
-    const response = await fetch(SPEC_URL, { headers: { Accept: "application/json" } });
-    if (!response.ok) {
-      warn(`could not fetch live spec (HTTP ${response.status}); skipping drift check`);
-      return;
-    }
-    live = await response.json();
+    reference = await loadSpec(source);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    warn(`could not reach ${SPEC_URL} (${reason}); skipping drift check`);
+    warn(`could not read ${source.display} (${reason}); skipping drift check`);
     return;
   }
 
   // Re-serialize both (compact) so formatting/line-endings never register as drift.
-  if (JSON.stringify(committed) === JSON.stringify(live)) {
-    console.log(`spec drift check: committed openapi.json matches ${SPEC_URL}`);
+  if (JSON.stringify(committed) === JSON.stringify(reference)) {
+    console.log(`spec drift check: committed openapi.json matches ${source.display}`);
     return;
   }
 
   const committedOps = operationSet(committed);
-  const liveOps = operationSet(live);
-  const onlyLiveOps = [...liveOps].filter((op) => !committedOps.has(op)).sort();
-  const onlyCommittedOps = [...committedOps].filter((op) => !liveOps.has(op)).sort();
+  const referenceOps = operationSet(reference);
+  const onlyReferenceOps = [...referenceOps].filter((op) => !committedOps.has(op)).sort();
+  const onlyCommittedOps = [...committedOps].filter((op) => !referenceOps.has(op)).sort();
 
   const committedSchemas = new Set(Object.keys(committed.components?.schemas ?? {}));
-  const liveSchemas = new Set(Object.keys(live.components?.schemas ?? {}));
-  const onlyLiveSchemas = [...liveSchemas].filter((name) => !committedSchemas.has(name)).sort();
-  const onlyCommittedSchemas = [...committedSchemas].filter((name) => !liveSchemas.has(name)).sort();
+  const referenceSchemas = new Set(Object.keys(reference.components?.schemas ?? {}));
+  const onlyReferenceSchemas = [...referenceSchemas].filter((name) => !committedSchemas.has(name)).sort();
+  const onlyCommittedSchemas = [...committedSchemas].filter((name) => !referenceSchemas.has(name)).sort();
 
-  const parts = [`committed openapi.json differs from ${SPEC_URL} — run \`pnpm sync-spec\` to refresh.`];
-  if (onlyLiveOps.length) parts.push(`operations only live: ${onlyLiveOps.join(", ")}`);
+  const parts = [`committed openapi.json differs from ${source.display} — run \`pnpm sync-spec\` to refresh.`];
+  if (onlyReferenceOps.length) parts.push(`operations only in source: ${onlyReferenceOps.join(", ")}`);
   if (onlyCommittedOps.length) parts.push(`operations only committed: ${onlyCommittedOps.join(", ")}`);
-  if (onlyLiveSchemas.length) parts.push(`schemas only live: ${onlyLiveSchemas.join(", ")}`);
+  if (onlyReferenceSchemas.length) parts.push(`schemas only in source: ${onlyReferenceSchemas.join(", ")}`);
   if (onlyCommittedSchemas.length) parts.push(`schemas only committed: ${onlyCommittedSchemas.join(", ")}`);
-  if (!onlyLiveOps.length && !onlyCommittedOps.length && !onlyLiveSchemas.length && !onlyCommittedSchemas.length) {
+  if (
+    !onlyReferenceOps.length &&
+    !onlyCommittedOps.length &&
+    !onlyReferenceSchemas.length &&
+    !onlyCommittedSchemas.length
+  ) {
     parts.push("field-level changes only (same operations and schemas).");
   }
 
