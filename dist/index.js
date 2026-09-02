@@ -287,6 +287,22 @@ var DomainsResource = class {
     });
     return this.client.unwrap(envelope);
   }
+  /**
+   * Start the guided DNS setup hand-off for a domain.
+   *
+   * Returns the session as the route returns it: a `connectUrl` to open in a
+   * browser, the `token` that url carries, and `expiresAt`. Nothing here is
+   * derived or reshaped — finishing setup means a person visiting that url and
+   * authorising the DNS change at their registrar, so the SDK's job is to hand
+   * back the link, not to model the flow behind it.
+   */
+  async startSetup(id) {
+    const envelope = await this.client.request({
+      method: "POST",
+      path: `/api/domains/${encodeURIComponent(id)}/dodomain-session`
+    });
+    return this.client.unwrap(envelope);
+  }
   /** Delete a domain. */
   async delete(id) {
     await this.client.request({
@@ -319,6 +335,44 @@ var EmailsResource = class {
       headers: idemHeader(opts)
     });
     return this.client.unwrap(envelope);
+  }
+  /**
+   * Send one email on the versioned `/api/v1` surface, which reports delivery
+   * status.
+   *
+   * ADDITIVE — {@link send} is untouched and still posts to the legacy
+   * `/api/emails`. The two differ in what they can tell you: the legacy send
+   * answers with row ids and no status, so a caller cannot learn whether the
+   * message went anywhere; this one answers `202` with `{ id, status, to, from }`
+   * and the status is a real delivery state. It also takes a single recipient
+   * (`cc`/`bcc` copy others) rather than fanning an array out.
+   *
+   * Repointing `send()` here would change what existing callers receive, so it
+   * is deliberately not done as part of adding this. Which one becomes the
+   * default is a breaking-change decision.
+   */
+  async sendV1(body, opts) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/v1/emails",
+      body,
+      headers: idemHeader(opts)
+    });
+  }
+  /**
+   * Send a test email to the project's sandbox address.
+   *
+   * Goes nowhere real: delivery is to the sandbox, so this exercises rendering
+   * and the send path without touching a live recipient or a reputation. Read
+   * `projects.get().sandbox_address` to know where it lands — the response's
+   * `sandbox: true` says only that it was one.
+   */
+  async sendTestV1(body) {
+    return this.client.request({
+      method: "POST",
+      path: "/api/v1/emails/test",
+      body
+    });
   }
   /** Send a batch (up to 100) of transactional emails in one call. */
   async batch(body, opts) {
@@ -476,6 +530,75 @@ var ListsResource = class {
       body
     });
     return this.client.unwrap(envelope);
+  }
+};
+
+// src/resources/mailboxes.ts
+var MailboxesResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * Every mailbox on the project's domains, newest first.
+   *
+   * Not paginated — a project may hold at most 10 mailboxes. This lists the
+   * mailboxes themselves, never their contents: received messages are not part
+   * of the public API.
+   */
+  async list() {
+    const envelope = await this.client.request({
+      method: "GET",
+      path: "/api/mailboxes"
+    });
+    return this.client.unwrap(envelope);
+  }
+  /**
+   * One mailbox, with the IMAP and SMTP host/port/username a mail client needs.
+   *
+   * The password is not included and is never returned here — mailbox
+   * credentials are app passwords, created from the dashboard and shown once.
+   */
+  async get(id) {
+    const envelope = await this.client.request({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}`
+    });
+    return this.client.unwrap(envelope);
+  }
+  /**
+   * The app passwords issued for a mailbox — metadata only.
+   *
+   * `lastFour` is the only fragment of the secret that survives creation, so
+   * this can identify a credential without being able to reconstruct it.
+   */
+  async listAppPasswords(id) {
+    const envelope = await this.client.request({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/app-passwords`
+    });
+    return this.client.unwrap(envelope);
+  }
+};
+
+// src/resources/projects.ts
+var ProjectsResource = class {
+  constructor(client) {
+    this.client = client;
+  }
+  client;
+  /**
+   * Read the current project.
+   *
+   * Takes no id: the project is whichever one the API key belongs to. Carries
+   * `sandbox_address`, which is the address a test send arrives at — without it
+   * a test send is undiscoverable, since the caller cannot say where to look.
+   */
+  async get() {
+    return this.client.request({
+      method: "GET",
+      path: "/api/v1/projects"
+    });
   }
 };
 
@@ -985,6 +1108,8 @@ var Sendly = class {
   events;
   verify;
   lists;
+  /** Receiving mailboxes. Reads only — the writes need a user, not an API key. */
+  mailboxes;
   /** Campaigns on the versioned `/api/v1` surface. */
   campaigns;
   /** Segments on the versioned `/api/v1` surface. */
@@ -995,6 +1120,8 @@ var Sendly = class {
   analytics;
   /** Usage against enforced limits, on the versioned `/api/v1` surface. */
   usage;
+  /** The project this key belongs to, on the versioned `/api/v1` surface. */
+  projects;
   apiKey;
   baseUrl;
   fetchImpl;
@@ -1025,11 +1152,13 @@ var Sendly = class {
     this.events = new EventsResource(this);
     this.verify = new VerifyResource(this);
     this.lists = new ListsResource(this);
+    this.mailboxes = new MailboxesResource(this);
     this.campaigns = new CampaignsResource(this);
     this.segments = new SegmentsResource(this);
     this.workflows = new WorkflowsResource(this);
     this.analytics = new AnalyticsResource(this);
     this.usage = new UsageResource(this);
+    this.projects = new ProjectsResource(this);
   }
   /**
    * Low-level request helper. Resources call this; consumers can call it
@@ -1192,6 +1321,8 @@ export {
   EmailsResource,
   EventsResource,
   ListsResource,
+  MailboxesResource,
+  ProjectsResource,
   SDK_VERSION,
   SegmentsResource,
   Sendly,

@@ -5,6 +5,8 @@ import { DomainsResource } from "./resources/domains";
 import { EmailsResource } from "./resources/emails";
 import { EventsResource } from "./resources/events";
 import { ListsResource } from "./resources/lists";
+import { MailboxesResource } from "./resources/mailboxes";
+import { ProjectsResource } from "./resources/projects";
 import { SegmentsResource } from "./resources/segments";
 import { SuppressionResource } from "./resources/suppression";
 import { TemplatesResource } from "./resources/templates";
@@ -74,6 +76,8 @@ export class Sendly {
   readonly events: EventsResource;
   readonly verify: VerifyResource;
   readonly lists: ListsResource;
+  /** Receiving mailboxes. Reads only — the writes need a user, not an API key. */
+  readonly mailboxes: MailboxesResource;
 
   /** Campaigns on the versioned `/api/v1` surface. */
   readonly campaigns: CampaignsResource;
@@ -85,6 +89,8 @@ export class Sendly {
   readonly analytics: AnalyticsResource;
   /** Usage against enforced limits, on the versioned `/api/v1` surface. */
   readonly usage: UsageResource;
+  /** The project this key belongs to, on the versioned `/api/v1` surface. */
+  readonly projects: ProjectsResource;
 
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -119,12 +125,14 @@ export class Sendly {
     this.events = new EventsResource(this);
     this.verify = new VerifyResource(this);
     this.lists = new ListsResource(this);
+    this.mailboxes = new MailboxesResource(this);
 
     this.campaigns = new CampaignsResource(this);
     this.segments = new SegmentsResource(this);
     this.workflows = new WorkflowsResource(this);
     this.analytics = new AnalyticsResource(this);
     this.usage = new UsageResource(this);
+    this.projects = new ProjectsResource(this);
   }
 
   /**

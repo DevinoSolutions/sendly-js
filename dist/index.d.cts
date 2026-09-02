@@ -10022,6 +10022,15 @@ type DomainRecord = components["schemas"]["Domain"];
 type DomainListResponse = components["schemas"]["DomainListResponse"];
 type AddDomainRequest = components["schemas"]["AddDomainBody"];
 type DomainVerificationStatus = components["schemas"]["DomainVerificationStatus"];
+/**
+ * The hand-off a caller opens in a browser to finish DNS setup. Inline in the
+ * spec rather than a named component, so it is read off the path.
+ */
+type DomainSetupSession = NonNullable<paths["/api/domains/{id}/dodomain-session"]["post"]["responses"][200]["content"]["application/json"]>["data"];
+type MailboxRecord = components["schemas"]["Mailbox"];
+/** A mailbox plus the IMAP/SMTP host, port and username a mail client needs. */
+type MailboxDetail = components["schemas"]["MailboxDetail"];
+type AppPasswordRecord = components["schemas"]["AppPassword"];
 type TemplateRecord = components["schemas"]["Template"];
 type TemplateListResponse = components["schemas"]["TemplateListResponse"];
 type CreateTemplateRequest = components["schemas"]["CreateTemplate"];
@@ -10099,6 +10108,11 @@ type AnalyticsTimeseriesV1 = components["schemas"]["AnalyticsTimeseriesV1"];
 type AnalyticsCampaignStatsV1 = components["schemas"]["AnalyticsCampaignStatsV1"];
 type AnalyticsTopCampaignsV1 = components["schemas"]["AnalyticsTopCampaignsV1"];
 type UsageV1 = components["schemas"]["UsageV1"];
+type ProjectV1 = components["schemas"]["ProjectV1"];
+type SendEmailV1Request = components["schemas"]["SendEmailV1"];
+type EmailV1 = components["schemas"]["EmailV1"];
+type SendTestEmailV1Request = components["schemas"]["SendTestEmailV1"];
+type EmailTestV1 = components["schemas"]["EmailTestV1"];
 type AnalyticsTimeseriesV1Query = NonNullable<paths["/api/v1/analytics/timeseries"]["get"]["parameters"]["query"]>;
 type AnalyticsCampaignsV1Query = NonNullable<paths["/api/v1/analytics/campaigns"]["get"]["parameters"]["query"]>;
 type ListTopCampaignsV1Query = NonNullable<paths["/api/v1/analytics/top-campaigns"]["get"]["parameters"]["query"]>;
@@ -10230,6 +10244,16 @@ declare class DomainsResource {
     verify(id: string): Promise<DomainVerificationStatus>;
     /** Read current SES verification status for a domain. */
     getVerification(id: string): Promise<DomainVerificationStatus>;
+    /**
+     * Start the guided DNS setup hand-off for a domain.
+     *
+     * Returns the session as the route returns it: a `connectUrl` to open in a
+     * browser, the `token` that url carries, and `expiresAt`. Nothing here is
+     * derived or reshaped — finishing setup means a person visiting that url and
+     * authorising the DNS change at their registrar, so the SDK's job is to hand
+     * back the link, not to model the flow behind it.
+     */
+    startSetup(id: string): Promise<DomainSetupSession>;
     /** Delete a domain. */
     delete(id: string): Promise<void>;
 }
@@ -10247,6 +10271,31 @@ declare class EmailsResource {
      * its delivery status).
      */
     send(body: SendEmailRequest, opts?: IdempotencyOptions): Promise<SendEmailData>;
+    /**
+     * Send one email on the versioned `/api/v1` surface, which reports delivery
+     * status.
+     *
+     * ADDITIVE — {@link send} is untouched and still posts to the legacy
+     * `/api/emails`. The two differ in what they can tell you: the legacy send
+     * answers with row ids and no status, so a caller cannot learn whether the
+     * message went anywhere; this one answers `202` with `{ id, status, to, from }`
+     * and the status is a real delivery state. It also takes a single recipient
+     * (`cc`/`bcc` copy others) rather than fanning an array out.
+     *
+     * Repointing `send()` here would change what existing callers receive, so it
+     * is deliberately not done as part of adding this. Which one becomes the
+     * default is a breaking-change decision.
+     */
+    sendV1(body: SendEmailV1Request, opts?: IdempotencyOptions): Promise<EmailV1>;
+    /**
+     * Send a test email to the project's sandbox address.
+     *
+     * Goes nowhere real: delivery is to the sandbox, so this exercises rendering
+     * and the send path without touching a live recipient or a reputation. Read
+     * `projects.get().sandbox_address` to know where it lands — the response's
+     * `sandbox: true` says only that it was one.
+     */
+    sendTestV1(body: SendTestEmailV1Request): Promise<EmailTestV1>;
     /** Send a batch (up to 100) of transactional emails in one call. */
     batch(body: BatchSendRequest, opts?: IdempotencyOptions): Promise<BatchSendResponse>;
     /** List emails with cursor-based pagination + filters. */
@@ -10340,6 +10389,69 @@ declare class ListsResource {
     subscribe(id: string, body: ListSubscribeRequest): Promise<ListSubscribeData>;
     /** Unsubscribe a contact from a list. Resolves the address that was removed. */
     unsubscribe(id: string, body: ListUnsubscribeRequest): Promise<ListUnsubscribeData>;
+}
+
+/**
+ * Receiving mailboxes on the project's verified domains.
+ *
+ * READ ONLY, and deliberately so. Creating and deleting a mailbox, and minting
+ * or revoking an app password, all resolve the acting project admin from the
+ * session user; an API key carries no user, so those routes answer `401` to any
+ * `sk_` key however broad its scopes. The contract records that — they publish
+ * `SessionAuth` without `ApiKeyAuth` — and this SDK authenticates only with API
+ * keys, so a `create`/`delete` here could never succeed. They are listed in the
+ * contract suite's `NOT_SDK_CALLABLE` rather than shipped as methods that
+ * always throw.
+ *
+ * The three reads below are a different case: their membership check is
+ * conditional, so a key really can call them.
+ */
+declare class MailboxesResource {
+    private readonly client;
+    constructor(client: Sendly);
+    /**
+     * Every mailbox on the project's domains, newest first.
+     *
+     * Not paginated — a project may hold at most 10 mailboxes. This lists the
+     * mailboxes themselves, never their contents: received messages are not part
+     * of the public API.
+     */
+    list(): Promise<MailboxRecord[]>;
+    /**
+     * One mailbox, with the IMAP and SMTP host/port/username a mail client needs.
+     *
+     * The password is not included and is never returned here — mailbox
+     * credentials are app passwords, created from the dashboard and shown once.
+     */
+    get(id: string): Promise<MailboxDetail>;
+    /**
+     * The app passwords issued for a mailbox — metadata only.
+     *
+     * `lastFour` is the only fragment of the secret that survives creation, so
+     * this can identify a credential without being able to reconstruct it.
+     */
+    listAppPasswords(id: string): Promise<AppPasswordRecord[]>;
+}
+
+/**
+ * The project the credential resolves to, on the versioned `/api/v1` surface.
+ *
+ * There is no `create` here. Creating a project resolves the owner from the
+ * session user and refuses an API key with `401`, so it is recorded in the
+ * contract suite's `NOT_SDK_CALLABLE` rather than shipped as a method that
+ * cannot work.
+ */
+declare class ProjectsResource {
+    private readonly client;
+    constructor(client: Sendly);
+    /**
+     * Read the current project.
+     *
+     * Takes no id: the project is whichever one the API key belongs to. Carries
+     * `sandbox_address`, which is the address a test send arrives at — without it
+     * a test send is undiscoverable, since the caller cannot say where to look.
+     */
+    get(): Promise<ProjectV1>;
 }
 
 /**
@@ -10577,6 +10689,8 @@ declare class Sendly {
     readonly events: EventsResource;
     readonly verify: VerifyResource;
     readonly lists: ListsResource;
+    /** Receiving mailboxes. Reads only — the writes need a user, not an API key. */
+    readonly mailboxes: MailboxesResource;
     /** Campaigns on the versioned `/api/v1` surface. */
     readonly campaigns: CampaignsResource;
     /** Segments on the versioned `/api/v1` surface. */
@@ -10587,6 +10701,8 @@ declare class Sendly {
     readonly analytics: AnalyticsResource;
     /** Usage against enforced limits, on the versioned `/api/v1` surface. */
     readonly usage: UsageResource;
+    /** The project this key belongs to, on the versioned `/api/v1` surface. */
+    readonly projects: ProjectsResource;
     private readonly apiKey;
     private readonly baseUrl;
     private readonly fetchImpl;
@@ -10814,4 +10930,4 @@ declare function verifySignature(payload: string | Buffer, signature: string, ti
  */
 declare function constructEvent<T = Record<string, unknown>>(payload: string | Buffer, signature: string, timestamp: string, secret: string, options?: VerifySignatureOptions): T;
 
-export { type AddDomainRequest, type AddSuppressionRequest, type AnalyticsCampaignStatsV1, type AnalyticsCampaignsV1Query, AnalyticsResource, type AnalyticsTimeseriesV1, type AnalyticsTimeseriesV1Query, type AnalyticsTopCampaignsV1, type AnalyticsWindowV1, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type CampaignDeletedV1, type CampaignListV1, type CampaignStatsV1, type CampaignV1, CampaignsResource, type ContactListResponse, type ContactRecord, ContactsResource, type CreateCampaignV1Request, type CreateContactRequest, type CreateSegmentV1Request, type CreateTemplateRequest, type CreateWebhookRequest, type CreateWorkflowV1Request, type CursorPage, type CursorPageQuery, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, EmailsResource, type ErrorEnvelope, type EventListV1, type EventNamesV1, type EventStatsV1, type EventStatsV1Query, type EventV1, EventsResource, type IdResponse, type IdempotencyOptions, type ListCampaignsV1Query, type ListContactsQuery, type ListEmailsQuery, type ListEventsV1Query, type ListSegmentContactsV1Query, type ListSegmentsV1Query, type ListSubscribeData, type ListSubscribeRequest, type ListSubscribeResponse, type ListSuppressionsQuery, type ListTemplatesQuery, type ListTopCampaignsV1Query, type ListUnsubscribeData, type ListUnsubscribeRequest, type ListUnsubscribeResponse, type ListWebhookCallsQuery, type ListWorkflowExecutionsV1Query, type ListWorkflowsV1Query, ListsResource, type Problem, type ProblemDocument, type ProblemFieldError, type RecordEventV1Request, type RequestOptions, SDK_VERSION, type SegmentContactListV1, type SegmentContactV1, type SegmentDeletedV1, type SegmentListV1, type SegmentV1, SegmentsResource, type SendCampaignV1Request, type SendEmailData, type SendEmailRequest, type SendEmailResponse, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type StartWorkflowExecutionV1Request, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateCampaignV1Request, type UpdateContactRequest, type UpdateSegmentV1Request, type UpdateTemplateRequest, type UpdateWebhookRequest, type UpdateWorkflowV1Request, UsageResource, type UsageV1, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type WorkflowDeletedV1, type WorkflowExecutionListV1, type WorkflowExecutionV1, type WorkflowListV1, type WorkflowStatsV1, type WorkflowStatsV1Query, type WorkflowV1, WorkflowsResource, asProblemDocument, type components, constructEvent, type operations, paginateCursor, type paths, verifySignature };
+export { type AddDomainRequest, type AddSuppressionRequest, type AnalyticsCampaignStatsV1, type AnalyticsCampaignsV1Query, AnalyticsResource, type AnalyticsTimeseriesV1, type AnalyticsTimeseriesV1Query, type AnalyticsTopCampaignsV1, type AnalyticsWindowV1, type AppPasswordRecord, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type CampaignDeletedV1, type CampaignListV1, type CampaignStatsV1, type CampaignV1, CampaignsResource, type ContactListResponse, type ContactRecord, ContactsResource, type CreateCampaignV1Request, type CreateContactRequest, type CreateSegmentV1Request, type CreateTemplateRequest, type CreateWebhookRequest, type CreateWorkflowV1Request, type CursorPage, type CursorPageQuery, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DomainListResponse, type DomainRecord, type DomainSetupSession, type DomainVerificationStatus, DomainsResource, type EmailGetResponse, type EmailListResponse, type EmailRecord, type EmailTestV1, type EmailV1, EmailsResource, type ErrorEnvelope, type EventListV1, type EventNamesV1, type EventStatsV1, type EventStatsV1Query, type EventV1, EventsResource, type IdResponse, type IdempotencyOptions, type ListCampaignsV1Query, type ListContactsQuery, type ListEmailsQuery, type ListEventsV1Query, type ListSegmentContactsV1Query, type ListSegmentsV1Query, type ListSubscribeData, type ListSubscribeRequest, type ListSubscribeResponse, type ListSuppressionsQuery, type ListTemplatesQuery, type ListTopCampaignsV1Query, type ListUnsubscribeData, type ListUnsubscribeRequest, type ListUnsubscribeResponse, type ListWebhookCallsQuery, type ListWorkflowExecutionsV1Query, type ListWorkflowsV1Query, ListsResource, type MailboxDetail, type MailboxRecord, MailboxesResource, type Problem, type ProblemDocument, type ProblemFieldError, type ProjectV1, ProjectsResource, type RecordEventV1Request, type RequestOptions, SDK_VERSION, type SegmentContactListV1, type SegmentContactV1, type SegmentDeletedV1, type SegmentListV1, type SegmentV1, SegmentsResource, type SendCampaignV1Request, type SendEmailData, type SendEmailRequest, type SendEmailResponse, type SendEmailV1Request, type SendTestEmailV1Request, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type StartWorkflowExecutionV1Request, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionListResponse, type SuppressionRecord, SuppressionResource, type TemplateListResponse, type TemplateRecord, TemplatesResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateCampaignV1Request, type UpdateContactRequest, type UpdateSegmentV1Request, type UpdateTemplateRequest, type UpdateWebhookRequest, type UpdateWorkflowV1Request, UsageResource, type UsageV1, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookGetResponse, type WebhookListResponse, type WebhookRecord, type WebhookRotateSecretResponse, WebhooksResource, type WorkflowDeletedV1, type WorkflowExecutionListV1, type WorkflowExecutionV1, type WorkflowListV1, type WorkflowStatsV1, type WorkflowStatsV1Query, type WorkflowV1, WorkflowsResource, asProblemDocument, type components, constructEvent, type operations, paginateCursor, type paths, verifySignature };

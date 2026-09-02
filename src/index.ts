@@ -23,6 +23,7 @@ export { SuppressionResource } from "./resources/suppression";
 export { EventsResource } from "./resources/events";
 export { VerifyResource } from "./resources/verify";
 export { ListsResource } from "./resources/lists";
+export { MailboxesResource } from "./resources/mailboxes";
 
 // /api/v1 resources — bare responses, snake_case fields, RFC 9457 errors.
 export { CampaignsResource } from "./resources/campaigns";
@@ -30,6 +31,7 @@ export { SegmentsResource } from "./resources/segments";
 export { WorkflowsResource } from "./resources/workflows";
 export { AnalyticsResource } from "./resources/analytics";
 export { UsageResource } from "./resources/usage";
+export { ProjectsResource } from "./resources/projects";
 
 export { paginateCursor } from "./pagination";
 export type { CursorPage, CursorPageQuery } from "./pagination";

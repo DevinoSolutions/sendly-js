@@ -239,6 +239,40 @@ deliberately no total count.
 only because `track` was taken. New integrations should prefer `record`, which
 also unlocks `events.list`, `events.listNames`, and `events.stats`.
 
+### Emails: `send` vs `sendV1`
+
+The same split, for the same reason. `emails.send` posts to the legacy
+`POST /api/emails` and is unchanged: it answers with row ids and **no delivery
+status**, so a caller cannot learn whether the message went anywhere.
+`emails.sendV1` posts to `/api/v1/emails` and answers `202` with
+`{ id, status, to, from }`, where `status` is a real delivery state you can poll
+on. It takes one recipient — use `cc`/`bcc` to copy others — instead of fanning
+an array out.
+
+`emails.sendTestV1` sends to the project's sandbox address, which is a real
+exercise of rendering and the send path that reaches no live recipient. Read
+`projects.get().sandbox_address` to know where it lands.
+
+Which of `send`/`sendV1` becomes the default is an open decision; nothing has
+been repointed.
+
+### What the SDK deliberately does not expose
+
+An API key resolves no user, and a handful of routes resolve the acting project
+admin from the session before reading any scope — so they answer `401` to any
+key, however broad its scopes. The contract states this: those operations
+publish `SessionAuth` without `ApiKeyAuth`.
+
+Rather than ship methods that could never succeed, they are listed in the
+contract suite's `NOT_SDK_CALLABLE` and checked against the spec's own
+declarations, in both directions. They are: creating and deleting a mailbox,
+creating and revoking an app password, all four API-key operations, and
+creating a project. Use the dashboard or an OAuth connection for those.
+
+Mailbox **reads** are exposed (`mailboxes.list`, `mailboxes.get`,
+`mailboxes.listAppPasswords`) — their membership check is conditional, so a key
+really can call them.
+
 ## Error handling
 
 Every non-2xx response throws a typed `SendlyError` subclass. Switch on the

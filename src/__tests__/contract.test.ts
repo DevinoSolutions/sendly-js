@@ -17,7 +17,8 @@ import { getCallBody, jsonResponse, makeClient } from "./helpers";
  *
  * Coverage is asserted in both directions and fails closed:
  *   - every spec operation is either mapped to an SDK method or explicitly
- *     listed in NOT_YET_IMPLEMENTED;
+ *     listed in NOT_YET_IMPLEMENTED (a gap) or NOT_SDK_CALLABLE (an operation
+ *     an API key cannot reach at all);
  *   - every SDK method targets a path+verb that exists in the spec.
  */
 
@@ -36,6 +37,8 @@ interface OpenApiOperation {
     content?: Record<string, { schema?: JsonSchema }>;
   };
   responses?: Record<string, { content?: Record<string, { schema?: JsonSchema }> }>;
+  /** "Any of" — the credentials this operation accepts. */
+  security?: Array<Record<string, string[]>>;
 }
 
 interface OpenApiSpec {
@@ -48,49 +51,53 @@ const SPEC_PATH = fileURLToPath(new URL("../../openapi.json", import.meta.url));
 const spec = JSON.parse(readFileSync(SPEC_PATH, "utf8")) as OpenApiSpec;
 
 // ---------------------------------------------------------------------------
-// Spec operations the SDK deliberately does not implement yet.
+// Spec operations the SDK does not implement, in two kinds — because "we have
+// not got to it" and "this can never work" are different facts, and collapsing
+// them means the second one nags forever as if it were the first.
 //
-// This is the fail-closed seam for spec additions: the suite rejects an entry
-// that is not a real spec operation, and rejects one that actually IS
-// implemented, so the list cannot rot into a blanket exemption.
-//
-// The entries below arrived with the platform's WP6 (API-key create/rotate,
-// domain setup handoff) and WP9 (mailboxes) work. Each needs a new resource
-// with a designed public surface — method names, argument shapes, pagination —
-// which is a deliberate API decision rather than spec fallout, so the spec is
-// carried forward at full fidelity and the surface is listed here instead of
-// being guessed at. Removing an entry means shipping the method.
+// Both are fail-closed: an entry must name a real spec operation, and must not
+// actually be implemented, so neither list can rot into a blanket exemption.
 // ---------------------------------------------------------------------------
 
-export const NOT_YET_IMPLEMENTED: readonly string[] = [
-  // Mailboxes (WP9) — no `mailboxes` resource exists yet.
-  "GET /api/mailboxes",
+/**
+ * NOT YET — a genuine gap. Empty: every key-callable operation is now mapped to
+ * a resource method. Retained as the seam for future spec additions.
+ */
+export const NOT_YET_IMPLEMENTED: readonly string[] = [];
+
+/**
+ * NEVER, by construction — the credential this SDK uses cannot call these.
+ *
+ * Each resolves the acting user (usually a project admin) from the session, and
+ * an API-key context carries no user, so the route answers 401
+ * `NOT_AUTHENTICATED` before reading a scope. This SDK authenticates only with
+ * `sk_`/`pk_` keys. Shipping methods for these would publish capabilities the
+ * credential cannot use — the same defect, one layer out, as an operation that
+ * advertises a credential its route refuses.
+ *
+ * NOT a maintenance burden and not a hand-maintained opinion: the contract now
+ * states this in machine-readable form. These operations publish `SessionAuth`
+ * and `OAuth2` but NOT `ApiKeyAuth`, and the test below checks each entry
+ * against that, in both directions. If one ever becomes key-callable, the spec
+ * gains `ApiKeyAuth` and the suite tells you to come build the method.
+ */
+export const NOT_SDK_CALLABLE: readonly string[] = [
+  // Mailbox writes. The three mailbox READS are implemented — their membership
+  // check is conditional, so a key really can call them.
   "POST /api/mailboxes",
-  "GET /api/mailboxes/{id}",
   "DELETE /api/mailboxes/{id}",
-  "GET /api/mailboxes/{id}/app-passwords",
   "POST /api/mailboxes/{id}/app-passwords",
   "DELETE /api/mailboxes/{id}/app-passwords/{passwordId}",
 
-  // API keys (WP6) — no `apiKeys` resource yet. `revealUrl` is in the types.
+  // Every api-key operation, reads included: all four guard unconditionally.
+  // An API key cannot mint, rotate, list or revoke an API key.
   "GET /api/projects/{id}/api-keys",
   "POST /api/projects/{id}/api-keys",
   "DELETE /api/projects/{id}/api-keys/{keyId}",
   "POST /api/projects/{id}/api-keys/{keyId}/rotate",
 
-  // Projects — no `projects` resource yet.
-  "GET /api/v1/projects",
+  // A project is created FOR a user; there is nothing for a key to act as.
   "POST /api/users/me/projects",
-
-  // Domain setup handoff (WP6) — belongs on the existing `domains` resource,
-  // but the handoff's return shape is a product decision, not a mapping.
-  "POST /api/domains/{id}/dodomain-session",
-
-  // v1 email send. `emails.send()` is still bound to the legacy no-status
-  // `POST /api/emails`; moving it is a breaking change, bundled with the
-  // MCP-vs-SDK naming pass rather than done piecemeal here.
-  "POST /api/v1/emails",
-  "POST /api/v1/emails/test",
 ];
 
 // ---------------------------------------------------------------------------
@@ -114,6 +121,8 @@ interface ManifestEntry {
 const MANIFEST: readonly ManifestEntry[] = [
   // emails
   { key: "emails.send", invoke: (c) => c.emails.send({ to: "user@example.com" }) },
+  { key: "emails.sendV1", invoke: (c) => c.emails.sendV1({ to: "user@example.com" }) },
+  { key: "emails.sendTestV1", invoke: (c) => c.emails.sendTestV1({ subject: "s", body: "b" }) },
   { key: "emails.batch", invoke: (c) => c.emails.batch({ emails: [{ to: "user@example.com" }] }) },
   { key: "emails.list", invoke: (c) => c.emails.list() },
   { key: "emails.get", invoke: (c) => c.emails.get(ID) },
@@ -136,7 +145,14 @@ const MANIFEST: readonly ManifestEntry[] = [
   { key: "domains.get", invoke: (c) => c.domains.get(ID) },
   { key: "domains.verify", invoke: (c) => c.domains.verify(ID) },
   { key: "domains.getVerification", invoke: (c) => c.domains.getVerification(ID) },
+  { key: "domains.startSetup", invoke: (c) => c.domains.startSetup(ID) },
   { key: "domains.delete", invoke: (c) => c.domains.delete(ID) },
+  // mailboxes (reads only — the writes are in NOT_SDK_CALLABLE)
+  { key: "mailboxes.list", invoke: (c) => c.mailboxes.list() },
+  { key: "mailboxes.get", invoke: (c) => c.mailboxes.get(ID) },
+  { key: "mailboxes.listAppPasswords", invoke: (c) => c.mailboxes.listAppPasswords(ID) },
+  // projects (v1)
+  { key: "projects.get", invoke: (c) => c.projects.get() },
   // templates
   {
     key: "templates.create",
@@ -233,11 +249,13 @@ const RESOURCE_NAMES = [
   "events",
   "verify",
   "lists",
+  "mailboxes",
   "campaigns",
   "segments",
   "workflows",
   "analytics",
   "usage",
+  "projects",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -336,10 +354,10 @@ describe("OpenAPI contract", () => {
     expect({ unmappedMethods, staleManifestEntries }).toEqual({ unmappedMethods: [], staleManifestEntries: [] });
   });
 
-  test("every spec operation is implemented by an SDK method or explicitly deferred", () => {
+  test("every spec operation is implemented by an SDK method or explicitly listed", () => {
     const implemented = new Set(sdkOps.values());
-    const deferred = new Set(NOT_YET_IMPLEMENTED);
-    const uncovered = [...specOperations()].filter((op) => !implemented.has(op) && !deferred.has(op)).sort();
+    const excused = new Set([...NOT_YET_IMPLEMENTED, ...NOT_SDK_CALLABLE]);
+    const uncovered = [...specOperations()].filter((op) => !implemented.has(op) && !excused.has(op)).sort();
     expect(uncovered).toEqual([]);
   });
 
@@ -358,6 +376,46 @@ describe("OpenAPI contract", () => {
     const notInSpec = NOT_YET_IMPLEMENTED.filter((op) => !ops.has(op));
     const actuallyImplemented = NOT_YET_IMPLEMENTED.filter((op) => implemented.has(op));
     expect({ notInSpec, actuallyImplemented }).toEqual({ notInSpec: [], actuallyImplemented: [] });
+  });
+
+  test("NOT_SDK_CALLABLE lists only real, unimplemented operations", () => {
+    const ops = specOperations();
+    const implemented = new Set(sdkOps.values());
+    const notInSpec = NOT_SDK_CALLABLE.filter((op) => !ops.has(op));
+    const actuallyImplemented = NOT_SDK_CALLABLE.filter((op) => implemented.has(op));
+    expect({ notInSpec, actuallyImplemented }).toEqual({ notInSpec: [], actuallyImplemented: [] });
+  });
+
+  test("NOT_SDK_CALLABLE is exactly the set of operations that refuse an API key", () => {
+    // The teeth, and the reason this list is not an opinion: the contract says
+    // which operations an API key can reach, so the list is checked against it
+    // rather than trusted. Both directions —
+    //   - an entry that DOES accept ApiKeyAuth is callable, so go build it;
+    //   - an operation that does NOT accept ApiKeyAuth and is missing from the
+    //     list is an undocumented dead end for every consumer of this SDK.
+    const keyCallable = (op: string): boolean => {
+      const [method, ...rest] = op.split(" ");
+      const operation = spec.paths[rest.join(" ")]?.[method!.toLowerCase()];
+      return (operation?.security ?? []).some((entry) => "ApiKeyAuth" in entry);
+    };
+
+    const listedButCallable = NOT_SDK_CALLABLE.filter((op) => keyCallable(op)).sort();
+    const refusesKeyButUnlisted = [...specOperations()]
+      .filter((op) => !keyCallable(op))
+      .filter((op) => !NOT_SDK_CALLABLE.includes(op))
+      // `/api/verify/*` is open — no security requirement at all — which is not
+      // the same fact as "refuses an API key". Exclude it by that property
+      // rather than by name, so a new open route needs no edit here.
+      .filter((op) => {
+        const [method, ...rest] = op.split(" ");
+        return (spec.paths[rest.join(" ")]?.[method!.toLowerCase()]?.security ?? []).length > 0;
+      })
+      .sort();
+
+    expect(
+      { listedButCallable, refusesKeyButUnlisted },
+      "NOT_SDK_CALLABLE must match the contract's own ApiKeyAuth declarations",
+    ).toEqual({ listedButCallable: [], refusesKeyButUnlisted: [] });
   });
 
   test("emails.send forwards every body field the spec marks required", async () => {

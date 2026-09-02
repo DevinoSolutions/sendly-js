@@ -55,6 +55,21 @@ export type DomainListResponse = components["schemas"]["DomainListResponse"];
 export type AddDomainRequest = components["schemas"]["AddDomainBody"];
 export type DomainVerificationStatus = components["schemas"]["DomainVerificationStatus"];
 
+/**
+ * The hand-off a caller opens in a browser to finish DNS setup. Inline in the
+ * spec rather than a named component, so it is read off the path.
+ */
+export type DomainSetupSession = NonNullable<
+  paths["/api/domains/{id}/dodomain-session"]["post"]["responses"][200]["content"]["application/json"]
+>["data"];
+
+// ---------- Mailboxes ----------
+
+export type MailboxRecord = components["schemas"]["Mailbox"];
+/** A mailbox plus the IMAP/SMTP host, port and username a mail client needs. */
+export type MailboxDetail = components["schemas"]["MailboxDetail"];
+export type AppPasswordRecord = components["schemas"]["AppPassword"];
+
 // ---------- Templates ----------
 
 export type TemplateRecord = components["schemas"]["Template"];
@@ -186,6 +201,20 @@ export type AnalyticsTimeseriesV1 = components["schemas"]["AnalyticsTimeseriesV1
 export type AnalyticsCampaignStatsV1 = components["schemas"]["AnalyticsCampaignStatsV1"];
 export type AnalyticsTopCampaignsV1 = components["schemas"]["AnalyticsTopCampaignsV1"];
 export type UsageV1 = components["schemas"]["UsageV1"];
+
+// ---------- Projects (v1) ----------
+
+export type ProjectV1 = components["schemas"]["ProjectV1"];
+
+// ---------- Email send (v1) ----------
+//
+// The versioned send. Distinct from the legacy `SendEmailRequest` above, which
+// posts to `/api/emails` and answers with row ids and no delivery status.
+
+export type SendEmailV1Request = components["schemas"]["SendEmailV1"];
+export type EmailV1 = components["schemas"]["EmailV1"];
+export type SendTestEmailV1Request = components["schemas"]["SendTestEmailV1"];
+export type EmailTestV1 = components["schemas"]["EmailTestV1"];
 
 export type AnalyticsTimeseriesV1Query = NonNullable<
   paths["/api/v1/analytics/timeseries"]["get"]["parameters"]["query"]

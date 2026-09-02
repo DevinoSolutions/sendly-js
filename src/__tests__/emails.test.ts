@@ -2,6 +2,69 @@ import { describe, expect, test } from "vitest";
 import { SendlyValidationError } from "../index";
 import { emptyResponse, getCall, getCallBody, jsonResponse, makeClient } from "./helpers";
 
+describe("emails resource (/api/v1 send)", () => {
+  test("sendV1 POSTs /api/v1/emails and resolves the bare receipt with a status", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(202, { id: "em_1", status: "PENDING", to: "user@example.com", from: "hi@acme.com" }),
+    );
+
+    const receipt = await client.emails.sendV1({ to: "user@example.com", subject: "hi", body: "<p>hi</p>" });
+
+    const { url, init } = getCall(fetchMock);
+    expect(url).toBe("http://localhost/api/v1/emails");
+    expect(init.method).toBe("POST");
+    // The whole reason this exists: the legacy send reports no delivery status.
+    expect(receipt.status).toBe("PENDING");
+    expect(receipt.id).toBe("em_1");
+  });
+
+  test("sendV1 forwards an idempotency key like the other v1 writes", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(202, { id: "em_1", status: "PENDING", to: "user@example.com", from: "hi@acme.com" }),
+    );
+
+    await client.emails.sendV1({ to: "user@example.com" }, { idempotencyKey: "key-123" });
+
+    const headers = getCall(fetchMock).init.headers as Record<string, string>;
+    expect(headers["Idempotency-Key"]).toBe("key-123");
+  });
+
+  test("sendV1 leaves the legacy send() pointed at /api/emails", async () => {
+    // Additive, not a migration: repointing send() would change what existing
+    // callers receive, and that is a breaking change taken deliberately or not
+    // at all. This test is what makes "additive" checkable rather than claimed.
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { emails: [], timestamp: "t" } }));
+
+    await client.emails.send({ to: "user@example.com" });
+
+    expect(getCall(fetchMock).url).toBe("http://localhost/api/emails");
+  });
+
+  test("sendTestV1 posts to the sandbox route and reports sandbox: true", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(202, {
+        id: "em_t1",
+        status: "PENDING",
+        to: "sandbox.proj_1@sendly.now",
+        from: "hi@acme.com",
+        sandbox: true,
+      }),
+    );
+
+    const receipt = await client.emails.sendTestV1({ subject: "hi", body: "<p>hi</p>" });
+
+    const { url, init } = getCall(fetchMock);
+    expect(url).toBe("http://localhost/api/v1/emails/test");
+    expect(getCallBody(fetchMock)).toEqual({ subject: "hi", body: "<p>hi</p>" });
+    expect(init.method).toBe("POST");
+    expect(receipt.sandbox).toBe(true);
+  });
+});
+
 describe("emails resource", () => {
   test("send POSTs /api/emails with bearer + body, unwrapping { emails, timestamp }", async () => {
     const { client, fetchMock } = makeClient();

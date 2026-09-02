@@ -1,5 +1,11 @@
 import type { Sendly } from "../client";
-import type { AddDomainRequest, DomainListResponse, DomainRecord, DomainVerificationStatus } from "../types";
+import type {
+  AddDomainRequest,
+  DomainListResponse,
+  DomainRecord,
+  DomainSetupSession,
+  DomainVerificationStatus,
+} from "../types";
 
 export class DomainsResource {
   constructor(private readonly client: Sendly) {}
@@ -53,6 +59,23 @@ export class DomainsResource {
     const envelope = await this.client.request<{ success: true; data: DomainVerificationStatus }>({
       method: "GET",
       path: `/api/domains/${encodeURIComponent(id)}/verify`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Start the guided DNS setup hand-off for a domain.
+   *
+   * Returns the session as the route returns it: a `connectUrl` to open in a
+   * browser, the `token` that url carries, and `expiresAt`. Nothing here is
+   * derived or reshaped — finishing setup means a person visiting that url and
+   * authorising the DNS change at their registrar, so the SDK's job is to hand
+   * back the link, not to model the flow behind it.
+   */
+  async startSetup(id: string): Promise<DomainSetupSession> {
+    const envelope = await this.client.request<{ success: true; data: DomainSetupSession }>({
+      method: "POST",
+      path: `/api/domains/${encodeURIComponent(id)}/dodomain-session`,
     });
     return this.client.unwrap(envelope);
   }
