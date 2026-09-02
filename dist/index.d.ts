@@ -13,12 +13,16 @@ interface paths {
         /**
          * List contacts
          * @description Cursor-paginated list of contacts. Supports filter by `search` and `subscribed`.
+         *
+         *     Requires the `contacts:read` scope — View your contacts and their custom fields.
          */
         get: operations["listContacts"];
         put?: never;
         /**
          * Create a contact
          * @description Create a new contact. Returns 409 on `(projectId, email)` conflict — use `/api/contacts/upsert` for create-or-update semantics.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
          */
         post: operations["createContact"];
         delete?: never;
@@ -39,11 +43,15 @@ interface paths {
         /**
          * Bulk-create contacts
          * @description Create up to 1000 contacts in one call. Per-row conflicts are reported as `skipped`.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
          */
         post: operations["bulkCreateContacts"];
         /**
          * Bulk-delete contacts
          * @description Delete up to 1000 contacts in one call. Provide either `ids` or `emails`.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
          */
         delete: operations["bulkDeleteContacts"];
         options?: never;
@@ -63,6 +71,8 @@ interface paths {
         /**
          * Create or update a contact by email
          * @description Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
          */
         post: operations["upsertContact"];
         delete?: never;
@@ -78,13 +88,18 @@ interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a contact */
+        /**
+         * Get a contact
+         * @description Requires the `contacts:read` scope — View your contacts and their custom fields.
+         */
         get: operations["getContact"];
         put?: never;
         post?: never;
         /**
          * Delete a contact
          * @description Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
          */
         delete: operations["deleteContact"];
         options?: never;
@@ -92,6 +107,8 @@ interface paths {
         /**
          * Update a contact
          * @description Update `data` and/or `subscribed`. `email` is immutable here — use `/api/contacts/upsert` to change addresses.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
          */
         patch: operations["updateContact"];
         trace?: never;
@@ -106,12 +123,16 @@ interface paths {
         /**
          * List sending domains
          * @description List all domains for the authenticated project.
+         *
+         *     Requires the `domains:read` scope — View your sending domains and their verification status.
          */
         get: operations["listDomains"];
         put?: never;
         /**
          * Add a sending domain
          * @description Register a new domain with SES and persist its DKIM tokens.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
          */
         post: operations["addDomain"];
         delete?: never;
@@ -127,15 +148,46 @@ interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a sending domain */
+        /**
+         * Get a sending domain
+         * @description Requires the `domains:read` scope — View your sending domains and their verification status.
+         */
         get: operations["getDomain"];
         put?: never;
         post?: never;
         /**
          * Remove a sending domain
          * @description Removes the domain from the project. The underlying SES identity is also dropped if no other project still uses it.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
          */
         delete: operations["deleteDomain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/{id}/dodomain-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start guided DNS setup
+         * @description Mint a short-lived guided-setup session for this domain and return the URL that opens it. The URL is the whole point: DNS records have to be published at the domain's registrar, which is a place only a person with those credentials can reach — so this call cannot finish the job, it hands it over.
+         *
+         *     The session is bound to this one domain, expires on its own, and returns the browser to the Sendly domains settings page when it is done. Verification authority stays with SES either way: guided setup publishes the records, it does not decide whether they are correct.
+         *
+         *     `503 DODOMAIN_NOT_CONFIGURED` when the deployment has no guided-setup provider. `429 DODOMAIN_SESSION_COOLDOWN` for a second call within 60s on the same domain — each session is metered, so a double submit is refused rather than charged twice.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        post: operations["startDomainSetup"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -151,12 +203,16 @@ interface paths {
         /**
          * Read SES verification status
          * @description Read the current SES verification status without forcing a refresh.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
          */
         get: operations["getDomainVerification"];
         put?: never;
         /**
          * Trigger SES verification
          * @description Force a refresh of the domain's SES verification status.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
          */
         post: operations["verifyDomain"];
         delete?: never;
@@ -175,12 +231,16 @@ interface paths {
         /**
          * List emails
          * @description List emails for the authenticated project. Cursor-paginated for stable scroll over large result sets.
+         *
+         *     Requires the `emails:read` scope — View the emails you have sent and their delivery status.
          */
         get: operations["listEmails"];
         put?: never;
         /**
          * Send a single transactional email
          * @description Send a single transactional email. Accepts a `template` ID or an inline `subject` + `body`. An optional `Idempotency-Key` request header (1–255 chars, 24h TTL) ensures replay safety: the first request wins and a retry carrying the same key AND the same body replays its response. Reusing a key with a DIFFERENT body answers `422 IDEMPOTENCY_KEY_REUSED` — a key names one request, so it is never silently served another request's result.
+         *
+         *     Requires the `emails:send` scope — Send emails from your verified domains.
          */
         post: operations["sendEmail"];
         delete?: never;
@@ -203,6 +263,8 @@ interface paths {
          * @description Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array.
          *
          *     The whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.
+         *
+         *     Requires the `emails:send` scope — Send emails from your verified domains.
          */
         post: operations["sendEmailBatch"];
         delete?: never;
@@ -221,6 +283,8 @@ interface paths {
         /**
          * Get a single email
          * @description Fetch one email along with its delivery events.
+         *
+         *     Requires the `emails:read` scope — View the emails you have sent and their delivery status.
          */
         get: operations["getEmail"];
         put?: never;
@@ -299,6 +363,208 @@ interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mailboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List mailboxes
+         * @description Every mailbox on the authenticated project's domains, newest first. Not paginated — a project may hold at most 10 mailboxes.
+         *
+         *     This lists the mailboxes themselves, never their contents: the messages a mailbox has received are not part of the public API and are not covered by this scope.
+         *
+         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
+         */
+        get: operations["listMailboxes"];
+        put?: never;
+        /**
+         * Create a mailbox
+         * @description Provision a real receiving mailbox — `support@yourdomain.com` — on a domain you have already verified.
+         *
+         *     Three consequences worth knowing before you call it:
+         *
+         *     - **It changes how your domain's mail is routed.** The first mailbox on a domain turns receiving on for that domain, so mail addressed there starts arriving at Sendly instead of wherever it went before.
+         *     - **The domain must be verified.** An unverified domain answers 409; creating a mailbox is not a way to skip DNS.
+         *     - **Ten per project.** The eleventh answers 409. Deleted mailboxes free their slot; failed ones never consumed one.
+         *
+         *     Retrying a failed provision with the same address reclaims the failed row rather than answering 409 — but only for the same project and the same domain.
+         *
+         *     `quotaBytes` is accepted by the schema and REFUSED with a 400. Quotas are not implemented, and the field is still parsed so that asking for one is an error rather than a silently dropped key.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        post: operations["createMailbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a mailbox
+         * @description One mailbox, with the IMAP and SMTP host/port/username a mail client needs. The password is not included: mailbox credentials are app passwords, created separately and shown once.
+         *
+         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
+         */
+        get: operations["getMailbox"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a mailbox
+         * @description Delete a mailbox and the mail account behind it. **Every message it holds is erased**, and Sendly keeps no other copy — this is not recoverable from the dashboard or by support. Mail sent to the address afterwards is rejected.
+         *
+         *     Requires an admin of the project.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        delete: operations["deleteMailbox"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}/app-passwords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a mailbox's app passwords
+         * @description Every app password on the mailbox — name, protocols, last four characters and last use. The secrets themselves are stored hashed and are not retrievable here or anywhere else; a password you have lost is replaced, not recovered.
+         *
+         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
+         */
+        get: operations["listAppPasswords"];
+        put?: never;
+        /**
+         * Create an app password
+         * @description Mint an IMAP/SMTP credential for the mailbox, so a mail client can connect to it.
+         *
+         *     **The secret is not in the response.** A delegated caller receives `revealUrl` — a single-use link that shows the password once in a browser, to a signed-in project admin. The connection that created the password cannot open its own link, and the link is spent by the first attempt to open it, successful or not.
+         *
+         *     That is deliberate and not a limitation to work around: an app password is a live mail credential that a client authenticates with directly, it outlives the grant that created it, and it is revoked from a different screen. Returning it inline would place a working mail credential in an agent's context, its transcript, and every log that transcript reaches.
+         *
+         *     Requires an admin of the project. An API key is refused with 401 — this endpoint needs a user, so use an OAuth connection.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        post: operations["createAppPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}/app-passwords/{passwordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an app password
+         * @description Revoke one app password. Any mail client still configured with it stops authenticating immediately — there is no grace period — and the mailbox and its messages are untouched.
+         *
+         *     Requires an admin of the project. An API key is refused with 401.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        delete: operations["revokeAppPassword"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List API keys for a project
+         * @description Returns every key on the project, revoked ones included — filter on `revokedAt` to show only live keys. Never returns a token or its hash: `lastFour` is the only fragment of the secret that survives creation.
+         *
+         *     Requires the `api-keys:read` scope — See which API keys exist, including what each one is allowed to do.
+         */
+        get: operations["listApiKeys"];
+        put?: never;
+        /**
+         * Create an API key
+         * @description Mint a new API key on the project. The token is NOT returned — the response carries the key's metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.
+         *
+         *     **Scope attenuation:** a key created with a delegated credential (an OAuth token or another API key) may not carry a scope that credential does not itself hold. A request that asks for more is refused with `400 SCOPE_ESCALATION` rather than quietly narrowed, so the mistake is reported where it was made instead of surfacing later as an unexplained 403. Naming only `permission` counts as asking for every scope that permission implies.
+         *
+         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
+         */
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}/api-keys/{keyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an API key
+         * @description Revoke an API key. Answers `{ success: true }` with no `data` key. 404 if the key does not exist under this project.
+         *
+         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
+         */
+        delete: operations["revokeApiKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}/api-keys/{keyId}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate an API key's secret
+         * @description Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the new secret is not returned: the response carries `lastFour` and a one-time `revealUrl`. A revoked key cannot be rotated (`400 KEY_REVOKED`).
+         *
+         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
+         */
+        post: operations["rotateApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/suppression": {
         parameters: {
             query?: never;
@@ -309,12 +575,16 @@ interface paths {
         /**
          * List suppressed emails
          * @description Cursor-paginated list of suppressed addresses. Filter by `reason`.
+         *
+         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
          */
         get: operations["listSuppressions"];
         put?: never;
         /**
          * Manually add an email to the suppression list
          * @description The `source` field is auto-derived: `API` for API-key callers, `DASHBOARD` for session callers.
+         *
+         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
          */
         post: operations["addSuppression"];
         delete?: never;
@@ -333,6 +603,8 @@ interface paths {
         /**
          * Check whether an email is suppressed
          * @description Returns `{ suppressed, reason?, source?, createdAt? }`. The path parameter must be URL-encoded.
+         *
+         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
          */
         get: operations["checkSuppression"];
         put?: never;
@@ -340,6 +612,8 @@ interface paths {
         /**
          * Remove an email from the suppression list
          * @description Idempotent. Silently no-ops if the suppression doesn't exist.
+         *
+         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
          */
         delete: operations["removeSuppression"];
         options?: never;
@@ -357,12 +631,16 @@ interface paths {
         /**
          * List templates
          * @description Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.
+         *
+         *     Requires the `templates:read` scope — View your email templates.
          */
         get: operations["listTemplates"];
         put?: never;
         /**
          * Create a template
          * @description Create a new email template. The `from` domain must already be verified for the project.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
          */
         post: operations["createTemplate"];
         delete?: never;
@@ -378,13 +656,18 @@ interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a template */
+        /**
+         * Get a template
+         * @description Requires the `templates:read` scope — View your email templates.
+         */
         get: operations["getTemplate"];
         put?: never;
         post?: never;
         /**
          * Delete a template
          * @description Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
          */
         delete: operations["deleteTemplate"];
         options?: never;
@@ -392,6 +675,8 @@ interface paths {
         /**
          * Update a template
          * @description Update one or more fields. If `from` changes, the new domain must already be verified.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
          */
         patch: operations["updateTemplate"];
         trace?: never;
@@ -408,8 +693,34 @@ interface paths {
         /**
          * Track a custom event for a contact
          * @description Record a custom event, creating or updating the contact by email as a side effect. Requires a FULL (`sk_*`) key — SENDING_ONLY (`pk_*`) keys answer 403, since recording events is not sending mail. Reserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected.
+         *
+         *     Requires the `events:write` scope — Record custom events for your contacts.
          */
         post: operations["trackEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/me/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a project
+         * @description Create a new project owned by the authenticated user. Answers the raw project row directly — no `{ success, data }` envelope — with status 201.
+         *
+         *     Preconditions the route enforces before writing: the caller's email must be verified, the caller must be under their cap on active (non-disabled) owned projects, and the call is rate-limited per user.
+         *
+         *     Requires the `projects:write` scope — Create new projects on your account.
+         */
+        post: operations["createProject"];
         delete?: never;
         options?: never;
         head?: never;
@@ -501,9 +812,9 @@ interface paths {
          * List campaigns
          * @description Cursor-paginated list of campaigns, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
          *
-         *     Requires the `campaigns:read` scope — View your campaigns and their performance.
-         *
          *     Unlike the legacy `/api/*` endpoints, v1 responses are the bare payload (no `{ success, data }` envelope) and errors are RFC 9457 problem documents.
+         *
+         *     Requires the `campaigns:read` scope — View your campaigns and their performance.
          */
         get: operations["v1ListCampaigns"];
         put?: never;
@@ -515,7 +826,7 @@ interface paths {
          *
          *     `segment_id` is required when `audience_type` is `SEGMENT`; `audience_condition` is required when it is `FILTERED`. Both answer 422 when missing.
          *
-         *     Requires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.
+         *     Requires the `campaigns:write` scope — Create, edit, and organize your campaigns.
          */
         post: operations["v1CreateCampaign"];
         delete?: never;
@@ -544,7 +855,7 @@ interface paths {
          * Delete a campaign
          * @description Delete a `DRAFT` campaign. A campaign that has sent is the record of what went out and cannot be deleted (400) — cancel it instead if it is still scheduled or in flight.
          *
-         *     Requires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.
+         *     Requires the `campaigns:write` scope — Create, edit, and organize your campaigns.
          */
         delete: operations["v1DeleteCampaign"];
         options?: never;
@@ -555,7 +866,7 @@ interface paths {
          *
          *     Changing `from` re-verifies the sender domain. Changing the audience on a `DRAFT` campaign schedules a recipient recount, so `stats.total_recipients` converges shortly after the response.
          *
-         *     Requires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.
+         *     Requires the `campaigns:write` scope — Create, edit, and organize your campaigns.
          */
         patch: operations["v1UpdateCampaign"];
         trace?: never;
@@ -575,7 +886,7 @@ interface paths {
          *
          *     Like every action on this resource, the response is the campaign itself, so `status` tells you what the transition did without a second request.
          *
-         *     Requires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.
+         *     Requires the `campaigns:write` scope — Create, edit, and organize your campaigns.
          */
         post: operations["v1CancelCampaign"];
         delete?: never;
@@ -597,7 +908,7 @@ interface paths {
          * Pause a sending campaign
          * @description Pause a `SENDING` campaign. The workers check the flag between batches, so a small number of already-queued emails may still be delivered after this returns. Takes no request body.
          *
-         *     Requires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.
+         *     Requires the `campaigns:write` scope — Create, edit, and organize your campaigns.
          */
         post: operations["v1PauseCampaign"];
         delete?: never;
@@ -619,7 +930,7 @@ interface paths {
          * Resume a paused campaign
          * @description Resume a `PAUSED` campaign from the last entry in its per-contact send ledger. That ledger also dedupes, so a contact already sent to is skipped rather than mailed twice. Takes no request body.
          *
-         *     Requires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.
+         *     Requires the `campaigns:write` scope — Create, edit, and organize your campaigns.
          */
         post: operations["v1ResumeCampaign"];
         delete?: never;
@@ -645,7 +956,7 @@ interface paths {
          *
          *     Answers 400 when the campaign is not `DRAFT`/`SCHEDULED` or has no recipients, and 403 when the send would exceed the project's billing limit.
          *
-         *     Requires the `campaigns:write` scope — Create, edit, schedule, and send your campaigns.
+         *     Requires the `campaigns:send` scope — Send or schedule your campaigns to their audience.
          */
         post: operations["v1SendCampaign"];
         delete?: never;
@@ -672,6 +983,64 @@ interface paths {
         get: operations["v1GetCampaignStats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a transactional email
+         * @description Send one transactional email and receive its delivery status in the same response. Accepts a `template` id or an inline `subject` + `body`.
+         *
+         *     This is the send to reach for when you need to know what happened. The legacy `POST /api/emails` answers with row ids and no status, so telling an accepted send from a refused one costs a second request; here the receipt carries `status`, and `from` reports the sender actually used — which is worth reading, since a template may have supplied it.
+         *
+         *     Exactly ONE recipient. A single receipt cannot describe a fan-out, so `to` takes one address: use `cc`/`bcc` to copy others on the same message, and `POST /api/emails/batch` to send different ones.
+         *
+         *     `202 Accepted` is the success answer, and `PENDING` the usual `status`: the message is queued for the sending pipeline, not yet handed to the provider. Later states (`DELIVERED`, `BOUNCED`, …) arrive by webhook.
+         *
+         *     An optional `Idempotency-Key` header (1–255 chars, 24h TTL) makes a retry safe: the first request wins and a retry carrying the same key AND body replays its receipt. Reusing a key with a different body answers 422 rather than serving another request's result.
+         *
+         *     Requires the `emails:send` scope — Send emails from your verified domains.
+         */
+        post: operations["v1SendEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/emails/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a sandbox test email
+         * @description Prove that sending works — before any domain, DNS record or verification exists.
+         *
+         *     The message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.
+         *
+         *     That restriction is the reason `emails:test` is a separate, non-sensitive scope: a call under it cannot put mail in a stranger's inbox, so it can sit in a default grant where `emails:send` may not. It is not a way to send real mail cheaply — use `POST /api/v1/emails` for that.
+         *
+         *     Sandbox sends are capped per project per day, and the response's `sandbox: true` marks the receipt so a relayed summary cannot pass a test send off as a real one.
+         *
+         *     Requires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.
+         */
+        post: operations["v1SendTestEmail"];
         delete?: never;
         options?: never;
         head?: never;
@@ -705,7 +1074,9 @@ interface paths {
          *
          *     This endpoint does NOT require an `Idempotency-Key`. Events are append-only and the highest-volume write on the surface; a duplicate is a data-quality question for the caller, not a money-path hazard.
          *
-         *     Requires the `events:write` scope — Record custom events for your contacts. Sending-only (`pk_*`) keys do NOT hold it.
+         *     Sending-only (`pk_*`) keys cannot record events — they hold the send capability and nothing else.
+         *
+         *     Requires the `events:write` scope — Record custom events for your contacts.
          */
         post: operations["v1TrackEvent"];
         delete?: never;
@@ -752,6 +1123,32 @@ interface paths {
          *     Requires the `events:read` scope — View the custom events your application has recorded.
          */
         get: operations["v1GetEventStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve the authenticated project
+         * @description The project the presented credential is scoped to — resolved from the API key, or from the `x-project-id` header for a session or delegated token. Singular despite the plural path, like `/api/v1/usage`: every v1 operation acts on exactly one project.
+         *
+         *     `sandbox_address` is this project's quick-start sender. It works with no domain setup, but only to the project owner's own verified address and under a daily cap — it is how you prove sending works end to end before any DNS exists. It is null when no handle can be derived (a project with no owner).
+         *
+         *     To enumerate every project you belong to — a different question, and not project-scoped — use `GET /api/users/me/projects`.
+         *
+         *     Requires the `projects:read` scope — View your projects and their settings.
+         */
+        get: operations["v1GetProject"];
         put?: never;
         post?: never;
         delete?: never;
@@ -892,9 +1289,9 @@ interface paths {
          * List workflows
          * @description Cursor-paginated list of workflows, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
          *
-         *     Requires the `workflows:read` scope — View your automation workflows and their runs.
-         *
          *     Unlike the legacy `/api/*` endpoints, v1 responses are the bare payload (no `{ success, data }` envelope) and errors are RFC 9457 problem documents.
+         *
+         *     Requires the `workflows:read` scope — View your automation workflows and their runs.
          */
         get: operations["v1ListWorkflows"];
         put?: never;
@@ -1051,12 +1448,16 @@ interface paths {
         /**
          * List user webhooks
          * @description List all user-managed outbound webhooks for the auth'd project (secrets are not returned).
+         *
+         *     Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.
          */
         get: operations["listWebhooks"];
         put?: never;
         /**
          * Create a webhook
          * @description Register a new outbound webhook. The plaintext signing secret is returned exactly once — store it securely.
+         *
+         *     Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
          */
         post: operations["createWebhook"];
         delete?: never;
@@ -1072,18 +1473,26 @@ interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a webhook */
+        /**
+         * Get a webhook
+         * @description Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.
+         */
         get: operations["getWebhook"];
         put?: never;
         post?: never;
         /**
          * Delete a webhook
          * @description Hard-delete a webhook. Cascades to all WebhookCall rows.
+         *
+         *     Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
          */
         delete: operations["deleteWebhook"];
         options?: never;
         head?: never;
-        /** Update a webhook */
+        /**
+         * Update a webhook
+         * @description Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
+         */
         patch: operations["updateWebhook"];
         trace?: never;
     };
@@ -1097,6 +1506,8 @@ interface paths {
         /**
          * List recent webhook calls
          * @description Cursor-paginated list of recent delivery attempts for a single webhook.
+         *
+         *     Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.
          */
         get: operations["listWebhookCalls"];
         put?: never;
@@ -1119,6 +1530,8 @@ interface paths {
         /**
          * Rotate the webhook signing secret
          * @description Generate a new shared secret. Returns the new plaintext secret exactly once.
+         *
+         *     Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
          */
         post: operations["rotateWebhookSecret"];
         delete?: never;
@@ -1196,6 +1609,76 @@ interface components {
             /** Format: date-time */
             to: string;
         };
+        /** @description An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created. */
+        ApiKey: {
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /** Format: uuid */
+            domainId: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description Last 4 characters of the token — the only fragment of the secret that survives creation. */
+            lastFour: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            lastUsedAt: string | null;
+            name: string;
+            /** @enum {string} */
+            permission: "FULL" | "SENDING_ONLY";
+            /** Format: uuid */
+            projectId: string;
+            /**
+             * Format: date-time
+             * @description Set once the key is revoked. Revoked keys are NOT filtered out of list/get responses.
+             */
+            revokedAt: string | null;
+            /** @description The explicit scope grant this key carries. Empty on a key minted before this column existed — that row's grant is derived from `permission` instead at request time. */
+            scopes: ("emails:send" | "emails:read" | "contacts:read" | "contacts:write" | "campaigns:read" | "campaigns:write" | "segments:read" | "segments:write" | "workflows:read" | "workflows:write" | "templates:read" | "templates:write" | "domains:read" | "domains:write" | "webhooks:read" | "webhooks:write" | "suppression:read" | "suppression:write" | "analytics:read" | "usage:read" | "events:read" | "events:write" | "projects:read" | "projects:write" | "api-keys:read" | "api-keys:write" | "campaigns:send" | "mailboxes:read" | "mailboxes:write" | "emails:test")[];
+        };
+        /** @description Every API key on the project, including revoked ones — filter on `revokedAt` for live keys. */
+        ApiKeyListResponse: {
+            data: components["schemas"]["ApiKey"][];
+            /** @enum {boolean} */
+            success: true;
+        };
+        /** @description An IMAP/SMTP credential for one mailbox, described but never reproduced. */
+        AppPassword: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            /** @description The last four characters of the secret — enough to tell two credentials apart, and nothing more. */
+            lastFour: string;
+            /**
+             * Format: date-time
+             * @description Null until a mail client has authenticated with it at least once.
+             */
+            lastUsedAt: string | null;
+            /** @description What the credential is for, e.g. `Thunderbird on my laptop`. */
+            name: string;
+            /** @description Which protocols this password may authenticate. `imap` reads, `smtp` sends. */
+            scopes: ("imap" | "smtp")[];
+        };
+        /** @description A newly created app password, handed over as a one-time link rather than as a secret. */
+        AppPasswordReveal: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: date-time
+             * @description When the link stops working. Five minutes after creation; the password itself does not expire.
+             */
+            revealExpiresAt: string;
+            /**
+             * Format: uri
+             * @description A single-use link that shows the password once, in a browser. Opening it requires a signed-in Sendly session belonging to a project admin — the connection that created the password cannot open it, and the second attempt to open it fails whoever makes it.
+             */
+            revealUrl: string;
+        };
         /** @description Per-row result in a batch send response. */
         BatchEntryResult: {
             data?: components["schemas"]["SendEmailData"];
@@ -1243,10 +1726,7 @@ interface components {
         };
         /** @description Body for POST /api/v1/campaigns. `segment_id` is required when `audience_type` is `SEGMENT`, and `audience_condition` is required when it is `FILTERED`. */
         CampaignV1Create: {
-            /** @description Filter condition: `{ logic: "AND" | "OR", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND. */
-            audience_condition?: {
-                [key: string]: unknown;
-            };
+            audience_condition?: components["schemas"]["FilterConditionV1"];
             /**
              * @description `ALL` — every subscribed contact. `FILTERED` — the contacts matching `audience_condition`. `SEGMENT` — the members of `segment_id`.
              * @enum {string}
@@ -1290,7 +1770,7 @@ interface components {
         CampaignV1Send: {
             /**
              * Format: date-time
-             * @description RFC 3339 timestamp, strictly in the future. Omit to start sending immediately.
+             * @description RFC 3339 timestamp, strictly in the future. A numeric UTC offset (`+02:00`) is accepted as well as `Z`. Omit to start sending immediately.
              */
             scheduled_for?: string;
         };
@@ -1309,10 +1789,7 @@ interface components {
         };
         /** @description Body for PATCH /api/v1/campaigns/{id}. All fields optional. */
         CampaignV1Update: {
-            /** @description Filter condition: `{ logic: "AND" | "OR", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND. */
-            audience_condition?: {
-                [key: string]: unknown;
-            };
+            audience_condition?: components["schemas"]["FilterConditionV1"];
             /** @enum {string} */
             audience_type?: "ALL" | "FILTERED" | "SEGMENT";
             body?: string;
@@ -1376,6 +1853,26 @@ interface components {
             /** @enum {boolean} */
             success: true;
         };
+        CreateApiKeyBody: {
+            /** Format: uuid */
+            domainId?: string | null;
+            name: string;
+            /** @enum {string} */
+            permission?: "FULL" | "SENDING_ONLY";
+            /** @description The explicit grant the new key will carry. Omitted ⇒ materialised from `permission`. A `SENDING_ONLY` key may carry only `emails:send`. */
+            scopes?: ("emails:send" | "emails:read" | "contacts:read" | "contacts:write" | "campaigns:read" | "campaigns:write" | "segments:read" | "segments:write" | "workflows:read" | "workflows:write" | "templates:read" | "templates:write" | "domains:read" | "domains:write" | "webhooks:read" | "webhooks:write" | "suppression:read" | "suppression:write" | "analytics:read" | "usage:read" | "events:read" | "events:write" | "projects:read" | "projects:write" | "api-keys:read" | "api-keys:write" | "campaigns:send" | "mailboxes:read" | "mailboxes:write" | "emails:test")[];
+        };
+        /** @description Body for POST /api/mailboxes/:id/app-passwords. */
+        CreateAppPassword: {
+            name: string;
+            /**
+             * @default [
+             *       "imap",
+             *       "smtp"
+             *     ]
+             */
+            scopes: ("imap" | "smtp")[];
+        };
         /** @description Body for POST /api/contacts and /api/contacts/upsert. */
         CreateContact: {
             /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
@@ -1386,6 +1883,23 @@ interface components {
             email: string;
             /** @default true */
             subscribed: boolean;
+        };
+        CreateMailboxBody: {
+            displayName?: string;
+            /**
+             * Format: uuid
+             * @description A VERIFIED domain belonging to this project.
+             */
+            domainId: string;
+            /** @description The part before the `@`, e.g. `support`. Lowercased server-side. */
+            localPart: string;
+            /**
+             * Format: uuid
+             * @description Defaults to the project the credential resolves to. Naming a different one is refused.
+             */
+            projectId?: string;
+            /** @description NOT IMPLEMENTED — sending any value answers 400. */
+            quotaBytes?: number;
         };
         /** @description Body for POST /api/templates. */
         CreateTemplate: {
@@ -1501,6 +2015,57 @@ interface components {
             /** @enum {boolean} */
             success: true;
         };
+        /** @description Receipt for a sandbox test send. */
+        EmailTestV1: {
+            /**
+             * Format: email
+             * @description This project's sandbox sender — resolved server-side, never from the body.
+             */
+            from: string;
+            /**
+             * Format: uuid
+             * @description The Email row this send created.
+             */
+            id: string;
+            /**
+             * @description Always true. It is here so a model relaying this result cannot describe a test send as a real one: the message came from the shared sandbox domain and could only reach the project owner's own inbox.
+             * @enum {boolean}
+             */
+            sandbox: true;
+            /**
+             * @description Delivery status at the moment of the response — `PENDING` for a send still queued.
+             * @enum {string}
+             */
+            status: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "OPENED" | "CLICKED" | "BOUNCED" | "COMPLAINED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
+            /**
+             * Format: email
+             * @description The recipient the message was queued for.
+             */
+            to: string;
+        };
+        /** @description Receipt for a single transactional send. */
+        EmailV1: {
+            /**
+             * Format: email
+             * @description The sender actually used. Worth reading rather than assuming: it is resolved server-side and may come from the template when the request named none.
+             */
+            from: string;
+            /**
+             * Format: uuid
+             * @description The Email row this send created. Quote it in support requests.
+             */
+            id: string;
+            /**
+             * @description Delivery status at the moment of the response — `PENDING` for a send the worker has not picked up yet, which is the usual answer. Later states arrive via webhooks, not here.
+             * @enum {string}
+             */
+            status: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "OPENED" | "CLICKED" | "BOUNCED" | "COMPLAINED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
+            /**
+             * Format: email
+             * @description The recipient the message was queued for.
+             */
+            to: string;
+        };
         /** @description Standard error envelope returned by all 4xx/5xx responses. Migrated routes include `success: false`; 422 validation errors add `error.details.errors`. */
         Error: {
             error: {
@@ -1564,6 +2129,17 @@ interface components {
             /** @description Pass as `after` to fetch the next page. `null` on the last page. */
             next_cursor: string | null;
         };
+        /** @description A filter condition: one or more groups combined with `logic`. */
+        FilterConditionV1: {
+            groups: components["schemas"]["FilterGroupV1"][];
+            /** @enum {string} */
+            logic: "AND" | "OR";
+        };
+        /** @description A group of filters. The filters inside one group ALWAYS combine with AND; `conditions` nests a further condition under this group, which is how OR-of-ANDs (and deeper) is expressed. */
+        FilterGroupV1: {
+            conditions?: components["schemas"]["FilterConditionV1"];
+            filters: components["schemas"]["SegmentFilterV1"][];
+        };
         /** @description Success envelope carrying the affected resource's id, e.g. after a delete. */
         IdResponse: {
             data: {
@@ -1621,6 +2197,53 @@ interface components {
             /** @enum {boolean} */
             success: true;
         };
+        /** @description A receiving mailbox on one of the project's verified domains. */
+        Mailbox: {
+            /**
+             * Format: email
+             * @description The full mailbox address, e.g. `support@superbooks.io`.
+             */
+            address: string;
+            /** Format: date-time */
+            createdAt: string;
+            displayName: string | null;
+            /**
+             * Format: uuid
+             * @description The verified domain this mailbox lives on.
+             */
+            domainId: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Always null. Mailbox quotas are not implemented — the value was never applied to the mail account — so this field reports the absence rather than a number nothing enforces. */
+            quotaBytes: number | null;
+            /**
+             * @description `PROVISIONING` while the mail account is being created, `ACTIVE` once it can receive, `SUSPENDED` when receiving is paused, `FAILED` when provisioning did not complete. A `FAILED` mailbox can be re-created with the same address — the retry reclaims the row.
+             * @enum {string}
+             */
+            status: "PROVISIONING" | "ACTIVE" | "SUSPENDED" | "FAILED";
+        };
+        /** @description A mailbox plus its IMAP/SMTP connection settings. */
+        MailboxDetail: components["schemas"]["Mailbox"] & {
+            /** @description Host, port and username for connecting a mail client. The PASSWORD is not here and is never returned by this endpoint — create an app password for that. */
+            settings: {
+                imap: {
+                    host: string;
+                    port: number;
+                    /** @description Transport security, e.g. `SSL/TLS`. */
+                    security: string;
+                    /** @description The mailbox address — it is also the login. */
+                    username: string;
+                };
+                smtp: {
+                    host: string;
+                    port: number;
+                    /** @description Transport security, e.g. `SSL/TLS`. */
+                    security: string;
+                    /** @description The mailbox address — it is also the login. */
+                    username: string;
+                };
+            };
+        };
         /** @description RFC 9457 problem document, served as `application/problem+json`. Returned by every 4xx/5xx response on the `/api/v1` surface. */
         Problem: {
             /** @description Machine-readable lowercase error code, e.g. `scope_missing`. */
@@ -1648,6 +2271,55 @@ interface components {
              */
             type: string;
         };
+        ProjectRecord: {
+            billingLimitCampaigns: number | null;
+            billingLimitInbound: number | null;
+            billingLimitTransactional: number | null;
+            billingLimitWorkflows: number | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            disabled: boolean;
+            disabledReason: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description ISO 639-1 code for customer-facing content. */
+            language: string;
+            name: string;
+            organizationId: string | null;
+            /** @description Local-part of the sandbox quick-start sender; null until first derived. */
+            sandboxHandle: string | null;
+            sesRegion: string | null;
+            stripeCustomerId: string | null;
+            stripeSubscriptionId: string | null;
+            /** @enum {string} */
+            tracking: "ENABLED" | "DISABLED" | "MARKETING_ONLY";
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
+        };
+        /** @description The project the presented credential is scoped to. */
+        ProjectV1: {
+            /** Format: date-time */
+            created_at: string;
+            /** @description A disabled project sends nothing; every send is refused. */
+            disabled: boolean;
+            /** Format: uuid */
+            id: string;
+            /** @description ISO 639-1 code for customer-facing content. */
+            language: string;
+            name: string;
+            /** @description This project's quick-start sender, usable with no domain setup — but only to the project owner's own verified address, and under a daily cap. Null when none can be derived. */
+            sandbox_address: string | null;
+            /** @description Locked once the first domain is added. */
+            ses_region: string | null;
+            /** @enum {string} */
+            tracking: "ENABLED" | "DISABLED" | "MARKETING_ONLY";
+        };
         /** @description A contact belonging to a segment. */
         SegmentContactV1: {
             /** Format: date-time */
@@ -1668,12 +2340,18 @@ interface components {
             /** @description Pass as `after` to fetch the next page. `null` on the last page. */
             next_cursor: string | null;
         };
+        /** @description One comparison. `field` addresses a contact column (`email`, `createdAt`, …) or a `customFields.<key>` path. `value` is whatever the operator compares against — its JSON type follows the field, and it is omitted entirely for the presence operators (`exists`, `notExists`). `unit` applies only to the relative-time operators (`within`, `olderThan`, and the `triggered*` family). */
+        SegmentFilterV1: {
+            field: string;
+            /** @enum {string} */
+            operator: "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "exists" | "notExists" | "within" | "olderThan" | "triggered" | "triggeredWithin" | "triggeredOlderThan" | "notTriggered" | "notTriggeredWithin" | "isMemberOf";
+            /** @enum {string} */
+            unit?: "days" | "hours" | "minutes";
+            value?: unknown;
+        };
         /** @description A segment as exposed on the v1 API. */
         SegmentV1: {
-            /** @description Filter condition: `{ logic: "AND" | "OR", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND. */
-            condition: {
-                [key: string]: unknown;
-            };
+            condition: components["schemas"]["FilterConditionV1"] | null;
             /** Format: date-time */
             created_at: string;
             description: string | null;
@@ -1689,10 +2367,7 @@ interface components {
         };
         /** @description Body for POST /api/v1/segments. `condition` is required when `type` is `DYNAMIC`. */
         SegmentV1Create: {
-            /** @description Filter condition: `{ logic: "AND" | "OR", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND. */
-            condition?: {
-                [key: string]: unknown;
-            };
+            condition?: components["schemas"]["FilterConditionV1"];
             description?: string;
             name: string;
             /**
@@ -1722,10 +2397,7 @@ interface components {
         };
         /** @description Body for PATCH /api/v1/segments/{id}. `type` is deliberately absent — it is fixed at creation. `condition` is ignored on a STATIC segment. */
         SegmentV1Update: {
-            /** @description Filter condition: `{ logic: "AND" | "OR", groups: [{ filters: [{ field, operator, value?, unit? }], conditions?: <nested condition> }] }`. `field` addresses a contact column or a `customFields.<key>` path; `operator` is one of the segment operators (equals, notEquals, contains, greaterThan, lessThan, within, exists, …). Groups combine with `logic`; filters inside one group always combine with AND. */
-            condition?: {
-                [key: string]: unknown;
-            };
+            condition?: components["schemas"]["FilterConditionV1"];
             description?: string;
             name?: string;
             track_membership?: boolean;
@@ -1801,6 +2473,62 @@ interface components {
             data: components["schemas"]["SendEmailData"];
             /** @enum {boolean} */
             success: true;
+        };
+        /** @description Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient. */
+        SendEmailV1: {
+            attachments?: {
+                content: string;
+                contentId?: string;
+                contentType: string;
+                /**
+                 * @default attachment
+                 * @enum {string}
+                 */
+                disposition: "attachment" | "inline";
+                filename: string;
+            }[];
+            bcc?: string[];
+            body?: string;
+            cc?: string[];
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            data?: {
+                [key: string]: unknown;
+            };
+            from?: string | {
+                /** Format: email */
+                email: string;
+                name?: string;
+            };
+            headers?: {
+                [key: string]: string;
+            };
+            name?: string;
+            /** Format: email */
+            reply?: string;
+            subject?: string;
+            subscribed?: boolean;
+            tags?: string[];
+            /** Format: uuid */
+            template?: string;
+            /** @description The single recipient. Use `cc`/`bcc` to copy others on the same message. */
+            to: string | {
+                /** Format: email */
+                email: string;
+                name?: string;
+            };
+        };
+        /** @description Body for POST /api/v1/emails/test. `subject` and `body` are required; `to` defaults to the project owner's verified email, and `from` is refused. */
+        SendTestEmailV1: {
+            /** @description HTML body. Merge tags are rendered as on any other send. */
+            body: string;
+            /** @description NOT ACCEPTED. The sender is always this project's sandbox address, resolved server-side; naming one here is refused rather than ignored, so a request that expects a different sender never gets a success it would misread. Read `sandbox_address` from `GET /api/v1/projects` to learn the address, or `from` off this response. */
+            from?: string;
+            subject: string;
+            /**
+             * Format: email
+             * @description Where to send it. Optional — it defaults to the project owner's own verified account email, which is the only address a sandbox send may reach. Any other value is refused.
+             */
+            to?: string;
         };
         /** @description Bare success envelope with no payload. */
         SuccessEmpty: {
@@ -3027,6 +3755,15 @@ interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description AWS SES rejected the identity setup (unusable credentials, a missing IAM permission, or a refusal on Amazon's side). No domain row is written, and the request is not at fault — retrying it unchanged will not help. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getDomain: {
@@ -3127,6 +3864,95 @@ interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuccessEmpty"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startDomainSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guided setup session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /**
+                             * Format: uri
+                             * @description Open this in a browser to publish the records. Short-lived and domain-specific.
+                             */
+                            connectUrl: string;
+                            /** @description When `connectUrl` stops working. */
+                            expiresAt: string;
+                            token: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
+                    };
                 };
             };
             /** @description Validation error */
@@ -3972,6 +4798,925 @@ interface operations {
             };
         };
     };
+    listMailboxes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mailbox list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Mailbox"][];
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createMailbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMailboxBody"];
+            };
+        };
+        responses: {
+            /** @description Mailbox provisioned */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Mailbox"];
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The address already exists, the domain is not verified, or the project is at its 10-mailbox limit. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Provisioning failed in the mail server. The mailbox row is left `FAILED` and can be retried. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMailbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mailbox with connection settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MailboxDetail"];
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteMailbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mailbox deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {boolean} */
+                            deleted: true;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAppPasswords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description App password list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AppPassword"][];
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAppPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAppPassword"];
+            };
+        };
+        responses: {
+            /** @description App password created; the secret is behind the one-time link */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AppPasswordReveal"];
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeAppPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                passwordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description App password revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @enum {boolean} */
+                            revoked: true;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listApiKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyListResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiKeyBody"];
+            };
+        };
+        responses: {
+            /** @description API key created; the secret is behind the reveal link. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created. */
+                        data: components["schemas"]["ApiKey"] & {
+                            /**
+                             * Format: date-time
+                             * @description When the reveal link stops working. Create or rotate again to get a new one.
+                             */
+                            revealExpiresAt: string;
+                            /**
+                             * Format: uri
+                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
+                             */
+                            revealUrl: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+                /** @description API key id. */
+                keyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEmpty"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rotateApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+                /** @description API key id. */
+                keyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key rotated; the new secret is behind the reveal link. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            lastFour: string;
+                            /**
+                             * Format: date-time
+                             * @description When the reveal link stops working. Create or rotate again to get a new one.
+                             */
+                            revealExpiresAt: string;
+                            /**
+                             * Format: uri
+                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
+                             */
+                            revealUrl: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listSuppressions: {
         parameters: {
             query?: {
@@ -4705,6 +6450,91 @@ interface operations {
             };
             /** @description Forbidden — insufficient permissions or project disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /**
+                     * @description AWS SES region for the project. Once a domain is added the region is locked and cannot be changed.
+                     * @enum {string}
+                     */
+                    sesRegion?: "us-east-1" | "us-west-2" | "eu-west-1";
+                };
+            };
+        };
+        responses: {
+            /** @description Project created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRecord"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5792,6 +7622,192 @@ interface operations {
             };
         };
     };
+    v1SendEmail: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Replay-safety key (24h TTL). Reuse it only to retry the identical request. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendEmailV1"];
+            };
+        };
+        responses: {
+            /** @description Email queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_disabled`, `domain_not_allowed` — the `from` address does not resolve to a verified domain on this project — or `content_rejected`: automated content review flagged the message and it was not sent. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — `template` names a template that does not belong to this project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — the body did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `content_review_unavailable` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1SendTestEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendTestEmailV1"];
+            };
+        };
+        responses: {
+            /** @description Test email queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTestV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient), or `content_rejected` from automated content review. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner; no retry fixes it. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — the body did not match the schema, most often because it named a `from`. A test send always comes from the sandbox address. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — the project's daily sandbox send cap is spent. It resets at 00:00 UTC. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `content_review_unavailable` — content review could not run for this new account. Safe to retry. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     v1ListEvents: {
         parameters: {
             query?: {
@@ -6040,6 +8056,80 @@ interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The authenticated project */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — the project was deleted between authentication and this read. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

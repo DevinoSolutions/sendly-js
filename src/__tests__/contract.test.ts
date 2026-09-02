@@ -50,13 +50,48 @@ const spec = JSON.parse(readFileSync(SPEC_PATH, "utf8")) as OpenApiSpec;
 // ---------------------------------------------------------------------------
 // Spec operations the SDK deliberately does not implement yet.
 //
-// Empty: every spec operation is now mapped to a resource method. Retained
-// (with its guards) as the fail-closed seam for future spec additions — the
-// suite fails if an entry is not a real spec operation, and fails if an entry
-// actually IS implemented (stale entry).
+// This is the fail-closed seam for spec additions: the suite rejects an entry
+// that is not a real spec operation, and rejects one that actually IS
+// implemented, so the list cannot rot into a blanket exemption.
+//
+// The entries below arrived with the platform's WP6 (API-key create/rotate,
+// domain setup handoff) and WP9 (mailboxes) work. Each needs a new resource
+// with a designed public surface — method names, argument shapes, pagination —
+// which is a deliberate API decision rather than spec fallout, so the spec is
+// carried forward at full fidelity and the surface is listed here instead of
+// being guessed at. Removing an entry means shipping the method.
 // ---------------------------------------------------------------------------
 
-export const NOT_YET_IMPLEMENTED: readonly string[] = [];
+export const NOT_YET_IMPLEMENTED: readonly string[] = [
+  // Mailboxes (WP9) — no `mailboxes` resource exists yet.
+  "GET /api/mailboxes",
+  "POST /api/mailboxes",
+  "GET /api/mailboxes/{id}",
+  "DELETE /api/mailboxes/{id}",
+  "GET /api/mailboxes/{id}/app-passwords",
+  "POST /api/mailboxes/{id}/app-passwords",
+  "DELETE /api/mailboxes/{id}/app-passwords/{passwordId}",
+
+  // API keys (WP6) — no `apiKeys` resource yet. `revealUrl` is in the types.
+  "GET /api/projects/{id}/api-keys",
+  "POST /api/projects/{id}/api-keys",
+  "DELETE /api/projects/{id}/api-keys/{keyId}",
+  "POST /api/projects/{id}/api-keys/{keyId}/rotate",
+
+  // Projects — no `projects` resource yet.
+  "GET /api/v1/projects",
+  "POST /api/users/me/projects",
+
+  // Domain setup handoff (WP6) — belongs on the existing `domains` resource,
+  // but the handoff's return shape is a product decision, not a mapping.
+  "POST /api/domains/{id}/dodomain-session",
+
+  // v1 email send. `emails.send()` is still bound to the legacy no-status
+  // `POST /api/emails`; moving it is a breaking change, bundled with the
+  // MCP-vs-SDK naming pass rather than done piecemeal here.
+  "POST /api/v1/emails",
+  "POST /api/v1/emails/test",
+];
 
 // ---------------------------------------------------------------------------
 // Invocation manifest: how to exercise each SDK method with minimal valid
