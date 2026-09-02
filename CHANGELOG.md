@@ -35,7 +35,7 @@ behaviour.
   example named a field the API does not accept, so copying it produced a `422`.
 - **README: the sandbox test send was described backwards.** It said
   `sandbox_address` was where a test send lands; it is the address a test send
-  comes *from*, and the mail arrives in the project owner's own inbox.
+  comes _from_, and the mail arrives in the project owner's own inbox.
 
 ### Notes
 
@@ -50,6 +50,11 @@ behaviour.
   to any API key. They are recorded in the contract suite's `NOT_SDK_CALLABLE`,
   which the suite asserts equals the set the contract itself declares — in both
   directions. Use the dashboard or an OAuth connection.
+- **A project is capped at 10 mailboxes**, counting only `PROVISIONING`,
+  `ACTIVE` and `SUSPENDED`. `FAILED` rows are excluded from the cap but are
+  still returned by `mailboxes.list()`, so a project that has had failed
+  provisions can list more than 10 — the `list()` docstring said "at most 10"
+  without that distinction and now states it.
 
 ## 0.4.0
 

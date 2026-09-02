@@ -10412,9 +10412,15 @@ declare class MailboxesResource {
     /**
      * Every mailbox on the project's domains, newest first.
      *
-     * Not paginated — a project may hold at most 10 mailboxes. This lists the
-     * mailboxes themselves, never their contents: received messages are not part
-     * of the public API.
+     * Not paginated. A project is capped at 10 mailboxes, but the cap counts only
+     * those holding (or mid-way to holding) a real account — `PROVISIONING`,
+     * `ACTIVE` and `SUSPENDED`. `FAILED` rows are excluded from it deliberately,
+     * so that a Stalwart outage cannot spend a project's whole allowance, and
+     * they are still returned here: a project with a run of failed provisions can
+     * therefore list more than 10.
+     *
+     * This lists the mailboxes themselves, never their contents: received
+     * messages are not part of the public API.
      */
     list(): Promise<MailboxRecord[]>;
     /**
@@ -10425,7 +10431,10 @@ declare class MailboxesResource {
      */
     get(id: string): Promise<MailboxDetail>;
     /**
-     * The app passwords issued for a mailbox — metadata only.
+     * The app passwords still active on a mailbox — metadata only.
+     *
+     * Revoked ones are not returned: the route filters on `revokedAt: null`, so
+     * this is the set that can currently authenticate, not an audit history.
      *
      * `lastFour` is the only fragment of the secret that survives creation, so
      * this can identify a credential without being able to reconstruct it.
