@@ -6,7 +6,9 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Mondays 09:00 UTC — surface live-spec drift even without a push.
+    # Mondays 09:00 UTC — surface spec drift even without a push. Only does
+    # anything once the SENDLY_OPENAPI_URL repository variable is set; see the
+    # drift step at the end of this file.
     - cron: "0 9 * * 1"
 
 concurrency:
@@ -53,9 +55,19 @@ jobs:
         run: pnpm build
 
       # Non-blocking: warn (do not fail) when the committed spec has drifted
-      # from the live public API, so external contributors are never blocked
-      # by a production change they did not make. The weekly schedule surfaces
-      # drift without a push; `pnpm sync-spec` refreshes the committed copy.
-      - name: Live spec drift (non-blocking)
+      # from the reference contract, so external contributors are never blocked
+      # by a platform change they did not make. `pnpm sync-spec` refreshes the
+      # committed copy.
+      #
+      # This step previously fetched https://api.sendly.now on every push, every
+      # pull request (forks included) and every weekly cron. Syncing the SDK spec
+      # from production is forbidden, so the source is now explicit: the step
+      # compares against whatever the SENDLY_OPENAPI_URL repository variable
+      # names, and SKIPS with a notice when that variable is unset. Until a
+      # maintainer sets it to a non-production contract, this step and the weekly
+      # schedule above are inert by design.
+      - name: Spec drift (non-blocking)
         run: pnpm check-spec-drift
+        env:
+          SENDLY_OPENAPI_URL: ${{ vars.SENDLY_OPENAPI_URL }}
         continue-on-error: true
