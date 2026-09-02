@@ -3,9 +3,9 @@
 Official TypeScript SDK for the [Sendly](https://sendly.now) REST API.
 
 Type-safe email, contact, domain, template, webhook, and suppression
-operations, plus the versioned `/api/v1` surface — campaigns, segments,
-workflows, analytics, and usage. Generated from the public OpenAPI spec, so
-every endpoint and schema stays in sync.
+operations, plus mailbox and project reads and the versioned `/api/v1`
+surface — campaigns, segments, workflows, analytics, and usage. Generated from
+the public OpenAPI spec, so every endpoint and schema stays in sync.
 
 > This repository is the official standalone home and source of truth for the
 > Sendly TypeScript SDK — issues and PRs are welcome here. Its surface is
@@ -129,10 +129,51 @@ const contact = await sendly.contacts.upsert({
 ### Manage domains
 
 ```ts
-const domain = await sendly.domains.create({ name: "mail.your-domain.com" });
+const domain = await sendly.domains.create({ domain: "mail.your-domain.com" });
 await sendly.domains.verify(domain.id);
 const status = await sendly.domains.getVerification(domain.id);
 ```
+
+Pass `region` to pin the domain to an SES region (`us-east-1`, `us-west-2` or
+`eu-west-1`). The first domain locks the project's region; later ones must match
+it.
+
+Publishing the DNS records by hand is not the only route. `startSetup` opens the
+guided hand-off and returns the session exactly as the API returns it:
+
+```ts
+const session = await sendly.domains.startSetup(domain.id);
+// { token, connectUrl, expiresAt } — connectUrl is short-lived and domain-specific.
+console.log("finish setup at", session.connectUrl, "before", session.expiresAt);
+```
+
+Nothing here is reshaped, because finishing setup means a **person** opening
+`connectUrl` and authorising the change at their registrar. The SDK's job is to
+hand back the link, not to model the flow behind it.
+
+### Read mailboxes
+
+Receiving mailboxes on the project's verified domains. Reads only — see
+[What the SDK deliberately does not expose](#what-the-sdk-deliberately-does-not-expose).
+
+```ts
+const mailboxes = await sendly.mailboxes.list(); // not paginated
+const mailbox = await sendly.mailboxes.get(mailboxes[0].id);
+
+// `settings` carries the IMAP and SMTP host, port, security and username.
+console.log(mailbox.settings.imap.host, mailbox.settings.imap.port);
+
+// App passwords, metadata only — `lastFour` is the one fragment of the secret
+// that survives creation, so a credential can be identified but not rebuilt.
+for (const pw of await sendly.mailboxes.listAppPasswords(mailbox.id)) {
+  console.log(pw.name, pw.lastFour, pw.lastUsedAt);
+}
+```
+
+This lists the mailboxes themselves, never their contents — received messages
+are not part of the public API. The mailbox **password** is never returned by
+any of these reads; mailbox credentials are app passwords, created from the
+dashboard and shown once.
 
 ### Subscribe a webhook
 
@@ -249,12 +290,51 @@ status**, so a caller cannot learn whether the message went anywhere.
 on. It takes one recipient — use `cc`/`bcc` to copy others — instead of fanning
 an array out.
 
-`emails.sendTestV1` sends to the project's sandbox address, which is a real
-exercise of rendering and the send path that reaches no live recipient. Read
-`projects.get().sandbox_address` to know where it lands.
-
 Which of `send`/`sendV1` becomes the default is an open decision; nothing has
 been repointed.
+
+`sendV1` accepts an `idempotencyKey`; `sendTestV1` deliberately does not (see
+[Idempotency](#idempotency)).
+
+```ts
+const receipt = await sendly.emails.sendV1(
+  { to: "user@example.com", subject: "Order confirmed", body: "<p>Thanks.</p>" },
+  { idempotencyKey: `order-${orderId}` },
+);
+console.log(receipt.id, receipt.status); // status is a real delivery state
+```
+
+### Test sends
+
+`emails.sendTestV1` proves the send path works without touching a live
+recipient. Two things about it are easy to get backwards:
+
+- **The sandbox address is the _sender_, not the destination.** It is resolved
+  server-side, and naming a `from` yourself is **refused** rather than ignored —
+  so a request expecting a different sender never gets a success it would
+  misread. `projects.get().sandbox_address` tells you what it sends _from_; the
+  response's `from` says the same thing.
+- **It lands in the project owner's own inbox.** `to` is optional and defaults
+  to the project owner's verified account email, which is the only address a
+  sandbox send may reach — any other value is refused.
+
+```ts
+const test = await sendly.emails.sendTestV1({ subject: "hi", body: "<p>hi</p>" });
+console.log(test.to, test.from, test.sandbox); // sandbox is always true here
+```
+
+Everything else applies unchanged: the same rendering, the same content scan,
+the same daily and trust-tier caps as a real send.
+
+### The current project
+
+```ts
+const project = await sendly.projects.get();
+console.log(project.name, project.sandbox_address, project.ses_region);
+```
+
+Takes no id — the project is whichever one the API key belongs to. There is no
+`create` here; see below.
 
 ### What the SDK deliberately does not expose
 
@@ -375,10 +455,14 @@ surface as `VALIDATION_ERROR`.
 
 Pass `idempotencyKey` on any write that supports it (`emails.send`,
 `emails.batch`, `contacts.create`, `contacts.upsert`, `contacts.bulkCreate`,
-and on `/api/v1` exactly `campaigns.create` and `campaigns.send`) to make
-retries safe. Replays within 24 hours return the original result instead of
-acting twice. `events.record` deliberately takes no key — events are
-append-only, high-volume writes.
+and on `/api/v1` exactly `emails.sendV1`, `campaigns.create` and
+`campaigns.send`) to make retries safe. Replays within 24 hours return the
+original result instead of acting twice.
+
+Two v1 writes deliberately take no key. `events.record` is append-only and
+high-volume. `emails.sendTestV1` reaches only the caller's own inbox, a daily
+cap already bounds it, and "send me another one" is the normal second call
+rather than a mistake worth deduplicating.
 
 ```ts
 await sendly.emails.send({ from, to, subject, html }, { idempotencyKey: `signup-${userId}` });
