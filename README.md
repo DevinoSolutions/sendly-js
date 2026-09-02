@@ -60,13 +60,36 @@ import { Sendly } from "sendly-sdk";
 
 const sendly = new Sendly({ apiKey: process.env.SENDLY_API_KEY! });
 
-await sendly.emails.send({
+const receipt = await sendly.emails.send({
   from: "hello@your-domain.com",
   to: "user@example.com",
   subject: "Welcome to Acme",
-  html: "<p>Glad to have you.</p>",
+  body: "<p>Glad to have you.</p>",
 });
+console.log(receipt.id, receipt.status); // status is a real delivery state
 ```
+
+## Upgrading from 0.x
+
+**1.0 repoints `emails.send` to the versioned `POST /api/v1/emails`.** It now
+takes one recipient (`cc`/`bcc` copy others) and resolves the `202` receipt
+`{ id, status, to, from }`, where `status` is a real delivery state. Before 1.0
+it posted to the legacy `POST /api/emails`, fanned an array `to` out to several
+recipients, and resolved `{ emails, timestamp }` with no delivery status.
+
+The old behaviour is kept, unchanged, as `emails.sendLegacy`. Two ways to
+upgrade:
+
+- **Keep the old shapes:** rename the call. `send(...)` → `sendLegacy(...)`.
+  Done.
+- **Take the new default:** read the receipt instead of the envelope
+  (`receipt.id` / `receipt.status` in place of `result.emails[0].email`), send
+  to one recipient per call, and note that failures now carry the v1 error
+  fields (`errorCode` is lowercase, `requestId` and `fieldErrors` are set) —
+  the `SendlyError` subclasses are the same, so `instanceof` checks stand.
+
+Nothing else changed shape. See [CHANGELOG.md](./CHANGELOG.md) for the full
+1.0.0 entry.
 
 ## Authentication
 
@@ -87,22 +110,38 @@ const sendly = new Sendly({
 ### Send a single email
 
 ```ts
-const result = await sendly.emails.send(
+const receipt = await sendly.emails.send(
   {
     from: "hello@your-domain.com",
-    to: "user@example.com",
+    to: "user@example.com", // one recipient; `cc` / `bcc` copy others
     subject: "Order confirmed",
-    html: "<p>Thanks for your order.</p>",
+    body: "<p>Thanks for your order.</p>",
   },
   { idempotencyKey: "order-confirm-12345" }, // optional, replays deduped 24h
 );
 
-// `result` is `{ emails, timestamp }` with one `emails` entry per recipient —
-// an array `to` fans out to several. Each entry is
-// `{ contact: { id, email }, email }`, where `email` is the id of the queued
-// email record for that recipient. Poll `emails.get(id)` for its status.
-const emailId = result.emails[0].email;
-console.log("queued", emailId, "at", result.timestamp);
+// `receipt` is `{ id, status, to, from }`, answered with 202. `status` is a real
+// delivery state — poll `emails.get(receipt.id)` for the events behind it.
+console.log(receipt.id, receipt.status);
+```
+
+The pre-1.0 send — the legacy `POST /api/emails`, which fans an array `to` out
+to several recipients and answers `{ emails, timestamp }` with no delivery
+status — is still here as `emails.sendLegacy`:
+
+```ts
+const result = await sendly.emails.sendLegacy({
+  from: "hello@your-domain.com",
+  to: ["a@example.com", "b@example.com"],
+  subject: "Order confirmed",
+  body: "<p>Thanks for your order.</p>",
+});
+// One `emails` entry per recipient: `{ contact: { id, email }, email }`, where
+// `email` is the id of the queued email record. Poll `emails.get(id)` for status.
+console.log(
+  result.emails.map((entry) => entry.email),
+  result.timestamp,
+);
 ```
 
 ### List emails with filters and cursor pagination
@@ -290,24 +329,21 @@ deliberately no total count.
 only because `track` was taken. New integrations should prefer `record`, which
 also unlocks `events.list`, `events.listNames`, and `events.stats`.
 
-### Emails: `send` vs `sendV1`
+### Emails: `send` vs `sendLegacy`
 
-The same split, for the same reason. `emails.send` posts to the legacy
-`POST /api/emails` and is unchanged: it answers with row ids and **no delivery
-status**, so a caller cannot learn whether the message went anywhere.
-`emails.sendV1` posts to `/api/v1/emails` and answers `202` with
+The same split, resolved the other way round: since 1.0, `emails.send` IS the
+versioned send. It posts to `/api/v1/emails` and answers `202` with
 `{ id, status, to, from }`, where `status` is a real delivery state you can poll
 on. It takes one recipient — use `cc`/`bcc` to copy others — instead of fanning
-an array out.
+an array out. `emails.sendLegacy` is the pre-1.0 send on `POST /api/emails`,
+unchanged: row ids, **no delivery status**, array `to` fanned out. See
+[Upgrading from 0.x](#upgrading-from-0x).
 
-Which of `send`/`sendV1` becomes the default is an open decision; nothing has
-been repointed.
-
-`sendV1` accepts an `idempotencyKey`; `sendTestV1` deliberately does not (see
+`send` accepts an `idempotencyKey`; `sendTest` deliberately does not (see
 [Idempotency](#idempotency)).
 
 ```ts
-const receipt = await sendly.emails.sendV1(
+const receipt = await sendly.emails.send(
   { to: "user@example.com", subject: "Order confirmed", body: "<p>Thanks.</p>" },
   { idempotencyKey: `order-${orderId}` },
 );
@@ -316,7 +352,7 @@ console.log(receipt.id, receipt.status); // status is a real delivery state
 
 ### Test sends
 
-`emails.sendTestV1` proves the send path works without touching a live
+`emails.sendTest` proves the send path works without touching a live
 recipient. Two things about it are easy to get backwards:
 
 - **The sandbox address is the _sender_, not the destination.** It is resolved
@@ -329,7 +365,7 @@ recipient. Two things about it are easy to get backwards:
   sandbox send may reach — any other value is refused.
 
 ```ts
-const test = await sendly.emails.sendTestV1({ subject: "hi", body: "<p>hi</p>" });
+const test = await sendly.emails.sendTest({ subject: "hi", body: "<p>hi</p>" });
 console.log(test.to, test.from, test.sandbox); // sandbox is always true here
 ```
 
@@ -378,7 +414,7 @@ import {
 } from "sendly-sdk";
 
 try {
-  await sendly.emails.send({ from, to, subject, html });
+  await sendly.emails.send({ from, to, subject, body });
 } catch (err) {
   if (err instanceof SendlyValidationError) {
     console.warn("bad input:", err.errorCode, err.message);
@@ -463,19 +499,19 @@ surface as `VALIDATION_ERROR`.
 
 ## Idempotency
 
-Pass `idempotencyKey` on any write that supports it (`emails.send`,
-`emails.batch`, `contacts.create`, `contacts.upsert`, `contacts.bulkCreate`,
-and on `/api/v1` exactly `emails.sendV1`, `campaigns.create` and
-`campaigns.send`) to make retries safe. Replays within 24 hours return the
-original result instead of acting twice.
+Pass `idempotencyKey` on any write that supports it — `emails.send`,
+`emails.sendLegacy`, `emails.batch`, `contacts.create`, `contacts.upsert`,
+`contacts.bulkCreate`, `campaigns.create` and `campaigns.send` — to make
+retries safe. Replays within 24 hours return the original result instead of
+acting twice.
 
 Two v1 writes deliberately take no key. `events.record` is append-only and
-high-volume. `emails.sendTestV1` reaches only the caller's own inbox, a daily
+high-volume. `emails.sendTest` reaches only the caller's own inbox, a daily
 cap already bounds it, and "send me another one" is the normal second call
 rather than a mistake worth deduplicating.
 
 ```ts
-await sendly.emails.send({ from, to, subject, html }, { idempotencyKey: `signup-${userId}` });
+await sendly.emails.send({ from, to, subject, body }, { idempotencyKey: `signup-${userId}` });
 ```
 
 ## Custom fetch

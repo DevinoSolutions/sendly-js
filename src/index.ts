@@ -5,7 +5,8 @@
  * ```ts
  * import { Sendly } from 'sendly-sdk';
  * const sendly = new Sendly({ apiKey: process.env.SENDLY_API_KEY! });
- * await sendly.emails.send({ from: 'a@b.com', to: 'c@d.com', subject: 'hi', html: '<p>hi</p>' });
+ * const receipt = await sendly.emails.send({ from: 'a@b.com', to: 'c@d.com', subject: 'hi', body: '<p>hi</p>' });
+ * console.log(receipt.id, receipt.status); // a real delivery state — poll emails.get(id)
  * ```
  */
 

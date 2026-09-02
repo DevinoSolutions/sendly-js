@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
 
 import type { Sendly } from "../client";
-import type { CreateCampaignV1Request, CreateContactRequest, SendEmailRequest } from "../types";
+import type { CreateCampaignV1Request, CreateContactRequest, SendEmailRequest, SendEmailV1Request } from "../types";
 import { getCallBody, jsonResponse, makeClient } from "./helpers";
 
 /**
@@ -121,8 +121,8 @@ interface ManifestEntry {
 const MANIFEST: readonly ManifestEntry[] = [
   // emails
   { key: "emails.send", invoke: (c) => c.emails.send({ to: "user@example.com" }) },
-  { key: "emails.sendV1", invoke: (c) => c.emails.sendV1({ to: "user@example.com" }) },
-  { key: "emails.sendTestV1", invoke: (c) => c.emails.sendTestV1({ subject: "s", body: "b" }) },
+  { key: "emails.sendLegacy", invoke: (c) => c.emails.sendLegacy({ to: "user@example.com" }) },
+  { key: "emails.sendTest", invoke: (c) => c.emails.sendTest({ subject: "s", body: "b" }) },
   { key: "emails.batch", invoke: (c) => c.emails.batch({ emails: [{ to: "user@example.com" }] }) },
   { key: "emails.list", invoke: (c) => c.emails.list() },
   { key: "emails.get", invoke: (c) => c.emails.get(ID) },
@@ -418,13 +418,30 @@ describe("OpenAPI contract", () => {
     ).toEqual({ listedButCallable: [], refusesKeyButUnlisted: [] });
   });
 
-  test("emails.send forwards every body field the spec marks required", async () => {
+  test("emails.send forwards every body field the spec marks required on the v1 send", async () => {
+    // 1.0: `send` is the versioned send. The legacy route is checked separately below.
+    const required = requiredBodyFields("/api/v1/emails", "post");
+    expect(required.length).toBeGreaterThan(0);
+    const fixture: SendEmailV1Request = { to: "user@example.com" };
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(202, { id: "em_1", status: "PENDING", to: "user@example.com", from: "hi@acme.com" }),
+    );
+    await client.emails.send(fixture);
+    const body = getCallBody(fetchMock) as Record<string, unknown>;
+    for (const field of required) {
+      expect(Object.keys(fixture)).toContain(field);
+      expect(body).toHaveProperty(field);
+    }
+  });
+
+  test("emails.sendLegacy forwards every body field the spec marks required on the legacy send", async () => {
     const required = requiredBodyFields("/api/emails", "post");
     expect(required.length).toBeGreaterThan(0);
     const fixture: SendEmailRequest = { to: "user@example.com" };
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: {} }));
-    await client.emails.send(fixture);
+    await client.emails.sendLegacy(fixture);
     const body = getCallBody(fetchMock) as Record<string, unknown>;
     for (const field of required) {
       expect(Object.keys(fixture)).toContain(field);

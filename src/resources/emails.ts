@@ -25,15 +25,38 @@ export class EmailsResource {
   constructor(private readonly client: Sendly) {}
 
   /**
-   * Send a single transactional email.
+   * Send one transactional email.
    *
-   * Resolves the response's `data`: `{ emails, timestamp }`, where `emails`
-   * has one entry per recipient (an array `to` fans out to several). Each
-   * entry is `{ contact: { id, email }, email }` — `email` being the id of
-   * the queued email record for that recipient (poll `emails.get(id)` for
-   * its delivery status).
+   * Posts to the versioned `POST /api/v1/emails` and resolves the bare receipt
+   * it answers `202` with: `{ id, status, to, from }`. `status` is a real
+   * delivery state — poll `emails.get(id)` for the events behind it. Takes a
+   * single recipient; `cc`/`bcc` copy others.
+   *
+   * Before 1.0 this posted to the legacy `POST /api/emails`, which answered
+   * with row ids and no delivery status and fanned an array `to` out to several
+   * recipients. That behaviour is {@link sendLegacy}, unchanged.
    */
-  async send(body: SendEmailRequest, opts?: IdempotencyOptions): Promise<SendEmailData> {
+  async send(body: SendEmailV1Request, opts?: IdempotencyOptions): Promise<EmailV1> {
+    return this.client.request<EmailV1>({
+      method: "POST",
+      path: "/api/v1/emails",
+      body,
+      headers: idemHeader(opts),
+    });
+  }
+
+  /**
+   * The pre-1.0 `send()`: the legacy `POST /api/emails`.
+   *
+   * Resolves the envelope's `data`, `{ emails, timestamp }`, where `emails` has
+   * one entry per recipient (an array `to` fans out to several). Each entry is
+   * `{ contact: { id, email }, email }` — `email` being the id of the queued
+   * email record for that recipient. Reports no delivery status of its own.
+   *
+   * Kept as the escape hatch for a caller that depends on the fan-out or on the
+   * envelope shape. New code should use {@link send}.
+   */
+  async sendLegacy(body: SendEmailRequest, opts?: IdempotencyOptions): Promise<SendEmailData> {
     const envelope = await this.client.request<{ success: true; data: SendEmailData }>({
       method: "POST",
       path: "/api/emails",
@@ -44,38 +67,16 @@ export class EmailsResource {
   }
 
   /**
-   * Send one email on the versioned `/api/v1` surface, which reports delivery
-   * status.
+   * Send a test email from the project's sandbox address.
    *
-   * ADDITIVE — {@link send} is untouched and still posts to the legacy
-   * `/api/emails`. The two differ in what they can tell you: the legacy send
-   * answers with row ids and no status, so a caller cannot learn whether the
-   * message went anywhere; this one answers `202` with `{ id, status, to, from }`
-   * and the status is a real delivery state. It also takes a single recipient
-   * (`cc`/`bcc` copy others) rather than fanning an array out.
-   *
-   * Repointing `send()` here would change what existing callers receive, so it
-   * is deliberately not done as part of adding this. Which one becomes the
-   * default is a breaking-change decision.
+   * Goes nowhere real: the sandbox address is the SENDER, resolved server-side
+   * (naming a `from` is refused), and the mail lands in the project owner's own
+   * verified inbox. This exercises rendering and the send path without touching
+   * a live recipient or a reputation. Read `projects.get().sandbox_address` to
+   * know what it sends from — the response's `sandbox: true` says only that it
+   * was one.
    */
-  async sendV1(body: SendEmailV1Request, opts?: IdempotencyOptions): Promise<EmailV1> {
-    return this.client.request<EmailV1>({
-      method: "POST",
-      path: "/api/v1/emails",
-      body,
-      headers: idemHeader(opts),
-    });
-  }
-
-  /**
-   * Send a test email to the project's sandbox address.
-   *
-   * Goes nowhere real: delivery is to the sandbox, so this exercises rendering
-   * and the send path without touching a live recipient or a reputation. Read
-   * `projects.get().sandbox_address` to know where it lands — the response's
-   * `sandbox: true` says only that it was one.
-   */
-  async sendTestV1(body: SendTestEmailV1Request): Promise<EmailTestV1> {
+  async sendTest(body: SendTestEmailV1Request): Promise<EmailTestV1> {
     return this.client.request<EmailTestV1>({
       method: "POST",
       path: "/api/v1/emails/test",

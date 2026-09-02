@@ -195,7 +195,7 @@ describe("v1 errors surfaced through a request", () => {
     fetchMock.mockResolvedValue(
       jsonResponse(422, { success: false, error: { message: "invalid body", code: "VALIDATION_ERROR" } }),
     );
-    const error = await rejection<SendlyValidationError>(client.emails.send({ to: "user@example.com" }));
+    const error = await rejection<SendlyValidationError>(client.emails.sendLegacy({ to: "user@example.com" }));
     expect(error.errorCode).toBe("VALIDATION_ERROR");
     expect(error.requestId).toBeUndefined();
   });
