@@ -4,804 +4,6 @@
  */
 
 export interface paths {
-    "/api/contacts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List contacts
-         * @description Cursor-paginated list of contacts. Supports filter by `search` and `subscribed`.
-         *
-         *     Requires the `contacts:read` scope — View your contacts and their custom fields.
-         */
-        get: operations["listContacts"];
-        put?: never;
-        /**
-         * Create a contact
-         * @description Create a new contact. Returns 409 on `(projectId, email)` conflict — use `/api/contacts/upsert` for create-or-update semantics.
-         *
-         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
-         */
-        post: operations["createContact"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/contacts/bulk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Bulk-create contacts
-         * @description Create up to 1000 contacts in one call. Per-row conflicts are reported as `skipped`.
-         *
-         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
-         */
-        post: operations["bulkCreateContacts"];
-        /**
-         * Bulk-delete contacts
-         * @description Delete up to 1000 contacts in one call. Provide either `ids` or `emails`.
-         *
-         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
-         */
-        delete: operations["bulkDeleteContacts"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/contacts/upsert": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create or update a contact by email
-         * @description Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.
-         *
-         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
-         */
-        post: operations["upsertContact"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/contacts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a contact
-         * @description Requires the `contacts:read` scope — View your contacts and their custom fields.
-         */
-        get: operations["getContact"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete a contact
-         * @description Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).
-         *
-         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
-         */
-        delete: operations["deleteContact"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a contact
-         * @description Update `data` and/or `subscribed`. `email` is immutable here — use `/api/contacts/upsert` to change addresses.
-         *
-         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
-         */
-        patch: operations["updateContact"];
-        trace?: never;
-    };
-    "/api/domains": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List sending domains
-         * @description List all domains for the authenticated project.
-         *
-         *     Requires the `domains:read` scope — View your sending domains and their verification status.
-         */
-        get: operations["listDomains"];
-        put?: never;
-        /**
-         * Add a sending domain
-         * @description Register a new domain with SES and persist its DKIM tokens.
-         *
-         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
-         */
-        post: operations["addDomain"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/domains/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a sending domain
-         * @description Requires the `domains:read` scope — View your sending domains and their verification status.
-         */
-        get: operations["getDomain"];
-        put?: never;
-        post?: never;
-        /**
-         * Remove a sending domain
-         * @description Removes the domain from the project. The underlying SES identity is also dropped if no other project still uses it.
-         *
-         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
-         */
-        delete: operations["deleteDomain"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/domains/{id}/dodomain-session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start guided DNS setup
-         * @description Mint a short-lived guided-setup session for this domain and return the URL that opens it. The URL is the whole point: DNS records have to be published at the domain's registrar, which is a place only a person with those credentials can reach — so this call cannot finish the job, it hands it over.
-         *
-         *     The session is bound to this one domain, expires on its own, and returns the browser to the Sendly domains settings page when it is done. Verification authority stays with SES either way: guided setup publishes the records, it does not decide whether they are correct.
-         *
-         *     `503 DODOMAIN_NOT_CONFIGURED` when the deployment has no guided-setup provider. `429 DODOMAIN_SESSION_COOLDOWN` for a second call within 60s on the same domain — each session is metered, so a double submit is refused rather than charged twice.
-         *
-         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
-         */
-        post: operations["startDomainSetup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/domains/{id}/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read SES verification status
-         * @description Read the current SES verification status without forcing a refresh.
-         *
-         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
-         */
-        get: operations["getDomainVerification"];
-        put?: never;
-        /**
-         * Trigger SES verification
-         * @description Force a refresh of the domain's SES verification status.
-         *
-         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
-         */
-        post: operations["verifyDomain"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/emails": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List emails
-         * @description List emails for the authenticated project. Cursor-paginated for stable scroll over large result sets.
-         *
-         *     Requires the `emails:read` scope — View the emails you have sent and their delivery status.
-         */
-        get: operations["listEmails"];
-        put?: never;
-        /**
-         * Send a single transactional email
-         * @description Send a single transactional email. Accepts a `template` ID or an inline `subject` + `body`. An optional `Idempotency-Key` request header (1–255 chars, 24h TTL) ensures replay safety: the first request wins and a retry carrying the same key AND the same body replays its response. Reusing a key with a DIFFERENT body answers `422 IDEMPOTENCY_KEY_REUSED` — a key names one request, so it is never silently served another request's result.
-         *
-         *     Requires the `emails:send` scope — Send emails from your verified domains.
-         */
-        post: operations["sendEmail"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/emails/batch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send a batch of emails
-         * @description Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array.
-         *
-         *     The whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.
-         *
-         *     Requires the `emails:send` scope — Send emails from your verified domains.
-         */
-        post: operations["sendEmailBatch"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/emails/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a single email
-         * @description Fetch one email along with its delivery events.
-         *
-         *     Requires the `emails:read` scope — View the emails you have sent and their delivery status.
-         */
-        get: operations["getEmail"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/emails/{id}/schedule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Cancel a scheduled (still-PENDING) email
-         * @description Mark a still-pending email as FAILED before the worker picks it up. Returns 409 if the email has already left PENDING.
-         */
-        delete: operations["cancelScheduledEmail"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/lists/{id}/subscribe": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Subscribe a contact to a list
-         * @description Add a contact to a list, creating the contact if it does not exist. When the list has `doubleOptIn` enabled the membership is created as `PENDING` and the response carries a `confirmToken` — Sendly does NOT send the confirmation email, so the caller must deliver `/api/lists/confirm?token=<confirmToken>` to the contact itself.
-         *
-         *     Accepts SENDING_ONLY (`pk_*`) keys so it can back a public subscribe form.
-         *
-         *     **Re-subscribing after an opt-out.** If the email already holds an `UNSUBSCRIBED` membership on this list, the call fails with `409 RESUBSCRIBE_CONFIRMATION_REQUIRED` unless the body sets `allowResubscribe: true`. Reversing an opt-out is a consent decision, so it is never the default — set the flag only when the contact themselves asked to be re-subscribed.
-         *
-         *     `previousStatus` reports the membership's status before the call (`null` when it did not exist); prefer it over `created` when describing what changed, since `created: false` is equally true for an unchanged membership and for a reactivated one.
-         */
-        post: operations["subscribeToList"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/lists/{id}/unsubscribe": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Unsubscribe a contact from a list
-         * @description Mark the contact's membership on this list as `UNSUBSCRIBED`. Accepts SENDING_ONLY (`pk_*`) keys so it can back a public preference form. Idempotent — unsubscribing an address that is not a member succeeds.
-         *
-         *     Once a membership is `UNSUBSCRIBED`, a later `POST /api/lists/{id}/subscribe` needs `allowResubscribe: true` to reverse it.
-         */
-        post: operations["unsubscribeFromList"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/mailboxes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List mailboxes
-         * @description Every mailbox on the authenticated project's domains, newest first. Not paginated: a project is capped at ten mailboxes, and the cap counts only those holding — or on their way to holding — a real account (`PROVISIONING`, `ACTIVE`, `SUSPENDED`). `FAILED` rows do not consume the cap but ARE returned here, so a project that has had failed provisions can list more than ten.
-         *
-         *     This lists the mailboxes themselves, never their contents: the messages a mailbox has received are not part of the public API and are not covered by this scope.
-         *
-         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
-         */
-        get: operations["listMailboxes"];
-        put?: never;
-        /**
-         * Create a mailbox
-         * @description Provision a real receiving mailbox — `support@yourdomain.com` — on a domain you have already verified.
-         *
-         *     Three consequences worth knowing before you call it:
-         *
-         *     - **It changes how your domain's mail is routed.** The first mailbox on a domain turns receiving on for that domain, so mail addressed there starts arriving at Sendly instead of wherever it went before.
-         *     - **The domain must be verified.** An unverified domain answers 409; creating a mailbox is not a way to skip DNS.
-         *     - **Ten per project.** The eleventh answers 409. Deleted mailboxes free their slot; failed ones never consumed one.
-         *
-         *     Retrying a failed provision with the same address reclaims the failed row rather than answering 409 — but only for the same project and the same domain.
-         *
-         *     `quotaBytes` is accepted by the schema and REFUSED with a 400. Quotas are not implemented, and the field is still parsed so that asking for one is an error rather than a silently dropped key.
-         *
-         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
-         */
-        post: operations["createMailbox"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/mailboxes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a mailbox
-         * @description One mailbox, with the IMAP and SMTP host/port/username a mail client needs. The password is not included: mailbox credentials are app passwords, created separately and shown once.
-         *
-         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
-         */
-        get: operations["getMailbox"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete a mailbox
-         * @description Delete a mailbox and the mail account behind it. **Every message it holds is erased**, and Sendly keeps no other copy — this is not recoverable from the dashboard or by support. Mail sent to the address afterwards is rejected.
-         *
-         *     Requires an admin of the project.
-         *
-         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
-         */
-        delete: operations["deleteMailbox"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/mailboxes/{id}/app-passwords": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a mailbox's app passwords
-         * @description Every app password on the mailbox — name, protocols, last four characters and last use. The secrets themselves are stored hashed and are not retrievable here or anywhere else; a password you have lost is replaced, not recovered.
-         *
-         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
-         */
-        get: operations["listAppPasswords"];
-        put?: never;
-        /**
-         * Create an app password
-         * @description Mint an IMAP/SMTP credential for the mailbox, so a mail client can connect to it.
-         *
-         *     **The secret is not in the response.** A delegated caller receives `revealUrl` — a single-use link that shows the password once in a browser, to a signed-in project admin. The connection that created the password cannot open its own link, and the link is spent by the first attempt to open it, successful or not.
-         *
-         *     That is deliberate and not a limitation to work around: an app password is a live mail credential that a client authenticates with directly, it outlives the grant that created it, and it is revoked from a different screen. Returning it inline would place a working mail credential in an agent's context, its transcript, and every log that transcript reaches.
-         *
-         *     Requires an admin of the project. An API key is refused with 401 — this endpoint needs a user, so use an OAuth connection.
-         *
-         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
-         */
-        post: operations["createAppPassword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/mailboxes/{id}/app-passwords/{passwordId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Revoke an app password
-         * @description Revoke one app password. Any mail client still configured with it stops authenticating immediately — there is no grace period — and the mailbox and its messages are untouched.
-         *
-         *     Requires an admin of the project. An API key is refused with 401.
-         *
-         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
-         */
-        delete: operations["revokeAppPassword"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/projects/{id}/api-keys": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List API keys for a project
-         * @description Returns every key on the project, revoked ones included — filter on `revokedAt` to show only live keys. Never returns a token or its hash: `lastFour` is the only fragment of the secret that survives creation.
-         *
-         *     Requires the `api-keys:read` scope — See which API keys exist, including what each one is allowed to do.
-         */
-        get: operations["listApiKeys"];
-        put?: never;
-        /**
-         * Create an API key
-         * @description Mint a new API key on the project. The token is NOT returned — the response carries the key's metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.
-         *
-         *     **Scope attenuation:** a key created with a delegated credential (an OAuth token or another API key) may not carry a scope that credential does not itself hold. A request that asks for more is refused with `400 SCOPE_ESCALATION` rather than quietly narrowed, so the mistake is reported where it was made instead of surfacing later as an unexplained 403. Naming only `permission` counts as asking for every scope that permission implies.
-         *
-         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
-         */
-        post: operations["createApiKey"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/projects/{id}/api-keys/{keyId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Revoke an API key
-         * @description Revoke an API key. Answers `{ success: true }` with no `data` key. 404 if the key does not exist under this project.
-         *
-         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
-         */
-        delete: operations["revokeApiKey"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/projects/{id}/api-keys/{keyId}/rotate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rotate an API key's secret
-         * @description Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the new secret is not returned: the response carries `lastFour` and a one-time `revealUrl`. A revoked key cannot be rotated (`400 KEY_REVOKED`).
-         *
-         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
-         */
-        post: operations["rotateApiKey"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/suppression": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List suppressed emails
-         * @description Cursor-paginated list of suppressed addresses. Filter by `reason`.
-         *
-         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
-         */
-        get: operations["listSuppressions"];
-        put?: never;
-        /**
-         * Manually add an email to the suppression list
-         * @description The `source` field is auto-derived: `API` for API-key callers, `DASHBOARD` for session callers.
-         *
-         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
-         */
-        post: operations["addSuppression"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/suppression/{email}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Check whether an email is suppressed
-         * @description Returns `{ suppressed, reason?, source?, createdAt? }`. The path parameter must be URL-encoded.
-         *
-         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
-         */
-        get: operations["checkSuppression"];
-        put?: never;
-        post?: never;
-        /**
-         * Remove an email from the suppression list
-         * @description Idempotent. Silently no-ops if the suppression doesn't exist.
-         *
-         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
-         */
-        delete: operations["removeSuppression"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List templates
-         * @description Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.
-         *
-         *     Requires the `templates:read` scope — View your email templates.
-         */
-        get: operations["listTemplates"];
-        put?: never;
-        /**
-         * Create a template
-         * @description Create a new email template. The `from` domain must already be verified for the project.
-         *
-         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
-         */
-        post: operations["createTemplate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/templates/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a template
-         * @description Requires the `templates:read` scope — View your email templates.
-         */
-        get: operations["getTemplate"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete a template
-         * @description Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.
-         *
-         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
-         */
-        delete: operations["deleteTemplate"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a template
-         * @description Update one or more fields. If `from` changes, the new domain must already be verified.
-         *
-         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
-         */
-        patch: operations["updateTemplate"];
-        trace?: never;
-    };
-    "/api/track": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Track a custom event for a contact
-         * @description Record a custom event, creating or updating the contact by email as a side effect. Requires a FULL (`sk_*`) key — SENDING_ONLY (`pk_*`) keys answer 403, since recording events is not sending mail. Reserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected.
-         *
-         *     Requires the `events:write` scope — Record custom events for your contacts.
-         */
-        post: operations["trackEvent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/users/me/projects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create a project
-         * @description Create a new project owned by the authenticated user. Answers the raw project row directly — no `{ success, data }` envelope — with status 201.
-         *
-         *     Preconditions the route enforces before writing: the caller's email must be verified, the caller must be under their cap on active (non-disabled) owned projects, and the call is rate-limited per user.
-         *
-         *     Requires the `projects:write` scope — Create new projects on your account.
-         */
-        post: operations["createProject"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/analytics/campaigns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Retrieve campaign totals and engagement
-         * @description Campaign counts plus average open and click rates.
-         *
-         *     `total` and `active` count campaigns CREATED in the window; `completed` counts campaigns SENT in it — so a campaign created earlier and sent inside the window appears only in `completed`. Rates are percentages to one decimal place, averaged over the campaigns sent in the window.
-         *
-         *     `from` defaults to 30 days ago and is clamped to at most 90 days back; `to` defaults to now. A wider request is narrowed rather than refused, and the `window` field states the range actually covered — read it before comparing two responses.
-         *
-         *     Requires the `analytics:read` scope — View your sending analytics and engagement metrics.
-         */
-        get: operations["v1GetCampaignAnalytics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/analytics/timeseries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Retrieve the daily email time series
-         * @description Daily counts of emails created, delivered, opened, clicked and bounced. Every day in the window is present even with zero activity, so the series never needs gap-filling.
-         *
-         *     `from` defaults to 30 days ago and is clamped to at most 90 days back; `to` defaults to now. A wider request is narrowed rather than refused, and the `window` field states the range actually covered — read it before comparing two responses.
-         *
-         *     Requires the `analytics:read` scope — View your sending analytics and engagement metrics.
-         */
-        get: operations["v1GetAnalyticsTimeseries"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/analytics/top-campaigns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the best-performing campaigns
-         * @description Campaigns sent in the window, ranked by open rate, capped at 50 rows. Not cursor-paginated: a leaderboard is a top-N by definition, and paging one would mean re-ranking on every page.
-         *
-         *     `from` defaults to 30 days ago and is clamped to at most 90 days back; `to` defaults to now. A wider request is narrowed rather than refused, and the `window` field states the range actually covered — read it before comparing two responses.
-         *
-         *     Requires the `analytics:read` scope — View your sending analytics and engagement metrics.
-         */
-        get: operations["v1ListTopCampaigns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/campaigns": {
         parameters: {
             query?: never;
@@ -872,6 +74,32 @@ export interface paths {
         patch: operations["v1UpdateCampaign"];
         trace?: never;
     };
+    "/api/v1/campaigns/{id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send or schedule a campaign
+         * @description Start sending immediately, or park the campaign in `SCHEDULED` by passing `scheduled_for` (which must be in the future). The request body may be omitted entirely to send now.
+         *
+         *     **Send an `Idempotency-Key`.** This is the operation that cannot be undone: a retry without one starts a second fan-out over the same audience. The key is scoped to this campaign, so the same key on a different campaign is a `422 idempotency_key_reused` rather than a replay of the first campaign's response.
+         *
+         *     Answers 400 when the campaign is not `DRAFT`/`SCHEDULED` or has no recipients, and 403 when the send would exceed the project's billing limit.
+         *
+         *     Requires the `campaigns:send` scope — Send or schedule your campaigns to their audience.
+         */
+        post: operations["v1SendCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/campaigns/{id}/cancel": {
         parameters: {
             query?: never;
@@ -940,32 +168,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/campaigns/{id}/send": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send or schedule a campaign
-         * @description Start sending immediately, or park the campaign in `SCHEDULED` by passing `scheduled_for` (which must be in the future). The request body may be omitted entirely to send now.
-         *
-         *     **Send an `Idempotency-Key`.** This is the operation that cannot be undone: a retry without one starts a second fan-out over the same audience. The key is scoped to this campaign, so the same key on a different campaign is a `422 idempotency_key_reused` rather than a replay of the first campaign's response.
-         *
-         *     Answers 400 when the campaign is not `DRAFT`/`SCHEDULED` or has no recipients, and 403 when the send would exceed the project's billing limit.
-         *
-         *     Requires the `campaigns:send` scope — Send or schedule your campaigns to their audience.
-         */
-        post: operations["v1SendCampaign"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/campaigns/{id}/stats": {
         parameters: {
             query?: never;
@@ -990,7 +192,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/emails": {
+    "/api/v1/campaigns/{id}/failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a campaign's failed sends
+         * @description The recipients this campaign did not reach, read from its per-contact send ledger. The campaign counters say how many were sent; only this says WHO was dropped and why, which is what makes retrying a decision rather than a guess.
+         *
+         *     `reason` comes from a fixed vocabulary, not from the underlying error text, so it is stable enough to branch on. It is `null` for rows recorded before reasons were captured.
+         *
+         *     Cursor-paginated like every other v1 list. Unlike them it also returns `total`: the retry action operates on that number, and a page that can only say `has_more` cannot tell you whether 3 or 30,000 sends failed.
+         *
+         *     Requires the `campaigns:read` scope — View your campaigns and their performance.
+         */
+        get: operations["v1ListCampaignFailures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/retry-failed": {
         parameters: {
             query?: never;
             header?: never;
@@ -1000,158 +228,16 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send a transactional email
-         * @description Send one transactional email and receive its delivery status in the same response. Accepts a `template` id or an inline `subject` + `body`.
+         * Retry a campaign's failed sends
+         * @description Re-drive only the recipients whose send failed, through the same pipeline the campaign used. Nobody who was already mailed is mailed again: each ledger row is claimed before it is touched, and a row whose email was created before the failure was recorded is re-queued rather than re-sent.
          *
-         *     This is the send to reach for when you need to know what happened. The legacy `POST /api/emails` answers with row ids and no status, so telling an accepted send from a refused one costs a second request; here the receipt carries `status`, and `from` reports the sender actually used — which is worth reading, since a template may have supplied it.
+         *     The retry runs in the background, so this returns as soon as it is queued, with the number of rows it was queued for. Takes no request body.
          *
-         *     Exactly ONE recipient. A single receipt cannot describe a fan-out, so `to` takes one address: use `cc`/`bcc` to copy others on the same message, and `POST /api/emails/batch` to send different ones.
+         *     Only a `SENT` campaign can be retried: a `SENDING` or `PAUSED` one still has its own send in progress against the same ledger, and a `CANCELLED` one was stopped deliberately.
          *
-         *     `202 Accepted` is the success answer, and `PENDING` the usual `status`: the message is queued for the sending pipeline, not yet handed to the provider. Later states (`DELIVERED`, `BOUNCED`, …) arrive by webhook.
-         *
-         *     An optional `Idempotency-Key` header (1–255 chars, 24h TTL) makes a retry safe: the first request wins and a retry carrying the same key AND body replays its receipt. Reusing a key with a different body answers 422 rather than serving another request's result.
-         *
-         *     Requires the `emails:send` scope — Send emails from your verified domains.
+         *     Requires the `campaigns:write` scope — Create, edit, and organize your campaigns.
          */
-        post: operations["v1SendEmail"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/emails/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send a sandbox test email
-         * @description Prove that sending works — before any domain, DNS record or verification exists.
-         *
-         *     The message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.
-         *
-         *     That restriction is the reason `emails:test` is a separate, non-sensitive scope: a call under it cannot put mail in a stranger's inbox, so it can sit in a default grant where `emails:send` may not. It is not a way to send real mail cheaply — use `POST /api/v1/emails` for that.
-         *
-         *     Sandbox sends are capped per project per day, and the response's `sandbox: true` marks the receipt so a relayed summary cannot pass a test send off as a real one.
-         *
-         *     Requires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.
-         */
-        post: operations["v1SendTestEmail"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List events
-         * @description Cursor-paginated list of recorded events, newest first. Filter by `event_name` to follow a single series.
-         *
-         *     A cursor is bound to the filters it was issued under: pairing page 2's `next_cursor` with a different `event_name` answers 422 rather than returning a page that belongs to neither query.
-         *
-         *     Requires the `events:read` scope — View the custom events your application has recorded.
-         */
-        get: operations["v1ListEvents"];
-        put?: never;
-        /**
-         * Record an event
-         * @description Records a custom event, optionally attached to a contact. Events drive segment membership and workflow triggers, so a matching enabled workflow starts as a result of this call.
-         *
-         *     `contact_id` must already exist in this project — unlike `POST /api/track`, this endpoint never creates contacts. Omit it for a project-level event.
-         *
-         *     Reserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected with 422: they are written by Sendly's own pipeline and accepting them from a caller would corrupt the series segments read.
-         *
-         *     This endpoint does NOT require an `Idempotency-Key`. Events are append-only and the highest-volume write on the surface; a duplicate is a data-quality question for the caller, not a money-path hazard.
-         *
-         *     Sending-only (`pk_*`) keys cannot record events — they hold the send capability and nothing else.
-         *
-         *     Requires the `events:write` scope — Record custom events for your contacts.
-         */
-        post: operations["v1TrackEvent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/events/names": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List event names
-         * @description Every distinct event name in the project, most frequent first — the vocabulary a caller needs before filtering events or pointing a workflow trigger at one. Unpaginated: the set is bounded by what the integration emits, not by event volume.
-         *
-         *     Requires the `events:read` scope — View the custom events your application has recorded.
-         */
-        get: operations["v1ListEventNames"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/events/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Retrieve event counts
-         * @description Per-name event counts over a bounded window, most frequent first.
-         *
-         *     The window defaults to the last 30 days and never reaches further back than 90: this is a GROUP BY over the highest-volume table in the system, and an all-time answer is not one it can keep giving at scale. A wider request is narrowed rather than refused, and the `window` field states the range actually covered.
-         *
-         *     Requires the `events:read` scope — View the custom events your application has recorded.
-         */
-        get: operations["v1GetEventStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Retrieve the authenticated project
-         * @description The project the presented credential is scoped to — resolved from the API key, or from the `x-project-id` header for a session or delegated token. Singular despite the plural path, like `/api/v1/usage`: every v1 operation acts on exactly one project.
-         *
-         *     `sandbox_address` is this project's quick-start sender. It works with no domain setup, but only to the project owner's own verified address and under a daily cap — it is how you prove sending works end to end before any DNS exists. It is null when no handle can be derived (a project with no owner).
-         *
-         *     To enumerate every project you belong to — a different question, and not project-scoped — use `GET /api/users/me/projects`.
-         *
-         *     Requires the `projects:read` scope — View your projects and their settings.
-         */
-        get: operations["v1GetProject"];
-        put?: never;
-        post?: never;
+        post: operations["v1RetryCampaignFailures"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1250,35 +336,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/usage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Retrieve current usage and limits
-         * @description Email usage against the limits that are actually enforced: the current month's counts per source category, the monthly cap applied to their total, and today's sends against the trust-tier daily ceiling.
-         *
-         *     Every figure is read from an enforcement path, so what this reports and what refuses a send cannot disagree. Correspondingly, nothing else is published — there is no billing period, invoice total or non-email meter here, because the platform meters none of those.
-         *
-         *     Two caveats worth reading before you alert on these numbers:
-         *
-         *     - The windows differ. The monthly counters roll over on the SERVER's calendar month; the daily counter buckets on the UTC date. The two therefore reset at different instants.
-         *     - `monthly.limit` is null once a subscription makes sending metered rather than capped, and also when an operator has set per-category limits — in that case the caps live in `monthly.categories[*].limit`.
-         *
-         *     Requires the `usage:read` scope — View your usage totals and billing limits.
-         */
-        get: operations["v1GetUsage"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/workflows": {
         parameters: {
             query?: never;
@@ -1298,33 +355,13 @@ export interface paths {
         put?: never;
         /**
          * Create a workflow
-         * @description Creates an event-triggered workflow with a single trigger step. The rest of the graph (emails, delays, conditions) is built in the dashboard, so a workflow is created disabled and stays inert until it has steps to run.
+         * @description Creates a workflow with its single trigger step. `trigger_type` defaults to `EVENT`, which requires `event_name`; `SCHEDULE` takes `interval_ms` and `MANUAL` is started only by `POST /api/v1/workflows/{id}/executions`.
+         *
+         *     Pass `sequence` to create the steps at the same time, as a LINEAR chain behind the trigger. Anything with a branch is `PUT /api/v1/workflows/{id}/graph`. Without a sequence the workflow holds only its trigger and stays inert until it has steps to run, which is why it is created disabled.
          *
          *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
          */
         post: operations["v1CreateWorkflow"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workflows/executions/{execution_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a workflow execution
-         * @description Stops one run and stamps it `CANCELLED`. The execution stays queryable — cancelling is a state change, not a delete. Addressed by execution id alone, so a caller holding one from a list does not need to carry the workflow id with it.
-         *
-         *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
-         */
-        post: operations["v1CancelWorkflowExecution"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1360,7 +397,9 @@ export interface paths {
          * Update a workflow
          * @description Sparse update — omitted fields are left unchanged.
          *
-         *     Two state rules apply: the trigger (`event_name`) cannot be changed while the workflow has running executions (409), and `enabled: true` is refused while any step is still unconfigured (422), because an enabled workflow accepts contacts immediately and would otherwise fail only once one reached the broken step.
+         *     Two state rules apply: the trigger (`trigger_type`/`event_name`/`interval_ms`) cannot be changed while the workflow has running executions (409), and `enabled: true` is refused while any step is still unconfigured (422), because an enabled workflow accepts contacts immediately and would otherwise fail only once one reached the broken step.
+         *
+         *     `sequence` REPLACES every non-trigger step with a linear chain and is likewise refused while executions are running. Omit it to leave the graph untouched.
          *
          *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
          */
@@ -1397,6 +436,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/executions/{execution_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a workflow execution
+         * @description Stops one run and stamps it `CANCELLED`. The execution stays queryable — cancelling is a state change, not a delete. Addressed by execution id alone, so a caller holding one from a list does not need to carry the workflow id with it.
+         *
+         *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
+         */
+        post: operations["v1CancelWorkflowExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/{id}/stats": {
         parameters: {
             query?: never;
@@ -1407,6 +468,8 @@ export interface paths {
         /**
          * Retrieve workflow statistics
          * @description Execution counts by status, average completion time, the emails this workflow sent (with opens and clicks), and per-goal conversion counts. All-time by default — pass `from` to narrow it. Unlike `/api/v1/analytics/*` there is no 90-day ceiling here, because every aggregate is already confined to this one workflow.
+         *
+         *     The workflow's own `name`, `enabled`, `trigger_type` and `step_count` travel with the counts, because the counts alone are ambiguous: no running executions means one thing on an enabled workflow and another on a paused one.
          *
          *     Requires the `workflows:read` scope — View your automation workflows and their runs.
          */
@@ -1419,7 +482,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/verify": {
+    "/api/v1/workflows/{id}/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a workflow's step graph
+         * @description Every step in the workflow, including its `TRIGGER` entry node, and every directed transition between them. `version` is the workflow's version at the time of the read — a different number on a later read means somebody edited the graph in between.
+         *
+         *     A step's `config` is returned exactly as stored, camelCase keys and all, rather than projected into the snake_case used everywhere else on this API. That is deliberate: the same document is authored by the visual editor, and renaming its keys on the way out would mean any key this API did not know about was silently dropped on the way back in.
+         *
+         *     The response of `GET /api/v1/workflows/{id}/graph` is accepted verbatim by `PUT` on the same path: read a graph, change a step, send it back. Step and transition ids are yours to choose on a write, which is what makes that round trip a no-op rather than a rebuild.
+         *
+         *     Requires the `workflows:read` scope — View your automation workflows and their runs.
+         */
+        get: operations["v1GetWorkflowGraph"];
+        /**
+         * Replace a workflow's step graph
+         * @description Replaces the whole graph in one transaction, because a graph is only meaningful as nodes PLUS the edges between them — an edit that could apply half of it would leave steps pointing at steps that no longer exist.
+         *
+         *     A step whose id you send is kept and updated in place; a fresh uuid creates one; an id you omit deletes that step and its run history. Exactly one step must be a `TRIGGER`, every transition must name steps present in the same document, and a step may not point at itself.
+         *
+         *     Refused with 409 while the workflow has running executions: those runs are standing on the steps being replaced. Pause the workflow (`POST /api/v1/workflows/{id}/pause`) first.
+         *
+         *     The response of `GET /api/v1/workflows/{id}/graph` is accepted verbatim by `PUT` on the same path: read a graph, change a step, send it back. Step and transition ids are yours to choose on a write, which is what makes that round trip a no-op rather than a rebuild.
+         *
+         *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
+         */
+        put: operations["v1ReplaceWorkflowGraph"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/{id}/clone": {
         parameters: {
             query?: never;
             header?: never;
@@ -1429,14 +530,918 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Validate an email address
-         * @description Open endpoint (no auth required) that checks an email for syntax, MX records, disposable domains, and plus-addressing. Used by the marketing site verifier.
+         * Clone a workflow
+         * @description Copies a workflow and its whole graph as a new workflow. The copy is always created disabled, whatever the original was: a clone exists to be reviewed, and one that started live would match the same trigger events as its original from the moment it appeared.
+         *
+         *     Server-side rather than a read-then-write, so the copy is taken from one consistent read of the source.
+         *
+         *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
          */
-        post: operations["verifyEmailAddress"];
+        post: operations["v1CloneWorkflow"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/{id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a workflow and cancel its running executions
+         * @description Disables the workflow and cancels every `RUNNING`/`WAITING` execution inside it.
+         *
+         *     `PATCH { "enabled": false }` stops NEW runs starting and leaves every in-flight contact walking the graph — the next delay still expires, the next email still sends. Pausing does both, and reports how many runs it stopped.
+         *
+         *     Cancelling is terminal: `resume` re-opens the workflow to new runs, it does not put the cancelled contacts back where they were.
+         *
+         *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
+         */
+        post: operations["v1PauseWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused workflow
+         * @description Re-enables the workflow so its trigger matches again. `cancelled_executions` is always 0 here — resuming starts nothing and stops nothing.
+         *
+         *     Refused with 422 while any step is still unconfigured, the same rule `PATCH { "enabled": true }` enforces: an enabled workflow accepts contacts immediately and would otherwise fail only once one reached the broken step.
+         *
+         *     Requires the `workflows:write` scope — Create, edit, enable, and delete your automation workflows.
+         */
+        post: operations["v1ResumeWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a transactional email
+         * @description Send one transactional email and receive its delivery status in the same response. Accepts a `template` id or an inline `subject` + `body`.
+         *
+         *     This is the send to reach for when you need to know what happened. The legacy `POST /api/emails` answers with row ids and no status, so telling an accepted send from a refused one costs a second request; here the receipt carries `status`, and `from` reports the sender actually used — which is worth reading, since a template may have supplied it.
+         *
+         *     Exactly ONE recipient. A single receipt cannot describe a fan-out, so `to` takes one address: use `cc`/`bcc` to copy others on the same message, and `POST /api/emails/batch` to send different ones.
+         *
+         *     `202 Accepted` is the success answer, and `PENDING` the usual `status`: the message is queued for the sending pipeline, not yet handed to the provider. Later states (`DELIVERED`, `BOUNCED`, …) arrive by webhook.
+         *
+         *     An optional `Idempotency-Key` header (1–255 chars, 24h TTL) makes a retry safe: the first request wins and a retry carrying the same key AND body replays its receipt. Reusing a key with a different body answers 422 rather than serving another request's result.
+         *
+         *     Requires the `emails:send` scope — Send emails from your verified domains.
+         */
+        post: operations["v1SendEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/emails/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a sandbox test email
+         * @description Prove that sending works — before any domain, DNS record or verification exists.
+         *
+         *     The message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.
+         *
+         *     That restriction is the reason `emails:test` is a separate, non-sensitive scope: a call under it cannot put mail in a stranger's inbox, so it can sit in a default grant where `emails:send` may not. It is not a way to send real mail cheaply — use `POST /api/v1/emails` for that.
+         *
+         *     Sandbox sends are capped per project per day, and the response's `sandbox: true` marks the receipt so a relayed summary cannot pass a test send off as a real one.
+         *
+         *     Requires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.
+         */
+        post: operations["v1SendTestEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List emails
+         * @description List emails for the authenticated project. Cursor-paginated for stable scroll over large result sets.
+         *
+         *     Requires the `emails:read` scope — View the emails you have sent and their delivery status.
+         */
+        get: operations["listEmails"];
+        put?: never;
+        /**
+         * Send a single transactional email
+         * @description Send a single transactional email. Accepts a `template` ID or an inline `subject` + `body`. An optional `Idempotency-Key` request header (1–255 chars, 24h TTL) ensures replay safety: the first request wins and a retry carrying the same key AND the same body replays its response. Reusing a key with a DIFFERENT body answers `422 IDEMPOTENCY_KEY_REUSED` — a key names one request, so it is never silently served another request's result.
+         *
+         *     Requires the `emails:send` scope — Send emails from your verified domains.
+         */
+        post: operations["sendEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/emails/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a single email
+         * @description Fetch one email together with its DELIVERY history — the transitions behind `status`, oldest first.
+         *
+         *     `events` here is not the custom-event resource: the events a caller records with `POST /api/v1/events` are read from `GET /api/v1/events`, and never appear on this response.
+         *
+         *     Requires the `emails:read` scope — View the emails you have sent and their delivery status.
+         */
+        get: operations["getEmail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/emails/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a batch of emails
+         * @description Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array.
+         *
+         *     The whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.
+         *
+         *     Requires the `emails:send` scope — Send emails from your verified domains.
+         */
+        post: operations["sendEmailBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/emails/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Cancel a scheduled (still-PENDING) email
+         * @description Mark a still-pending email as FAILED before the worker picks it up. Returns 409 if the email has already left PENDING.
+         */
+        delete: operations["cancelScheduledEmail"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List contacts
+         * @description Cursor-paginated list of contacts. Supports filter by `search` and `subscribed`.
+         *
+         *     Requires the `contacts:read` scope — View your contacts and their custom fields.
+         */
+        get: operations["listContacts"];
+        put?: never;
+        /**
+         * Create a contact
+         * @description Create a new contact. Returns 409 on `(projectId, email)` conflict — use `/api/contacts/upsert` for create-or-update semantics.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        post: operations["createContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contacts/upsert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or update a contact by email
+         * @description Idempotent contact upsert keyed by email. Always answers 200 — the create-vs-update distinction is not signalled via status code.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        post: operations["upsertContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contacts/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk-create contacts
+         * @description Create up to 1000 contacts in one call. Per-row conflicts are reported as `skipped`.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        post: operations["bulkCreateContacts"];
+        /**
+         * Bulk-delete contacts
+         * @description Delete up to 1000 contacts in one call. Provide either `ids` or `emails`.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        delete: operations["bulkDeleteContacts"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contacts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a contact
+         * @description Requires the `contacts:read` scope — View your contacts and their custom fields.
+         */
+        get: operations["getContact"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a contact
+         * @description Hard-delete a contact. Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content).
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        delete: operations["deleteContact"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a contact
+         * @description Update `data` and/or `subscribed`. `email` is immutable here — use `/api/contacts/upsert` to change addresses.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        patch: operations["updateContact"];
+        trace?: never;
+    };
+    "/api/v1/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List contacts
+         * @description Cursor-paginated list of contacts, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
+         *
+         *     A cursor is bound to the filters that minted it. Changing `search` or `subscribed` while reusing a cursor answers `422 validation_error` rather than returning a page that belongs to neither query — drop the cursor and start again from the first page.
+         *
+         *     Requires the `contacts:read` scope — View your contacts and their custom fields.
+         */
+        get: operations["v1ListContacts"];
+        put?: never;
+        /**
+         * Create a contact
+         * @description Create a contact. The address is unique per project, so creating one that already exists answers `409 conflict` rather than updating the existing row — there is no upsert on this surface, because a silent update is not what a caller who wrote `create` asked for.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        post: operations["v1CreateContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a contact
+         * @description Fetch one contact by id.
+         *
+         *     Requires the `contacts:read` scope — View your contacts and their custom fields.
+         */
+        get: operations["v1GetContact"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a contact
+         * @description Delete the contact row. The emails already sent to that address are NOT erased — a send is a record of something that happened, and removing the recipient does not undo it. Erasing delivery history is a separate, irreversible operation that this surface deliberately does not expose.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        delete: operations["v1DeleteContact"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a contact
+         * @description Partial update. Omitted fields are left alone.
+         *
+         *     `email` is NOT writable: an address is the contact's identity on this API, and rewriting it in place would silently change what every earlier send was addressed to. Create the new address instead.
+         *
+         *     `custom_fields` REPLACES the stored object rather than merging into it, so a key you omit is gone. Read the contact first if you mean to change one key and keep the rest.
+         *
+         *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
+         */
+        patch: operations["v1UpdateContact"];
+        trace?: never;
+    };
+    "/api/lists/{id}/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subscribe a contact to a list
+         * @description Add a contact to a list, creating the contact if it does not exist. When the list has `doubleOptIn` enabled the membership is created as `PENDING` and the response carries a `confirmToken` — Sendly does NOT send the confirmation email, so the caller must deliver `/api/lists/confirm-subscription?token=<confirmToken>` to the contact itself.
+         *
+         *     Accepts SENDING_ONLY (`pk_*`) keys so it can back a public subscribe form.
+         *
+         *     **Re-subscribing after an opt-out.** If the email already holds an `UNSUBSCRIBED` membership on this list, the call fails with `409 RESUBSCRIBE_CONFIRMATION_REQUIRED` unless the body sets `allowResubscribe: true`. Reversing an opt-out is a consent decision, so it is never the default — set the flag only when the contact themselves asked to be re-subscribed.
+         *
+         *     `previousStatus` reports the membership's status before the call (`null` when it did not exist); prefer it over `created` when describing what changed, since `created: false` is equally true for an unchanged membership and for a reactivated one.
+         */
+        post: operations["subscribeToList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/lists/{id}/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unsubscribe a contact from a list
+         * @description Mark the contact's membership on this list as `UNSUBSCRIBED`. Accepts SENDING_ONLY (`pk_*`) keys so it can back a public preference form. Idempotent — unsubscribing an address that is not a member succeeds.
+         *
+         *     Once a membership is `UNSUBSCRIBED`, a later `POST /api/lists/{id}/subscribe` needs `allowResubscribe: true` to reverse it.
+         */
+        post: operations["unsubscribeFromList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List subscriber lists
+         * @description Cursor-paginated list of subscriber lists, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
+         *
+         *     `member_count` counts memberships in EVERY status — `PENDING` and `UNSUBSCRIBED` included — so it is the size of the membership table for this list, not the number of people currently subscribed. Read `GET /api/lists/{id}/members?status=CONFIRMED` when you want the latter.
+         *
+         *     Requires the `lists:read` scope — View your subscriber lists and who is on them.
+         */
+        get: operations["v1ListLists"];
+        put?: never;
+        /**
+         * Create a subscriber list
+         * @description Create an empty subscriber list. `member_count` on the response is 0 because the list has just been created — add contacts with `POST /api/lists/{id}/subscribe`.
+         *
+         *     **`double_opt_in` does not make Sendly send anything.** With it on, `POST /api/lists/{id}/subscribe` creates the membership as `PENDING` and returns a `confirm_token`; delivering `/api/lists/confirm-subscription?token=<token>` to the contact is YOUR job. A list that turns the flag on without sending that link collects pending memberships and confirms none of them.
+         *
+         *     `description`, `confirmation_template_id` and `redirect_url` accept `null`, which means the same as omitting them: the field is left unset.
+         *
+         *     Requires the `lists:write` scope — Create, rename, and delete your subscriber lists.
+         */
+        post: operations["v1CreateList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a subscriber list
+         * @description Fetch one list by id, with the same status-agnostic `member_count` the collection returns.
+         *
+         *     Requires the `lists:read` scope — View your subscriber lists and who is on them.
+         */
+        get: operations["v1GetList"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a subscriber list
+         * @description Delete the list and, by cascade, every membership on it. Those memberships are the consent record: an `UNSUBSCRIBED` row is the evidence that someone opted out, and it goes with the list — re-creating the list and re-importing the same addresses will not find their opt-outs waiting. The emails already sent are untouched.
+         *
+         *     Requires the `lists:write` scope — Create, rename, and delete your subscriber lists.
+         */
+        delete: operations["v1DeleteList"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a subscriber list
+         * @description Partial update. Omitted fields are left alone, and `null` for `description`, `confirmation_template_id` or `redirect_url` is treated the same as omitting them — this surface cannot clear a field back to empty yet.
+         *
+         *     **`double_opt_in` does not make Sendly send anything.** With it on, `POST /api/lists/{id}/subscribe` creates the membership as `PENDING` and returns a `confirm_token`; delivering `/api/lists/confirm-subscription?token=<token>` to the contact is YOUR job. A list that turns the flag on without sending that link collects pending memberships and confirms none of them.
+         *
+         *     Turning `double_opt_in` on affects only memberships created afterwards. Existing `CONFIRMED` memberships stay confirmed: those contacts consented under the rule in force when they subscribed, and demoting them would revoke a consent record rather than collect one.
+         *
+         *     Requires the `lists:write` scope — Create, rename, and delete your subscriber lists.
+         */
+        patch: operations["v1UpdateList"];
+        trace?: never;
+    };
+    "/api/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sending domains
+         * @description List all domains for the authenticated project.
+         *
+         *     Requires the `domains:read` scope — View your sending domains and their verification status.
+         */
+        get: operations["listDomains"];
+        put?: never;
+        /**
+         * Add a sending domain
+         * @description Register a new domain with SES and persist its DKIM tokens.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        post: operations["addDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a sending domain
+         * @description Requires the `domains:read` scope — View your sending domains and their verification status.
+         */
+        get: operations["getDomain"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove a sending domain
+         * @description Removes the domain from the project. The underlying SES identity is also dropped if no other project still uses it.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        delete: operations["deleteDomain"];
+        options?: never;
+        head?: never;
+        /**
+         * Assign a sending identity to a stream
+         * @description Assign this identity to transactional or marketing traffic, make it the project's default for that stream, or give it the from-address a send on that stream uses when it names none.
+         *
+         *     Streams are enforced, not labelled: once an identity is assigned, a send of the other kind from it is refused with 403. That is what keeps a campaign's complaint rate off the identity your password resets go out on. An identity with no stream (`stream: null`, and the state of every domain added before this existed) carries both.
+         *
+         *     At most one identity per (project, stream) is the default; setting `streamDefault` demotes whichever held it. `defaultFromAddress` has to be an address on this identity's own host — a default pointing anywhere else would go out unsigned by the name in the From header. Every field is optional and an omitted one is left alone.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        patch: operations["assignDomainStream"];
+        trace?: never;
+    };
+    "/api/domains/{id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read SES verification status
+         * @description Read the current SES verification status without forcing a refresh.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        get: operations["getDomainVerification"];
+        put?: never;
+        /**
+         * Trigger SES verification
+         * @description Force a refresh of the domain's SES verification status.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        post: operations["verifyDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/{id}/dodomain-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start guided DNS setup
+         * @description Mint a short-lived guided-setup session for this domain and return the URL that opens it. The URL is the whole point: DNS records have to be published at the domain's registrar, which is a place only a person with those credentials can reach — so this call cannot finish the job, it hands it over.
+         *
+         *     The session is bound to this one domain, expires on its own, and returns the browser to the Sendly domains settings page when it is done. Verification authority stays with SES either way: guided setup publishes the records, it does not decide whether they are correct.
+         *
+         *     `503 DODOMAIN_NOT_CONFIGURED` when the deployment has no guided-setup provider. `429 DODOMAIN_SESSION_COOLDOWN` for a second call within 60s on the same domain — each session is metered, so a double submit is refused rather than charged twice.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        post: operations["startDomainSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sending domains
+         * @description Cursor-paginated list of sending domains, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
+         *
+         *     `verified` is SES's verdict on the identity and is the field that decides whether mail can leave from this domain. `dkim_verified` is a separate fact — what the DNS health refresh last read for the DKIM records — and the two disagree while a re-check is in flight, so do not treat either as a spelling of the other.
+         *
+         *     Requires the `domains:read` scope — View your sending domains and their verification status.
+         */
+        get: operations["v1ListDomains"];
+        put?: never;
+        /**
+         * Add a sending domain
+         * @description Register a domain and start SES DKIM verification. The response carries the identity as created — `verified` is false, because nothing is verified until the DKIM records are published in the domain's DNS and SES resolves them. Poll `/api/v1/domains/{id}/verify` after publishing them.
+         *
+         *     `region` pins the SES region. The first domain a project adds LOCKS the project to that region and every later domain must match it — a project split across regions would have its SES configuration diverge silently.
+         *
+         *     `stream` assigns the identity to transactional or marketing traffic at creation; omit it to leave the identity serving both. `stream_default` makes it the project's default for that stream and therefore requires `stream` — sending it alone answers `422 validation_error` rather than being ignored.
+         *
+         *     A host already registered — to this project or to another — answers `409 conflict` when the caller can already send from it and `403 project_access_denied` when it belongs elsewhere. A subdomain whose registrable root is held by a suspended project is refused the same way.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        post: operations["v1CreateDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/domains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a sending domain
+         * @description Fetch one sending domain by id.
+         *
+         *     Requires the `domains:read` scope — View your sending domains and their verification status.
+         */
+        get: operations["v1GetDomain"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove a sending domain
+         * @description Remove the domain from the project. Refused with `409 conflict` while a template, workflow step or active campaign still sends from an address on this host — repoint those first, or their sends would start failing at SES with nothing here explaining why.
+         *
+         *     The underlying SES identity is dropped too, unless another project still holds the same host. Its DKIM keys go with it, so re-adding the domain later mints new records that have to be published again.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        delete: operations["v1DeleteDomain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/domains/{id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh a sending domain's verification state
+         * @description Re-read this domain's state from SES and DNS and return the refreshed document.
+         *
+         *     This does NOT perform verification. Verification happens in the domain's own DNS, when its owner publishes the DKIM records SES minted at creation; Amazon decides when they resolve. What this call does is ask SES what it currently sees, re-check SPF and DMARC, and persist the answer — so a caller polling after a DNS change learns the outcome without waiting for the periodic sweep. Calling it on a domain whose records are not published yet is not an error and does not make it verify any sooner.
+         *
+         *     A POST rather than a GET because it writes: the refreshed state is persisted, and a verified/unverified transition notifies the project.
+         *
+         *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
+         */
+        post: operations["v1VerifyDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List templates
+         * @description Cursor-paginated list of templates. Use `search` for full-text-ish filtering on name/description/subject.
+         *
+         *     Requires the `templates:read` scope — View your email templates.
+         */
+        get: operations["listTemplates"];
+        put?: never;
+        /**
+         * Create a template
+         * @description Create a new email template. The `from` domain must already be verified for the project.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        post: operations["createTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a template
+         * @description Requires the `templates:read` scope — View your email templates.
+         */
+        get: operations["getTemplate"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a template
+         * @description Answers 200 with `{ success, data: { id } }` (pre-seam this was 204 No Content). Refuses with 409 if the template is still attached to a workflow step or active campaign.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        delete: operations["deleteTemplate"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a template
+         * @description Update one or more fields. If `from` changes, the new domain must already be verified.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        patch: operations["updateTemplate"];
+        trace?: never;
+    };
+    "/api/v1/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List templates
+         * @description Cursor-paginated list of templates, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
+         *
+         *     `search` is a case-insensitive substring match on the NAME only — narrower than the dashboard's search, which also reads description and subject, because a caller that asked for a name match should not be handed rows that merely mention the word in their body.
+         *
+         *     A cursor is bound to the filters that minted it. Changing `search` or `email_category` while reusing a cursor answers `422 validation_error` rather than returning a page that belongs to neither query — drop the cursor and start again from the first page.
+         *
+         *     Requires the `templates:read` scope — View your email templates.
+         */
+        get: operations["v1ListTemplates"];
+        put?: never;
+        /**
+         * Create a template
+         * @description Create a template. The `from` domain must already be a verified sending identity for this project — an unverified sender answers `403 forbidden` here rather than becoming a campaign that fails at send time.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        post: operations["v1CreateTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a template
+         * @description Fetch one template by id.
+         *
+         *     Requires the `templates:read` scope — View your email templates.
+         */
+        get: operations["v1GetTemplate"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a template
+         * @description Delete the template. Answers `409 conflict` while a workflow step or an active campaign (DRAFT, SCHEDULED or SENDING) still points at it — removing it would leave those referring to content that no longer exists, and the failure would surface at send time instead of here. The emails already sent from this template are NOT erased.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        delete: operations["v1DeleteTemplate"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a template
+         * @description Partial update. Omitted fields are left alone.
+         *
+         *     Changing `subject`, `body`, `from`, `from_name` or `reply_to` snapshots the previous content into the template's version history and increments `version`; changing only `name`, `description` or `email_category` does not, because neither is content a send would have rendered.
+         *
+         *     A `from` supplied here is verified before anything is written, on the same terms as create.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        patch: operations["v1UpdateTemplate"];
+        trace?: never;
+    };
+    "/api/snippets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List snippets
+         * @description Cursor-paginated list of the project's reusable template fragments. `search` matches name and description.
+         *
+         *     Requires the `templates:read` scope — View your email templates.
+         */
+        get: operations["listSnippets"];
+        put?: never;
+        /**
+         * Create a snippet
+         * @description `name` is the literal identifier templates include with `{{> name}}`: it must start with a letter and contain only letters, digits, hyphen or underscore, and it is unique within the project.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        post: operations["createSnippet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/snippets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a snippet
+         * @description Requires the `templates:read` scope — View your email templates.
+         */
+        get: operations["getSnippet"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a snippet
+         * @description Templates that still include the snippet keep rendering — an absent snippet renders as an empty string, exactly like an absent variable.
+         *
+         *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        delete: operations["deleteSnippet"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a snippet
+         * @description Requires the `templates:write` scope — Create, edit, and delete your email templates.
+         */
+        patch: operations["updateSnippet"];
         trace?: never;
     };
     "/api/webhooks": {
@@ -1497,28 +1502,6 @@ export interface paths {
         patch: operations["updateWebhook"];
         trace?: never;
     };
-    "/api/webhooks/{id}/calls": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List recent webhook calls
-         * @description Cursor-paginated list of recent delivery attempts for a single webhook.
-         *
-         *     Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.
-         */
-        get: operations["listWebhookCalls"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/webhooks/{id}/rotate-secret": {
         parameters: {
             query?: never;
@@ -1541,225 +1524,1791 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/webhooks/{id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent webhook calls
+         * @description Cursor-paginated list of recent delivery attempts for a single webhook.
+         *
+         *     Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.
+         */
+        get: operations["listWebhookCalls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhooks
+         * @description Cursor-paginated list of webhook endpoints, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
+         *
+         *     Signing secrets are not on this response and cannot be read back — see `POST /api/v1/webhooks/{id}/rotate-secret` if you have lost one.
+         *
+         *     Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.
+         */
+        get: operations["v1ListWebhooks"];
+        put?: never;
+        /**
+         * Create a webhook
+         * @description Register an endpoint to receive HMAC-signed deliveries for the events named in `event_types`.
+         *
+         *     The response carries the signing secret ONCE. It is shown here and by `POST /api/v1/webhooks/{id}/rotate-secret`, and by nothing else — no endpoint reads it back, so store it now. A secret you have lost is replaced by rotating, not recovered.
+         *
+         *     Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
+         */
+        post: operations["v1CreateWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a webhook
+         * @description Fetch one webhook endpoint by id. The signing secret is not part of this response.
+         *
+         *     Requires the `webhooks:read` scope — View your webhook endpoints and their delivery history.
+         */
+        get: operations["v1GetWebhook"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a webhook
+         * @description Remove the endpoint and its delivery history — a delivery attempt is a fact about this endpoint and has no meaning once the endpoint is gone. Deliveries already in flight are not recalled, so the endpoint may still receive an event shortly after this returns.
+         *
+         *     Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
+         */
+        delete: operations["v1DeleteWebhook"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a webhook
+         * @description Partial update. Omitted fields are left alone.
+         *
+         *     `event_types` REPLACES the stored subscription list rather than merging into it, so an event you omit is unsubscribed. Setting `status` back to `ACTIVE` from `DISABLED` also clears the consecutive-failure counter, so an auto-disabled endpoint gets a clean slate.
+         *
+         *     The signing secret is untouched by an update, and is not part of this response.
+         *
+         *     Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
+         */
+        patch: operations["v1UpdateWebhook"];
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate a webhook signing secret
+         * @description Mint a fresh signing secret. The new plaintext is returned EXACTLY ONCE, here — no endpoint reads it back, so a secret you lose is replaced by rotating again rather than recovered.
+         *
+         *     Rotation overlaps on purpose. The outgoing secret keeps verifying until `previous_secret_expires_at`, and every delivery inside that window carries BOTH signatures in the `webhook-signature` header — so you can deploy the new secret to your verifier whenever you like without dropping an in-flight event. Rotating twice inside the window discards the older secret: only one previous secret is ever live.
+         *
+         *     `url`, `event_types` and `status` are unchanged.
+         *
+         *     Requires the `webhooks:write` scope — Create, edit, and delete your webhook endpoints.
+         */
+        post: operations["v1RotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List API keys for a project
+         * @description Returns every key on the project, revoked ones included — filter on `revokedAt` to show only live keys. Never returns a token or its hash: `lastFour` is the only fragment of the secret that survives creation.
+         *
+         *     Requires the `api-keys:read` scope — See which API keys exist, including what each one is allowed to do.
+         */
+        get: operations["listApiKeys"];
+        put?: never;
+        /**
+         * Create an API key
+         * @description Mint a new API key on the project. The token is NOT returned — the response carries the key's metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.
+         *
+         *     **Scope attenuation:** a key created with a delegated credential (an OAuth token or another API key) may not carry a scope that credential does not itself hold. A request that asks for more is refused with `400 SCOPE_ESCALATION` rather than quietly narrowed, so the mistake is reported where it was made instead of surfacing later as an unexplained 403. Naming only `legacyGrantPreset` counts as asking for every scope that preset implies.
+         *
+         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
+         */
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}/api-keys/{keyId}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate an API key's secret
+         * @description Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the new secret is not returned: the response carries `lastFour` and a one-time `revealUrl`. A revoked key cannot be rotated (`400 KEY_REVOKED`).
+         *
+         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
+         */
+        post: operations["rotateApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}/api-keys/{keyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an API key
+         * @description Revoke an API key. Answers `{ success: true }` with no `data` key. 404 if the key does not exist under this project.
+         *
+         *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
+         */
+        delete: operations["revokeApiKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/suppression": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List suppressed emails
+         * @description Cursor-paginated list of suppressed addresses. Filter by `reason`.
+         *
+         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
+         */
+        get: operations["listSuppressions"];
+        put?: never;
+        /**
+         * Manually add an email to the suppression list
+         * @description The `source` field is auto-derived: `API` for API-key callers, `DASHBOARD` for session callers.
+         *
+         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
+         */
+        post: operations["addSuppression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/suppression/{email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check whether an email is suppressed
+         * @description Returns `{ suppressed, reason?, source?, createdAt? }`. The path parameter must be URL-encoded.
+         *
+         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
+         */
+        get: operations["checkSuppression"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove an email from the suppression list
+         * @description Idempotent. Silently no-ops if the suppression doesn't exist.
+         *
+         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
+         */
+        delete: operations["removeSuppression"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/suppressions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List suppressed addresses
+         * @description Cursor-paginated list of suppressed addresses, newest first. Pass the previous response's `next_cursor` as `after` to page forward; `has_more` is false and `next_cursor` is null on the last page.
+         *
+         *     A cursor is bound to the filters that minted it. Changing `reason` while reusing a cursor answers `422 validation_error` rather than returning a page that belongs to neither query — drop the cursor and start again from the first page.
+         *
+         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
+         */
+        get: operations["v1ListSuppressions"];
+        put?: never;
+        /**
+         * Suppress an address
+         * @description Add an address to this project's suppression list, so no further send reaches it.
+         *
+         *     Idempotent: suppressing an already-suppressed address answers `201` with the EXISTING record rather than `409`. The first `reason` and `source` win, because a later manual entry must not overwrite what an SES bounce recorded.
+         *
+         *     `source` is NOT accepted in the body — it is derived from the credential (`API` for an API key, `DASHBOARD` for a session), so a record's provenance cannot be dressed up as a deliverability fact.
+         *
+         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
+         */
+        post: operations["v1CreateSuppression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/suppressions/{email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check whether an address is suppressed
+         * @description Fetch the suppression record for one address. The path parameter is the address itself, URL-encoded.
+         *
+         *     An address that is NOT suppressed answers `404 resource_not_found` — this path addresses the suppression record, and there is none. The answer is definite either way: `200` means suppressed and says why, `404` means not suppressed.
+         *
+         *     A `200` may also come from a platform-wide block recorded outside this project, in which case the address is genuinely undeliverable for you even though you never suppressed it.
+         *
+         *     Requires the `suppression:read` scope — View the addresses on your suppression list.
+         */
+        get: operations["v1GetSuppression"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove an address from the suppression list
+         * @description Clear Sendly's suppression record for this address, so the send pipeline stops refusing it. This is the one operation on this surface that can put mail back into an inbox that asked you to stop, which is why `suppression:write` is a sensitive scope.
+         *
+         *     It does NOT remove the address from AWS SES's own account-level suppression list. SES maintains that list independently of anything Sendly stores, so an address SES suppressed after a hard bounce stays undeliverable through SES even once this record is gone — removing it here is not a promise that the next send arrives.
+         *
+         *     Idempotent: an address that was never suppressed answers `200` too, because "not on the list" is the state you asked for.
+         *
+         *     Requires the `suppression:write` scope — Add and remove addresses on your suppression list.
+         */
+        delete: operations["v1DeleteSuppression"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/track": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Track a custom event for a contact
+         * @description Record a custom event, creating or updating the contact by email as a side effect. Requires a FULL (`sk_*`) key — SENDING_ONLY (`pk_*`) keys answer 403, since recording events is not sending mail. Reserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected.
+         *
+         *     Requires the `events:write` scope — Record custom events for your contacts.
+         */
+        post: operations["trackEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List events
+         * @description Cursor-paginated list of recorded events, newest first. Filter by `event_name` to follow a single series.
+         *
+         *     A cursor is bound to the filters it was issued under: pairing page 2's `next_cursor` with a different `event_name` answers 422 rather than returning a page that belongs to neither query.
+         *
+         *     Requires the `events:read` scope — View the custom events your application has recorded.
+         */
+        get: operations["v1ListEvents"];
+        put?: never;
+        /**
+         * Record an event
+         * @description Records a custom event, optionally attached to a contact. Events drive segment membership and workflow triggers, so a matching enabled workflow starts as a result of this call.
+         *
+         *     `contact_id` must already exist in this project — unlike `POST /api/track`, this endpoint never creates contacts. Omit it for a project-level event.
+         *
+         *     Reserved system event names (`email.*`, `contact.subscribed`/`unsubscribed`, `segment.*.entry`/`.exit`) are rejected with 422: they are written by Sendly's own pipeline and accepting them from a caller would corrupt the series segments read.
+         *
+         *     This endpoint does NOT require an `Idempotency-Key`. Events are append-only and the highest-volume write on the surface; a duplicate is a data-quality question for the caller, not a money-path hazard.
+         *
+         *     Sending-only (`pk_*`) keys cannot record events — they hold the send capability and nothing else.
+         *
+         *     Requires the `events:write` scope — Record custom events for your contacts.
+         */
+        post: operations["v1TrackEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List event names
+         * @description Every distinct event name in the project, most frequent first — the vocabulary a caller needs before filtering events or pointing a workflow trigger at one. Unpaginated: the set is bounded by what the integration emits, not by event volume.
+         *
+         *     Requires the `events:read` scope — View the custom events your application has recorded.
+         */
+        get: operations["v1ListEventNames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve event counts
+         * @description Per-name event counts over a bounded window, most frequent first.
+         *
+         *     The window defaults to the last 30 days and never reaches further back than 90: this is a GROUP BY over the highest-volume table in the system, and an all-time answer is not one it can keep giving at scale. A wider request is narrowed rather than refused, and the `window` field states the range actually covered.
+         *
+         *     Requires the `events:read` scope — View the custom events your application has recorded.
+         */
+        get: operations["v1GetEventStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/timeseries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve the daily email time series
+         * @description Daily counts of emails created, delivered, opened, clicked and bounced. Every day in the window is present even with zero activity, so the series never needs gap-filling.
+         *
+         *     `from` defaults to 30 days ago and is clamped to at most 90 days back; `to` defaults to now. A wider request is narrowed rather than refused, and the `window` field states the range actually covered — read it before comparing two responses.
+         *
+         *     Requires the `analytics:read` scope — View your sending analytics and engagement metrics.
+         */
+        get: operations["v1GetAnalyticsTimeseries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve campaign totals and engagement
+         * @description Campaign counts plus average open and click rates.
+         *
+         *     `total` and `active` count campaigns CREATED in the window; `completed` counts campaigns SENT in it — so a campaign created earlier and sent inside the window appears only in `completed`. Rates are percentages to one decimal place, averaged over the campaigns sent in the window.
+         *
+         *     `from` defaults to 30 days ago and is clamped to at most 90 days back; `to` defaults to now. A wider request is narrowed rather than refused, and the `window` field states the range actually covered — read it before comparing two responses.
+         *
+         *     Requires the `analytics:read` scope — View your sending analytics and engagement metrics.
+         */
+        get: operations["v1GetCampaignAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/top-campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the best-performing campaigns
+         * @description Campaigns sent in the window, ranked by open rate, capped at 50 rows. Not cursor-paginated: a leaderboard is a top-N by definition, and paging one would mean re-ranking on every page.
+         *
+         *     `from` defaults to 30 days ago and is clamped to at most 90 days back; `to` defaults to now. A wider request is narrowed rather than refused, and the `window` field states the range actually covered — read it before comparing two responses.
+         *
+         *     Requires the `analytics:read` scope — View your sending analytics and engagement metrics.
+         */
+        get: operations["v1ListTopCampaigns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deliverability/diagnose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Diagnose why mail from a domain is not arriving
+         * @description Reads the sending domain's DNS identity, the project's delivery outcomes over the last `window_days`, and — when an `address` is given — that recipient's suppression state, then publishes `findings`: what is actually wrong, worst first, each with a stable `code` and the fix. Branch on `code`, never on the prose.
+         *
+         *     Everything here is read from data the platform already holds. The DNS statuses are the cached results of the verification refresh job, NOT a live lookup — `identity.last_checked_at` says when they were filled, and a domain that has never been checked reports nulls with a `dns_never_checked` finding rather than failures.
+         *
+         *     `recent_delivery` is PROJECT-WIDE, not per-domain, because an email row records no sending domain; the field says so in its own `scope`. Rates are suppressed as meaningless below 20 sends in the window.
+         *
+         *     Requires the `deliverability:read` scope — Check why mail from one of your domains is not arriving.
+         */
+        get: operations["v1DiagnoseDeliverability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deliverability/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delivery outcomes per recipient domain
+         * @description Sent, delivered, bounced, complained and opened counts split by the RECIPIENT's domain and by UTC day, newest day first.
+         *
+         *     This is the axis `diagnose` cannot report: its `recent_delivery` is project-wide, because an email row records no sending domain. A project-wide bounce rate hides the case that matters most — one recipient domain refusing almost everything while the rest is healthy.
+         *
+         *     The counts are maintained by an hourly job over a rolling 30-day window, NOT computed on request; `computed_at` on each row says when it was last rebuilt. No rate is published: a rate over three sends is not information, and the counts let you apply your own threshold.
+         *
+         *     Requires the `deliverability:read` scope — Check why mail from one of your domains is not arriving.
+         */
+        get: operations["v1ListRecipientDomainStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deliverability/dmarc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * DMARC aggregate reports for your domains
+         * @description DMARC aggregate (RUA) reports receiving providers have sent about your verified domains, newest reporting window first.
+         *
+         *     The only signal on this surface that does not come from us. A report is a receiver saying what it saw arrive claiming to be your domain, from every source — which is how a sender finds out both that their own alignment is broken and that somebody else is sending as them.
+         *
+         *     `pass_count` counts DMARC ALIGNMENT from `policy_evaluated`, not raw authentication results: a message can pass SPF for a domain that is not the one in its From header, and that is precisely the case DMARC exists to catch.
+         *
+         *     Only reports about a domain registered in this project are stored, so a report about a domain you have not added will not appear here.
+         *
+         *     Requires the `deliverability:read` scope — Check why mail from one of your domains is not arriving.
+         */
+        get: operations["v1ListDmarcReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve current usage and limits
+         * @description Email usage against the limits that are actually enforced: the current month's counts per source category, the monthly cap applied to their total, and today's sends against the trust-tier daily ceiling.
+         *
+         *     Every figure is read from an enforcement path, so what this reports and what refuses a send cannot disagree. Correspondingly, nothing else is published — there is no billing period, invoice total or non-email meter here, because the platform meters none of those.
+         *
+         *     Two caveats worth reading before you alert on these numbers:
+         *
+         *     - The windows differ. The monthly counters roll over on the SERVER's calendar month; the daily counter buckets on the UTC date. The two therefore reset at different instants.
+         *     - `monthly.limit` is null once a subscription makes sending metered rather than capped, and also when an operator has set per-category limits — in that case the caps live in `monthly.categories[*].limit`.
+         *
+         *     Requires the `usage:read` scope — View your usage totals and billing limits.
+         */
+        get: operations["v1GetUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve the authenticated project
+         * @description The project the presented credential is scoped to — resolved from the API key, or from the `x-project-id` header for a session or delegated token. Singular despite the plural path, like `/api/v1/usage`: every v1 operation acts on exactly one project.
+         *
+         *     `sandbox_address` is this project's quick-start sender. It works with no domain setup, but only to the project owner's own verified address and under a daily cap — it is how you prove sending works end to end before any DNS exists. It is null when no handle can be derived (a project with no owner).
+         *
+         *     To enumerate every project you belong to — a different question, and not project-scoped — use `GET /api/users/me/projects`.
+         *
+         *     Requires the `projects:read` scope — View your projects and their settings.
+         */
+        get: operations["v1GetProject"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List mailboxes
+         * @description Every mailbox on the authenticated project's domains, newest first. Not paginated: a project is capped at ten mailboxes, and the cap counts only those holding — or on their way to holding — a real account (`PROVISIONING`, `ACTIVE`, `SUSPENDED`). `FAILED` rows do not consume the cap but ARE returned here, so a project that has had failed provisions can list more than ten.
+         *
+         *     This lists the mailboxes themselves, never their contents: the messages a mailbox has received are not part of the public API and are not covered by this scope.
+         *
+         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
+         */
+        get: operations["listMailboxes"];
+        put?: never;
+        /**
+         * Create a mailbox
+         * @description Provision a real receiving mailbox — `support@yourdomain.com` — on a domain you have already verified.
+         *
+         *     Three consequences worth knowing before you call it:
+         *
+         *     - **It changes how your domain's mail is routed.** The first mailbox on a domain turns receiving on for that domain, so mail addressed there starts arriving at Sendly instead of wherever it went before.
+         *     - **The domain must be verified.** An unverified domain answers 409; creating a mailbox is not a way to skip DNS.
+         *     - **Ten per project.** The eleventh answers 409. Deleted mailboxes free their slot; failed ones never consumed one.
+         *
+         *     Retrying a failed provision with the same address reclaims the failed row rather than answering 409 — but only for the same project and the same domain.
+         *
+         *     `quotaBytes` is accepted by the schema and REFUSED with a 400. Quotas are not implemented, and the field is still parsed so that asking for one is an error rather than a silently dropped key.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        post: operations["createMailbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a mailbox
+         * @description One mailbox, with the IMAP and SMTP host/port/username a mail client needs. The password is not included: mailbox credentials are app passwords, created separately and shown once.
+         *
+         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
+         */
+        get: operations["getMailbox"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a mailbox
+         * @description Delete a mailbox and the mail account behind it. **Every message it holds is erased**, and Sendly keeps no other copy — this is not recoverable from the dashboard or by support. Mail sent to the address afterwards is rejected.
+         *
+         *     Requires an admin of the project.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        delete: operations["deleteMailbox"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft a message with AI
+         * @description Ask Sendly's assistant to write a message for a mailbox — a new email from a short brief, a rewrite of something you already have, or a set of subject lines.
+         *
+         *     **It returns text and sends nothing.** The response always reports `sent: false`, and there is no argument that changes that. Putting a draft in someone's inbox is a separate operation (`sendMailboxMessage`) under a separate scope, so a client that may draft is not thereby a client that may mail your customers.
+         *
+         *     That is also why this operation asks only for `mailboxes:read`: it names a mailbox so the draft can be written in that address's voice, reads no correspondence, and stores nothing.
+         *
+         *     Everything you pass — the brief, the draft, the recipient context — is treated strictly as data describing what to write, never as instructions to the model.
+         *
+         *     Drafting is capped at 120 requests per hour per project.
+         *
+         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
+         */
+        post: operations["draftMailboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a message from a mailbox
+         * @description Compose and send a NEW message from a hosted mailbox — a first email to someone, not a reply inside a thread that already exists. It goes out from the mailbox's own address, over its own domain, and the recipient can reply to it.
+         *
+         *     **The sender is the mailbox in the path.** There is no `from` field: a route that sends under a customer's own identity must not take the identity as an argument.
+         *
+         *     **The body is plain text.** Sendly renders the HTML part from it, escaping as it goes, so there is one place where text becomes markup and it is inside Sendly. HTML is not accepted.
+         *
+         *     Bcc recipients are delivered to but appear in no header, which also means the copy filed in the mailbox's Sent folder does not record them.
+         *
+         *     Refusals worth handling by name:
+         *
+         *     - `422 RECIPIENT_SUPPRESSED` — one or more recipients are on this project's suppression list. The message names them; remove them or take them off the list.
+         *     - `422 CONTENT_REFUSED` — the outbound content scanner refused the message.
+         *     - `503 CONTENT_SCAN_UNAVAILABLE` — screening could not reach a verdict for a young project. Nothing was sent; retry shortly.
+         *     - `429` — a mailbox may send 60 messages an hour through this endpoint.
+         *
+         *     The message is stored as a new conversation on the mailbox, so the reply threads onto it.
+         *
+         *     Requires the `mailboxes:send` scope — Write and send new email from your hosted mailboxes, as that address.
+         */
+        post: operations["sendMailboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}/app-passwords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a mailbox's app passwords
+         * @description Every app password on the mailbox — name, protocols, last four characters and last use. The secrets themselves are stored hashed and are not retrievable here or anywhere else; a password you have lost is replaced, not recovered.
+         *
+         *     Requires the `mailboxes:read` scope — View the mailboxes on your domains and their settings.
+         */
+        get: operations["listAppPasswords"];
+        put?: never;
+        /**
+         * Create an app password
+         * @description Mint an IMAP/SMTP credential for the mailbox, so a mail client can connect to it.
+         *
+         *     **The secret is not in the response.** A delegated caller receives `revealUrl` — a single-use link that shows the password once in a browser, to a signed-in project admin. The connection that created the password cannot open its own link, and the link is spent by the first attempt to open it, successful or not.
+         *
+         *     That is deliberate and not a limitation to work around: an app password is a live mail credential that a client authenticates with directly, it outlives the grant that created it, and it is revoked from a different screen. Returning it inline would place a working mail credential in an agent's context, its transcript, and every log that transcript reaches.
+         *
+         *     Requires an admin of the project. An API key is refused with 401 — this endpoint needs a user, so use an OAuth connection.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        post: operations["createAppPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}/app-passwords/{passwordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an app password
+         * @description Revoke one app password. Any mail client still configured with it stops authenticating immediately — there is no grace period — and the mailbox and its messages are untouched.
+         *
+         *     Requires an admin of the project. An API key is refused with 401.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        delete: operations["revokeAppPassword"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/me/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a project
+         * @description Create a new project owned by the authenticated user. Answers the raw project row directly — no `{ success, data }` envelope — with status 201.
+         *
+         *     Preconditions the route enforces before writing: the caller's email must be verified, the caller must be under their cap on active (non-disabled) owned projects, and the call is rate-limited per user.
+         *
+         *     Requires the `projects:write` scope — Create new projects on your account.
+         */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate an email address
+         * @description Open endpoint (no auth required) that checks an email for syntax, MX records, disposable domains, and plus-addressing. Used by the marketing site verifier.
+         */
+        post: operations["verifyEmailAddress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List topics
+         * @description The subjects this project mails about, cursor-paginated and newest first.
+         *
+         *     Archived topics are omitted unless you ask for them with `include_archived`. Archiving is the retire button and there is no delete: a topic is where people's answers are recorded, so removing it would remove the choices they made.
+         *
+         *     `subscribed_count` counts contacts who explicitly said yes. It reads low on a topic with `default_opt_in` true, and that is the honest number — it is how many people answered, not how many would currently receive the mail.
+         *
+         *     Requires the `topics:read` scope — View the topics you mail about and who is subscribed to each.
+         */
+        get: operations["v1ListTopics"];
+        put?: never;
+        /**
+         * Create a topic
+         * @description `key` is the stable, project-unique name every preference form and integration refers to, so it survives a rename of `name` and cannot be edited afterwards.
+         *
+         *     `default_opt_in` is the field worth thinking about: it decides what SILENCE means for every contact who never answers. Leave it true for a topic introduced over a list you already have — those contacts consented to hear from you, and inventing an opt-out they never asked for would mute mail they expect. Set it false for anything a person has to ask for, and absence then means `not asked` rather than `no`.
+         *
+         *     Requires the `topics:write` scope — Create and edit topics, and change what your contacts are subscribed to — this decides who your campaigns reach.
+         */
+        post: operations["v1CreateTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/topics/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a topic
+         * @description Requires the `topics:read` scope — View the topics you mail about and who is subscribed to each.
+         */
+        get: operations["v1GetTopic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a topic
+         * @description Rename it, re-describe it, flip `default_opt_in`, or archive it.
+         *
+         *     `key` is absent from the body on purpose. Every stored preference and every integration refers to a topic by its key, so changing one would orphan them silently. There is no DELETE for the same reason — `archived: true` removes the topic from the preference centre and from new sends while every opt-out recorded against it survives.
+         *
+         *     Requires the `topics:write` scope — Create and edit topics, and change what your contacts are subscribed to — this decides who your campaigns reach.
+         */
+        patch: operations["v1UpdateTopic"];
+        trace?: never;
+    };
+    "/api/v1/topics/{id}/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subscribe or unsubscribe a contact from a topic
+         * @description The two directions behave differently, and the asymmetry is deliberate: consent needs proof, withdrawal of consent does not.
+         *
+         *     `subscribed: true` does NOT subscribe anyone. It parks the contact at `pending` and returns a `confirmation_url`; nothing is mailed on this topic until somebody opens it. There is no parameter to skip that step. A caller asserting a subscription is not evidence that the mailbox holder agreed — anyone can type an address into a form — and treating the assertion as consent is the exact failure double opt-in exists to prevent. Sendly does not send the confirmation email; you do, from your own verified domain, because it is your relationship with the contact and your sending reputation.
+         *
+         *     `subscribed: false` records the opt-out immediately. Requiring somebody to confirm that they want to stop is a dark pattern, and it is also the fastest route to a spam report.
+         *
+         *     Requires the `topics:write` scope — Create and edit topics, and change what your contacts are subscribed to — this decides who your campaigns reach.
+         */
+        post: operations["v1SetTopicSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contacts/{id}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a contact's topic preferences
+         * @description Everything this contact has said they want, as the send path reads it.
+         *
+         *     `subscribed` on each topic is the EFFECTIVE answer: a contact who has never answered has no row at all, and the topic's `default_opt_in` decides what that silence means. It is folded in here so no caller has to reimplement the rule.
+         *
+         *     The top-level `subscribed` is the global marketing opt-out, and it OUTRANKS every topic. A caller reading only the topic list would conclude somebody is reachable when they are not.
+         *
+         *     Requires the `topics:read` scope — View the topics you mail about and who is subscribed to each.
+         */
+        get: operations["v1GetContactTopicPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email-validations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a batch of email addresses
+         * @description Check up to 50 addresses for whether they can receive mail, and for the signals that make one worth mailing. Billed per address.
+         *
+         *     The response publishes a `verdict` alongside the flags it was drawn from. Branch on the verdict: the two obvious readings of the flags are both wrong — a free-provider address (`is_personal`) and a role mailbox (`is_role_address`) are ordinary, deliverable addresses that real customers use, and refusing them would shrink a list for no reason. `is_disposable` is the only flag that lowers a verdict.
+         *
+         *     `unknown` means DNS did not answer in time, so that address was NOT checked. It is a separate value from `undeliverable` on purpose — acting on the two together deletes live contacts over a network hiccup.
+         *
+         *     The 50-address ceiling is a latency bound, not a payload one: every distinct DOMAIN in the batch costs a DNS round trip. To validate a whole list, use `POST /api/v1/lists/{id}/validation-runs`, which runs as a background job.
+         *
+         *     Requires the `validation:write` scope — Check whether email addresses can receive mail — this is billed per address.
+         */
+        post: operations["v1ValidateEmails"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lists/{id}/validation-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate every address on a list
+         * @description Start a background run over every contact on the list and answer immediately with the run. Poll `GET /api/v1/validation-runs/{id}` for progress and read the verdicts from its `/results` page.
+         *
+         *     This VALIDATES and changes nothing: no membership is unsubscribed, no contact is deleted. What to do about an `undeliverable` address is your decision, and a run that acted on its own findings would be acting on a DNS lookup that can also answer `unknown`.
+         *
+         *     A second run while one is already in flight for the same list is refused with 409 rather than queued: two runs would bill the same addresses twice.
+         *
+         *     Requires the `validation:write` scope — Check whether email addresses can receive mail — this is billed per address.
+         */
+        post: operations["v1StartListValidationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation-runs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a validation run
+         * @description How far a run has got and what it found. The counters are advanced by each batch in the same step that commits the rows they count, so they are a ledger rather than a cached estimate and may be branched on.
+         *
+         *     There is no total to divide by, deliberately: a list changes size while a run walks it, so a denominator captured when the run started would be wrong by the time you read it. A run is finished when `status` is `completed` or `failed`, never when a percentage reaches 100.
+         *
+         *     Requires the `validation:read` scope — View your email validation runs and their results.
+         */
+        get: operations["v1GetValidationRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/validation-runs/{id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a validation run's results
+         * @description One page of a run's verdicts, cursor-paginated. Filter with `verdict` — `undeliverable` is the page you want when you are about to act on the results.
+         *
+         *     No total is reported: a run over a large list holds millions of rows, and counting them on every page read is the query this design exists to avoid. The run's own counters carry the numbers worth having.
+         *
+         *     `contact_id` is the contact the address belonged to when it was checked, and it is null for a contact deleted since. The `email` is stored on the result rather than read through the contact, so a completed run reports what it actually checked even after the contact changed address.
+         *
+         *     Requires the `validation:read` scope — View your email validation runs and their results.
+         */
+        get: operations["v1ListValidationRunResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Body for POST /api/domains. `projectId` is optional for API-key auth (derived from key) and required for session auth. `region` pins the SES region; on the first domain it locks the project, after that it must match the project's region. */
-        AddDomainBody: {
-            domain: string;
-            /** Format: uuid */
-            projectId?: string;
+        /** @description Standard error envelope returned by all 4xx/5xx responses. Migrated routes include `success: false`; 422 validation errors add `error.details.errors`. */
+        Error: {
+            /** @enum {boolean} */
+            success?: false;
+            error: {
+                message: string;
+                code: string;
+                details?: {
+                    errors: unknown[];
+                };
+            };
+        };
+        /** @description RFC 9457 problem document, served as `application/problem+json`. Returned by every 4xx/5xx response on the `/api/v1` surface. */
+        Problem: {
             /**
-             * @description Override SES region for this domain. Defaults to the project region or the env default. Required to match an existing project region.
-             * @enum {string}
+             * Format: uri
+             * @description Dereferenceable URI identifying the error class, anchored on the docs errors page.
              */
-            region?: "us-east-1" | "us-west-2" | "eu-west-1";
-        };
-        /** @description Body for POST /api/suppression — manually add an email to the suppression list. */
-        AddSuppression: {
-            /** Format: email */
-            email: string;
-            /**
-             * @default MANUAL
-             * @enum {string}
-             */
-            reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
-        };
-        /** @description Campaign counters and engagement over the window. */
-        AnalyticsCampaignStatsV1: {
-            /** @description Campaigns in DRAFT or SCHEDULED. */
-            active: number;
-            average_click_rate: number;
-            /** @description Percentage, one decimal place. */
-            average_open_rate: number;
-            completed: number;
-            total: number;
-            window: components["schemas"]["AnalyticsWindowV1"];
-        };
-        /** @description Daily email counters across the window. Every day in range is present, zero-filled. */
-        AnalyticsTimeseriesV1: {
-            data: {
-                bounces: number;
-                clicks: number;
-                /** Format: date-time */
-                date: string;
-                delivered: number;
-                emails: number;
-                opens: number;
+            type: string;
+            /** @description Short, stable summary — the same for every occurrence of a `type`. */
+            title: string;
+            /** @description HTTP status code, repeated in the body. */
+            status: number;
+            /** @description Explanation specific to this occurrence. */
+            detail?: string;
+            /** @description Request path the failure occurred on. */
+            instance?: string;
+            /** @description Machine-readable lowercase error code, e.g. `scope_missing`. */
+            code: string;
+            /** @description Correlation id — quote it in support requests. */
+            request_id?: string;
+            /** @description Field-level failures. Present on 422 `validation_error` responses. */
+            errors?: {
+                /** @description RFC 6901 JSON Pointer to the offending field. */
+                pointer: string;
+                code: string;
+                message: string;
             }[];
-            window: components["schemas"]["AnalyticsWindowV1"];
         };
-        /** @description Sent campaigns ranked by open rate. */
-        AnalyticsTopCampaignsV1: {
-            data: {
-                click_rate: number;
-                clicked: number;
-                /** Format: uuid */
-                id: string;
-                open_rate: number;
-                opened: number;
-                sent: number;
-                subject: string;
-            }[];
-            window: components["schemas"]["AnalyticsWindowV1"];
-        };
-        /** @description The time range this response was computed over, after the 90-day clamp. */
-        AnalyticsWindowV1: {
-            /** Format: date-time */
-            from: string;
-            /** Format: date-time */
-            to: string;
-        };
-        /** @description An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created. */
-        ApiKey: {
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            /** Format: uuid */
-            domainId: string | null;
-            /** Format: uuid */
-            id: string;
-            /** @description Last 4 characters of the token — the only fragment of the secret that survives creation. */
-            lastFour: string;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            lastUsedAt: string | null;
-            name: string;
-            /** @enum {string} */
-            permission: "FULL" | "SENDING_ONLY";
-            /** Format: uuid */
-            projectId: string;
-            /**
-             * Format: date-time
-             * @description Set once the key is revoked. Revoked keys are NOT filtered out of list/get responses.
-             */
-            revokedAt: string | null;
-            /** @description The explicit scope grant this key carries. Empty on a key minted before this column existed — that row's grant is derived from `permission` instead at request time. */
-            scopes: ("emails:send" | "emails:read" | "contacts:read" | "contacts:write" | "campaigns:read" | "campaigns:write" | "segments:read" | "segments:write" | "workflows:read" | "workflows:write" | "templates:read" | "templates:write" | "domains:read" | "domains:write" | "webhooks:read" | "webhooks:write" | "suppression:read" | "suppression:write" | "analytics:read" | "usage:read" | "events:read" | "events:write" | "projects:read" | "projects:write" | "api-keys:read" | "api-keys:write" | "campaigns:send" | "mailboxes:read" | "mailboxes:write" | "emails:test")[];
-        };
-        /** @description Every API key on the project, including revoked ones — filter on `revokedAt` for live keys. */
-        ApiKeyListResponse: {
-            data: components["schemas"]["ApiKey"][];
+        /** @description Bare success envelope with no payload. */
+        SuccessEmpty: {
             /** @enum {boolean} */
             success: true;
         };
-        /** @description An IMAP/SMTP credential for one mailbox, described but never reproduced. */
-        AppPassword: {
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: uuid */
-            id: string;
-            /** @description The last four characters of the secret — enough to tell two credentials apart, and nothing more. */
-            lastFour: string;
-            /**
-             * Format: date-time
-             * @description Null until a mail client has authenticated with it at least once.
-             */
-            lastUsedAt: string | null;
-            /** @description What the credential is for, e.g. `Thunderbird on my laptop`. */
-            name: string;
-            /** @description Which protocols this password may authenticate. `imap` reads, `smtp` sends. */
-            scopes: ("imap" | "smtp")[];
+        /** @description Success envelope carrying the affected resource's id, e.g. after a delete. */
+        IdResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: uuid */
+                id: string;
+            };
         };
-        /** @description A newly created app password, handed over as a one-time link rather than as a secret. */
-        AppPasswordReveal: {
+        /** @description A subscriber/contact within a project. */
+        Contact: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: email */
+            email: string;
+            subscribed: boolean;
+            customFields?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Format: date-time
-             * @description When the link stops working. Five minutes after creation; the password itself does not expire.
+             * @description ISO 8601 datetime string
              */
-            revealExpiresAt: string;
+            createdAt: string;
             /**
-             * Format: uri
-             * @description A single-use link that shows the password once, in a browser. Opening it requires a signed-in Sendly session belonging to a project admin — the connection that created the password cannot open it, and the second attempt to open it fails whoever makes it.
+             * Format: date-time
+             * @description ISO 8601 datetime string
              */
-            revealUrl: string;
+            updatedAt: string;
+        };
+        /** @description Cursor-paginated list of contacts. */
+        ContactListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                data: components["schemas"]["Contact"][];
+                total: number;
+                /** @description Cursor for the next page, or null on the last page. */
+                nextCursor: string | null;
+                hasMore: boolean;
+            };
+        };
+        /** @description A reusable email template. */
+        Template: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            name: string;
+            description?: string | null;
+            subject: string;
+            body: string;
+            /** Format: email */
+            from: string;
+            fromName?: string | null;
+            /** Format: email */
+            replyTo?: string | null;
+            /** @enum {string} */
+            emailCategory: "MARKETING" | "TRANSACTIONAL" | "SELF_MANAGED_UNSUBSCRIBE";
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
+        };
+        /** @description Cursor-paginated list of templates. */
+        TemplateListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                data: components["schemas"]["Template"][];
+                total: number;
+                /** @description Cursor for the next page; omitted on the last page. */
+                cursor?: string;
+                hasMore: boolean;
+            };
+        };
+        /** @description A reusable fragment of template markup. */
+        Snippet: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** @description The literal identifier a template includes with `{{> name}}`. */
+            name: string;
+            description?: string | null;
+            /** @description Template markup. Values it interpolates are escaped like any other. */
+            body: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
+        };
+        /** @description Cursor-paginated list of snippets. */
+        SnippetListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                data: components["schemas"]["Snippet"][];
+                total: number;
+                /** @description Cursor for the next page; omitted on the last page. */
+                cursor?: string;
+                hasMore: boolean;
+            };
+        };
+        /**
+         * @description Delivery lifecycle of the message. Engagement is reported separately.
+         * @enum {string}
+         */
+        EmailDeliveryStatus: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "BOUNCED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
+        /** @description A sending identity: one domain registered with SES, with its own DKIM keys, its own MAIL FROM and its own reputation. */
+        Domain: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            name: string;
+            verified: boolean;
+            region?: string | null;
+            dkim?: {
+                type: string;
+                name: string;
+                value: string;
+            }[];
+            /** @description Custom MAIL FROM subdomain SES has on record (normally `sendly.<domain>`). */
+            mailFromDomain?: string | null;
+            /**
+             * @description SES custom MAIL FROM setup state. Only `Success` means SES is using it.
+             * @enum {string|null}
+             */
+            mailFromDomainStatus?: "Pending" | "Success" | "Failed" | "TemporaryFailure" | "NotConfigured" | null;
+            /**
+             * @description Which traffic this identity carries. `null` means unassigned, and an unassigned identity carries every stream — the behaviour of every domain added before per-stream identities. A send whose stream does not match an ASSIGNED identity is refused.
+             * @enum {string|null}
+             */
+            stream?: "TRANSACTIONAL" | "MARKETING" | null;
+            /** @description Whether this is the project's default identity for its stream — the one a send picks when it names no from-address. At most one per (project, stream). */
+            streamDefault?: boolean;
+            /** @description The address a send on this stream uses when it names none. Always on this identity's own host. */
+            defaultFromAddress?: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
+        };
+        /** @description List of all domains for the auth'd project. */
+        DomainListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Domain"][];
+        };
+        /** @description Outcome of a verification check against SES. */
+        DomainVerificationStatus: {
+            verified: boolean;
+            mxRecords?: string[];
+            dkim?: {
+                type: string;
+                name: string;
+                value: string;
+            }[];
+            mailFromDomain?: string | null;
+            /**
+             * @description SES custom MAIL FROM setup state. Only `Success` means SES is using it.
+             * @enum {string|null}
+             */
+            mailFromDomainStatus?: "Pending" | "Success" | "Failed" | "TemporaryFailure" | "NotConfigured" | null;
+        };
+        /** @description A sent (or queued) transactional email. */
+        Email: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            from: string;
+            to: string;
+            subject: string;
+            status: components["schemas"]["EmailDeliveryStatus"];
+            /**
+             * Format: date-time
+             * @description First open, or null.
+             */
+            openedAt: string | null;
+            /**
+             * Format: date-time
+             * @description First click, or null.
+             */
+            clickedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Spam complaint, or null.
+             */
+            complainedAt: string | null;
+            /** @description Total opens recorded. */
+            opens: number;
+            /** @description Total clicks recorded. */
+            clicks: number;
+            tags: string[];
+            error?: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
+        };
+        /** @description One transition in a message's delivery history. */
+        EmailEvent: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["EmailDeliveryStatus"];
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            timestamp: string;
+        };
+        /** @description A transactional email together with its delivery history. */
+        EmailWithEvents: components["schemas"]["Email"] & {
+            /** @description Delivery transitions for this message, oldest first. NOT the custom events recorded with `POST /api/v1/events` — those are a separate resource. */
+            events: components["schemas"]["EmailEvent"][];
+        };
+        /** @description Per-recipient result: the upserted `contact` (id + email) and `email` — the id of the queued email record for that recipient. */
+        SendEmailRecipientResult: {
+            contact: {
+                /** Format: uuid */
+                id: string;
+                /** Format: email */
+                email: string;
+            };
+            /** Format: uuid */
+            email: string;
+        };
+        /** @description Result of a send (`executeSendEmail`): one `emails` entry per recipient — a single request with an array `to` fans out to several — plus the send `timestamp`. */
+        SendEmailData: {
+            emails: components["schemas"]["SendEmailRecipientResult"][];
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            timestamp: string;
+        };
+        /** @description Successful response for `POST /api/emails`. `data.emails[i].email` is the queued email id for recipient `i`; poll `GET /api/emails/{id}` for its delivery status. */
+        SendEmailResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["SendEmailData"];
         };
         /** @description Per-row result in a batch send response. */
         BatchEntryResult: {
-            data?: components["schemas"]["SendEmailData"];
-            error?: {
-                code: string;
-                message: string;
-            };
             index: number;
             /** @enum {string} */
             status: "ok" | "error";
+            data?: components["schemas"]["SendEmailData"];
+            error?: {
+                message: string;
+                code: string;
+            };
+        };
+        /** @description Multi-status response for `POST /api/emails/batch`. HTTP 207 if any entry failed, else 200. */
+        BatchSendResponse: {
+            success: boolean;
+            data: components["schemas"]["BatchEntryResult"][];
         };
         /** @description Batch send wrapper. Up to 100 entries. */
         BatchSendBody: {
             emails: components["schemas"]["SendEmail"][];
         };
-        /** @description Multi-status response for `POST /api/emails/batch`. HTTP 207 if any entry failed, else 200. */
-        BatchSendResponse: {
-            data: components["schemas"]["BatchEntryResult"][];
-            success: boolean;
+        /** @description Body for POST /api/emails — send a single transactional email. Either `template` or `subject`+`body` is required. */
+        SendEmail: {
+            to: string | {
+                name?: string;
+                /** Format: email */
+                email: string;
+            } | (string | {
+                name?: string;
+                /** Format: email */
+                email: string;
+            })[];
+            subject?: string;
+            body?: string;
+            /** Format: uuid */
+            template?: string;
+            subscribed?: boolean;
+            name?: string;
+            from?: string | {
+                name?: string;
+                /** Format: email */
+                email: string;
+            };
+            /** Format: email */
+            reply?: string;
+            headers?: {
+                [key: string]: string;
+            };
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            data?: {
+                [key: string]: unknown;
+            };
+            attachments?: {
+                filename: string;
+                content: string;
+                contentType: string;
+                contentId?: string;
+                /**
+                 * @default attachment
+                 * @enum {string}
+                 */
+                disposition: "attachment" | "inline";
+            }[];
+            tags?: string[];
+            cc?: string[];
+            bcc?: string[];
         };
-        /** @description A campaign as exposed on the v1 API. */
-        CampaignV1: {
-            /** @enum {string} */
-            audience_type: "ALL" | "FILTERED" | "SEGMENT";
-            /** Format: date-time */
-            created_at: string;
+        /** @description Bulk create up to 1000 contacts. */
+        ContactBulkCreateBody: {
+            contacts: components["schemas"]["CreateContact"][];
+        };
+        /** @description Body for POST /api/contacts and /api/contacts/upsert. */
+        CreateContact: {
+            /** Format: email */
+            email: string;
+            /** @default true */
+            subscribed: boolean;
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            customFields?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Bulk delete contacts. Provide either `ids` or `emails` (max 1000 each). */
+        ContactBulkDeleteBody: {
+            ids?: string[];
+            emails?: string[];
+        };
+        /** @description Body for PATCH /api/contacts/{id}. `email` is immutable here — use upsert to change addresses. */
+        UpdateContactBody: {
+            subscribed?: boolean;
+            customFields?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A single suppressed-email record. */
+        Suppression: {
             /** Format: uuid */
             id: string;
-            name: string;
-            /** Format: date-time */
-            scheduled_at: string | null;
-            /** Format: date-time */
-            sent_at: string | null;
-            stats: {
-                bounced: number;
-                clicked: number;
-                delivered: number;
-                opened: number;
-                sent: number;
-                total_recipients: number;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+            /** @enum {string} */
+            source: "SES_WEBHOOK" | "API" | "DASHBOARD";
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+        };
+        /** @description Cursor-paginated list of suppressions. */
+        SuppressionListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Suppression"][];
+            nextCursor?: string | null;
+            cursor?: string | null;
+            hasMore?: boolean;
+        };
+        /** @description Result of GET /api/suppression/{email} — whether the address is suppressed. */
+        SuppressionCheckResponse: {
+            suppressed: boolean;
+            /** @enum {string} */
+            reason?: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+            /** @enum {string} */
+            source?: "SES_WEBHOOK" | "API" | "DASHBOARD";
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt?: string;
+        };
+        /** @description A user-managed outbound webhook. */
+        Webhook: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uri */
+            url: string;
+            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
+            /** @enum {string} */
+            status: "ACTIVE" | "PAUSED" | "DISABLED";
+            consecutiveFailures: number;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            disabledAt?: string | null;
+            lastFour?: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
+        };
+        /** @description Result of POST /api/webhooks. `secret` is the only time the plaintext is returned — store it securely. */
+        WebhookCreateResponse: {
+            /** @enum {boolean} */
+            success: true;
+            /** @description A user-managed outbound webhook. */
+            data: components["schemas"]["Webhook"] & {
+                /** @description Plaintext shared secret. Returned ONCE on create. */
+                secret: string;
+            };
+        };
+        /** @description List of webhooks for the auth'd project. */
+        WebhookListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Webhook"][];
+        };
+        /** @description Single webhook (no secret). */
+        WebhookGetResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Webhook"];
+        };
+        /** @description Response from POST /api/webhooks/{id}/rotate-secret — returns the new plaintext once. */
+        WebhookRotateSecretResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: uuid */
+                id: string;
+                /** @description New plaintext shared secret. */
+                secret: string;
+            };
+        };
+        /** @description An attempted webhook delivery. */
+        WebhookCall: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            webhookId: string;
+            eventType: string;
+            payload: {
+                [key: string]: unknown;
             };
             /** @enum {string} */
-            status: "DRAFT" | "SCHEDULED" | "SENDING" | "PAUSED" | "SENT" | "CANCELLED";
-            subject: string;
+            status: "PENDING" | "SUCCESS" | "FAILED";
+            attempt: number;
+            responseStatus?: number | null;
+            responseBody?: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
         };
-        /** @description Body for POST /api/v1/campaigns. `segment_id` is required when `audience_type` is `SEGMENT`, and `audience_condition` is required when it is `FILTERED`. */
-        CampaignV1Create: {
-            audience_condition?: components["schemas"]["FilterConditionV1"];
-            /**
-             * @description `ALL` — every subscribed contact. `FILTERED` — the contacts matching `audience_condition`. `SEGMENT` — the members of `segment_id`.
-             * @enum {string}
-             */
-            audience_type: "ALL" | "FILTERED" | "SEGMENT";
-            body: string;
-            description?: string;
-            /**
-             * Format: email
-             * @description Sender address. Its domain must be verified for this project.
-             */
-            from: string;
-            from_name?: string | null;
-            name: string;
-            /** Format: email */
-            reply_to?: string | null;
-            /** Format: uuid */
-            segment_id?: string;
-            subject: string;
-            /**
-             * @default MARKETING
-             * @enum {string}
-             */
-            type: "TRANSACTIONAL" | "MARKETING" | "HEADLESS";
-        };
-        /** @description Acknowledgement that a campaign was deleted. */
-        CampaignV1Deleted: {
+        /** @description Cursor-paginated list of recent calls for a single webhook. */
+        WebhookCallsListResponse: {
             /** @enum {boolean} */
-            deleted: true;
+            success: true;
+            data: components["schemas"]["WebhookCall"][];
+            nextCursor?: string | null;
+            cursor?: string | null;
+            hasMore?: boolean;
+        };
+        /** @description Response from POST /api/track. */
+        TrackEventResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: uuid */
+                contact: string;
+                /** Format: uuid */
+                event: string;
+                /**
+                 * Format: date-time
+                 * @description ISO 8601 datetime string
+                 */
+                timestamp: string;
+            };
+        };
+        /** @description Response from POST /api/verify — outcome of the syntax/MX/disposable check. */
+        VerifyEmailResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: email */
+                email: string;
+                valid: boolean;
+                reason?: string;
+            } & {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Cursor-paginated list of emails. */
+        EmailListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Email"][];
+            nextCursor?: string | null;
+        };
+        /** @description A single email. */
+        EmailResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["Email"];
+        };
+        /** @description One email and its delivery history. */
+        EmailDetailResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["EmailWithEvents"];
+        };
+        /** @description Result of a list-subscribe call. */
+        ListSubscribeResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: uuid */
+                membershipId: string;
+                /** @enum {string} */
+                status: "PENDING" | "CONFIRMED" | "UNSUBSCRIBED";
+                /** @description True when the membership row did not exist before this call. */
+                created: boolean;
+                /**
+                 * @description Status the membership held before this call; null when it did not exist. Use this rather than `created` to describe the transition to the user.
+                 * @enum {string|null}
+                 */
+                previousStatus: "PENDING" | "CONFIRMED" | "UNSUBSCRIBED" | null;
+                /** @description Present only when the list has doubleOptIn enabled. Sendly does not send the confirmation email — deliver /api/lists/confirm-subscription?token=<confirmToken> to the contact. Valid for 24 hours. */
+                confirmToken?: string;
+            };
+        };
+        /** @description Echoes the address that was unsubscribed. */
+        ListUnsubscribeResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: {
+                /** Format: email */
+                email: string;
+            };
+        };
+        /** @description An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created. */
+        ApiKey: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            projectId: string;
+            name: string;
+            /** @description Last 4 characters of the token — the only fragment of the secret that survives creation. */
+            lastFour: string;
+            /**
+             * @description The coarse preset the key was minted under. It picks the token prefix (`sk_` vs `pk_`) and the rate-limit window, and it is the key's authority ONLY while `scopes` is empty — which is true just of keys minted before scopes existed. Read `scopes` to learn what a key can do.
+             * @enum {string}
+             */
+            legacyGrantPreset: "FULL" | "SENDING_ONLY";
+            /**
+             * @description Where mail sent with this key may go. `LIVE` sends from your verified domains. `TEST` can only send from this project's sandbox address, whose recipient list is your own verified account addresses, so a test key cannot reach a customer whatever it is asked to do. Fixed at creation.
+             * @enum {string}
+             */
+            mode: "LIVE" | "TEST";
+            /** @description The explicit scope grant this key carries. Empty on a key minted before this column existed — that row's grant is derived from `legacyGrantPreset` instead at request time. */
+            scopes: ("emails:send" | "emails:read" | "contacts:read" | "contacts:write" | "campaigns:read" | "campaigns:write" | "segments:read" | "segments:write" | "workflows:read" | "workflows:write" | "templates:read" | "templates:write" | "domains:read" | "domains:write" | "webhooks:read" | "webhooks:write" | "suppression:read" | "suppression:write" | "analytics:read" | "usage:read" | "events:read" | "events:write" | "projects:read" | "projects:write" | "api-keys:read" | "api-keys:write" | "campaigns:send" | "mailboxes:read" | "mailboxes:write" | "emails:test" | "deliverability:read" | "mailboxes:send" | "validation:read" | "validation:write" | "topics:read" | "topics:write" | "lists:read" | "lists:write")[];
+            /** Format: uuid */
+            domainId: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            lastUsedAt: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Set once the key is revoked. Revoked keys are NOT filtered out of list/get responses.
+             */
+            revokedAt: string | null;
+        };
+        /** @description Every API key on the project, including revoked ones — filter on `revokedAt` for live keys. */
+        ApiKeyListResponse: {
+            /** @enum {boolean} */
+            success: true;
+            data: components["schemas"]["ApiKey"][];
+        };
+        ProjectRecord: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            disabled: boolean;
+            disabledReason: string | null;
+            /** @description Local-part of the sandbox quick-start sender; null until first derived. */
+            sandboxHandle: string | null;
+            stripeCustomerId: string | null;
+            stripeSubscriptionId: string | null;
+            billingLimitWorkflows: number | null;
+            billingLimitCampaigns: number | null;
+            billingLimitTransactional: number | null;
+            billingLimitInbound: number | null;
+            /** @enum {string} */
+            tracking: "ENABLED" | "DISABLED" | "MARKETING_ONLY";
+            sesRegion: string | null;
+            /** @description ISO 639-1 code for customer-facing content. */
+            language: string;
+            organizationId: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
         };
         /** @description Cursor-paginated list of campaigns. */
         CampaignV1List: {
@@ -1767,6 +3316,132 @@ export interface components {
             has_more: boolean;
             /** @description Pass as `after` to fetch the next page. `null` on the last page. */
             next_cursor: string | null;
+        };
+        /** @description A campaign as exposed on the v1 API. */
+        CampaignV1: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "DRAFT" | "SCHEDULED" | "SENDING" | "PAUSED" | "SENT" | "CANCELLED";
+            subject: string;
+            /** @enum {string} */
+            audience_type: "ALL" | "FILTERED" | "SEGMENT" | "LIST";
+            /** Format: uuid */
+            list_id: string | null;
+            /** Format: uuid */
+            topic_id: string | null;
+            /** Format: date-time */
+            scheduled_at: string | null;
+            /** Format: date-time */
+            sent_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            stats: {
+                total_recipients: number;
+                sent: number;
+                delivered: number;
+                opened: number;
+                clicked: number;
+                bounced: number;
+            };
+        };
+        /** @description Body for POST /api/v1/campaigns. `segment_id` is required when `audience_type` is `SEGMENT`, `audience_condition` when it is `FILTERED`, and `list_id` when it is `LIST`. */
+        CampaignV1Create: {
+            name: string;
+            description?: string;
+            subject: string;
+            body: string;
+            /**
+             * Format: email
+             * @description Sender address. Its domain must be verified for this project.
+             */
+            from: string;
+            from_name?: string | null;
+            /** Format: email */
+            reply_to?: string | null;
+            /**
+             * @default MARKETING
+             * @enum {string}
+             */
+            email_category: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+            /**
+             * @description `ALL` — every subscribed contact. `FILTERED` — the contacts matching `audience_condition`. `SEGMENT` — the members of `segment_id`. `LIST` — the CONFIRMED members of `list_id`, which is the only audience that honours double opt-in: a member who never confirmed, or who unsubscribed, is not mailed.
+             * @enum {string}
+             */
+            audience_type: "ALL" | "FILTERED" | "SEGMENT" | "LIST";
+            audience_condition?: components["schemas"]["FilterConditionV1"];
+            /** Format: uuid */
+            segment_id?: string;
+            /**
+             * Format: uuid
+             * @description Required when `audience_type` is `LIST`. Only that list's CONFIRMED members receive the campaign.
+             */
+            list_id?: string;
+            /**
+             * Format: uuid
+             * @description The subject this campaign is about. A contact who unsubscribed from the topic is excluded WHATEVER the audience type — a topic opt-out is a standing answer, not an audience filter, so it cannot be routed around by selecting a different audience. Ignored for `TRANSACTIONAL` campaigns, which a marketing preference does not cancel.
+             */
+            topic_id?: string | null;
+        };
+        /** @description A filter condition: one or more groups combined with `logic`. */
+        FilterConditionV1: {
+            /** @enum {string} */
+            logic: "AND" | "OR";
+            groups: components["schemas"]["FilterGroupV1"][];
+        };
+        /** @description A group of filters. The filters inside one group ALWAYS combine with AND; `conditions` nests a further condition under this group, which is how OR-of-ANDs (and deeper) is expressed. */
+        FilterGroupV1: {
+            filters: components["schemas"]["SegmentFilterV1"][];
+            conditions?: components["schemas"]["FilterConditionV1"];
+        };
+        /** @description One comparison. `field` addresses a contact column (`email`, `createdAt`, …) or a `customFields.<key>` path. `value` is whatever the operator compares against — its JSON type follows the field, and it is omitted entirely for the presence operators (`exists`, `notExists`). `unit` applies only to the relative-time operators (`within`, `olderThan`, and the `triggered*` family). */
+        SegmentFilterV1: {
+            field: string;
+            /** @enum {string} */
+            operator: "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "exists" | "notExists" | "within" | "olderThan" | "triggered" | "triggeredWithin" | "triggeredOlderThan" | "notTriggered" | "notTriggeredWithin" | "isMemberOf";
+            value?: unknown;
+            /** @enum {string} */
+            unit?: "days" | "hours" | "minutes";
+        };
+        /** @description Body for PATCH /api/v1/campaigns/{id}. All fields optional. */
+        CampaignV1Update: {
+            name?: string;
+            description?: string;
+            subject?: string;
+            body?: string;
+            /**
+             * Format: email
+             * @description Sender address. Its domain must be verified for this project.
+             */
+            from?: string;
+            from_name?: string | null;
+            /** Format: email */
+            reply_to?: string | null;
+            /** @enum {string} */
+            email_category?: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+            /** @enum {string} */
+            audience_type?: "ALL" | "FILTERED" | "SEGMENT" | "LIST";
+            audience_condition?: components["schemas"]["FilterConditionV1"];
+            /** Format: uuid */
+            segment_id?: string;
+            /**
+             * Format: uuid
+             * @description Required when `audience_type` is `LIST`. Only that list's CONFIRMED members receive the campaign.
+             */
+            list_id?: string;
+            /**
+             * Format: uuid
+             * @description The subject this campaign is about. A contact who unsubscribed from the topic is excluded WHATEVER the audience type — a topic opt-out is a standing answer, not an audience filter, so it cannot be routed around by selecting a different audience. Ignored for `TRANSACTIONAL` campaigns, which a marketing preference does not cancel.
+             */
+            topic_id?: string | null;
+        };
+        /** @description Acknowledgement that a campaign was deleted. */
+        CampaignV1Deleted: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
         };
         /** @description Body for POST /api/v1/campaigns/{id}/send. */
         CampaignV1Send: {
@@ -1778,280 +3453,664 @@ export interface components {
         };
         /** @description Materialized delivery and engagement counters for one campaign. */
         CampaignV1Stats: {
-            bounce_rate: number;
-            bounced: number;
-            click_rate: number;
-            clicked: number;
-            delivered: number;
-            delivery_rate: number;
-            open_rate: number;
-            opened: number;
-            sent: number;
             total_recipients: number;
+            sent: number;
+            delivered: number;
+            opened: number;
+            clicked: number;
+            bounced: number;
+            open_rate: number;
+            click_rate: number;
+            bounce_rate: number;
+            delivery_rate: number;
         };
-        /** @description Body for PATCH /api/v1/campaigns/{id}. All fields optional. */
-        CampaignV1Update: {
-            audience_condition?: components["schemas"]["FilterConditionV1"];
+        /** @description Cursor-paginated list of a campaign's failed sends. */
+        CampaignV1FailureList: {
+            data: components["schemas"]["CampaignV1Failure"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+            /** @description Every FAILED row on this campaign, not just this page. */
+            total: number;
+        };
+        /** @description A campaign recipient whose send did not complete. */
+        CampaignV1Failure: {
+            /**
+             * Format: uuid
+             * @description Ledger row id. Pass the last one as `after` to page.
+             */
+            id: string;
+            /** Format: uuid */
+            contact_id: string;
+            /** @description The recipient the send was for. */
+            email: string;
+            reason: string | null;
+            /** Format: date-time */
+            failed_at: string;
+        };
+        /** @description Acknowledgement that a retry of a campaign's failed sends began. */
+        CampaignV1RetryFailed: {
+            /** Format: uuid */
+            id: string;
+            /** @description How many FAILED rows the retry walk was started for, counted when it was queued. */
+            queued: number;
+        };
+        /** @description Cursor-paginated list of segments. */
+        SegmentV1List: {
+            data: components["schemas"]["SegmentV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description A segment as exposed on the v1 API. */
+        SegmentV1: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
             /** @enum {string} */
-            audience_type?: "ALL" | "FILTERED" | "SEGMENT";
-            body?: string;
+            type: "DYNAMIC" | "STATIC";
+            condition: components["schemas"]["FilterConditionV1"] | null;
+            track_membership: boolean;
+            member_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Body for POST /api/v1/segments. `condition` is required when `type` is `DYNAMIC`. */
+        SegmentV1Create: {
+            name: string;
             description?: string;
             /**
-             * Format: email
-             * @description Sender address. Its domain must be verified for this project.
+             * @default DYNAMIC
+             * @enum {string}
              */
-            from?: string;
-            from_name?: string | null;
+            type: "DYNAMIC" | "STATIC";
+            condition?: components["schemas"]["FilterConditionV1"];
+            /**
+             * @description Emit segment entry/exit events as contacts move in and out. Off by default — it costs a membership write per transition.
+             * @default false
+             */
+            track_membership: boolean;
+        };
+        /** @description Body for PATCH /api/v1/segments/{id}. `type` is deliberately absent — it is fixed at creation. `condition` is ignored on a STATIC segment. */
+        SegmentV1Update: {
             name?: string;
-            /** Format: email */
-            reply_to?: string | null;
-            /** Format: uuid */
-            segment_id?: string;
-            subject?: string;
-            /** @enum {string} */
-            type?: "TRANSACTIONAL" | "MARKETING" | "HEADLESS";
-        };
-        /** @description A subscriber/contact within a project. */
-        Contact: {
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            customFields?: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: email */
-            email: string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            projectId: string;
-            subscribed: boolean;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            updatedAt: string;
-        };
-        /** @description Bulk create up to 1000 contacts. */
-        ContactBulkCreateBody: {
-            contacts: components["schemas"]["CreateContact"][];
-        };
-        /** @description Bulk delete contacts. Provide either `ids` or `emails` (max 1000 each). */
-        ContactBulkDeleteBody: {
-            emails?: string[];
-            ids?: string[];
-        };
-        /** @description Cursor-paginated list of contacts. */
-        ContactListResponse: {
-            data: {
-                data: components["schemas"]["Contact"][];
-                hasMore: boolean;
-                /** @description Cursor for the next page, or null on the last page. */
-                nextCursor: string | null;
-                total: number;
-            };
-            /** @enum {boolean} */
-            success: true;
-        };
-        CreateApiKeyBody: {
-            /** Format: uuid */
-            domainId?: string | null;
-            name: string;
-            /** @enum {string} */
-            permission?: "FULL" | "SENDING_ONLY";
-            /** @description The explicit grant the new key will carry. Omitted ⇒ materialised from `permission`. A `SENDING_ONLY` key may carry only `emails:send`. */
-            scopes?: ("emails:send" | "emails:read" | "contacts:read" | "contacts:write" | "campaigns:read" | "campaigns:write" | "segments:read" | "segments:write" | "workflows:read" | "workflows:write" | "templates:read" | "templates:write" | "domains:read" | "domains:write" | "webhooks:read" | "webhooks:write" | "suppression:read" | "suppression:write" | "analytics:read" | "usage:read" | "events:read" | "events:write" | "projects:read" | "projects:write" | "api-keys:read" | "api-keys:write" | "campaigns:send" | "mailboxes:read" | "mailboxes:write" | "emails:test")[];
-        };
-        /** @description Body for POST /api/mailboxes/:id/app-passwords. */
-        CreateAppPassword: {
-            name: string;
-            /**
-             * @default [
-             *       "imap",
-             *       "smtp"
-             *     ]
-             */
-            scopes: ("imap" | "smtp")[];
-        };
-        /** @description Body for POST /api/contacts and /api/contacts/upsert. */
-        CreateContact: {
-            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
-            customFields?: {
-                [key: string]: unknown;
-            };
-            /** Format: email */
-            email: string;
-            /** @default true */
-            subscribed: boolean;
-        };
-        CreateMailboxBody: {
-            displayName?: string;
-            /**
-             * Format: uuid
-             * @description A VERIFIED domain belonging to this project.
-             */
-            domainId: string;
-            /** @description The part before the `@`, e.g. `support`. Lowercased server-side. */
-            localPart: string;
-            /**
-             * Format: uuid
-             * @description Defaults to the project the credential resolves to. Naming a different one is refused.
-             */
-            projectId?: string;
-            /** @description NOT IMPLEMENTED — sending any value answers 400. */
-            quotaBytes?: number;
-        };
-        /** @description Body for POST /api/templates. */
-        CreateTemplate: {
-            body: string;
             description?: string;
-            /** Format: email */
-            from: string;
-            fromName?: string | null;
-            name: string;
-            /** Format: email */
-            replyTo?: string | null;
-            subject: string;
-            /**
-             * @default MARKETING
-             * @enum {string}
-             */
-            type: "TRANSACTIONAL" | "MARKETING" | "HEADLESS";
+            condition?: components["schemas"]["FilterConditionV1"];
+            track_membership?: boolean;
         };
-        /** @description Body for POST /api/webhooks — register a user webhook for one or more events. */
-        CreateWebhook: {
-            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
-            /** Format: uri */
-            url: string;
-        };
-        /** @description A sending domain registered with SES. */
-        Domain: {
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            dkim?: {
-                name: string;
-                type: string;
-                value: string;
-            }[];
+        /** @description Acknowledgement that a segment was deleted. */
+        SegmentV1Deleted: {
             /** Format: uuid */
             id: string;
-            /** @description Custom MAIL FROM subdomain SES has on record (normally `sendly.<domain>`). */
-            mailFromDomain?: string | null;
-            /**
-             * @description SES custom MAIL FROM setup state. Only `Success` means SES is using it.
-             * @enum {string|null}
-             */
-            mailFromStatus?: "Pending" | "Success" | "Failed" | "TemporaryFailure" | "NotConfigured" | null;
-            name: string;
-            /** Format: uuid */
-            projectId: string;
-            region?: string | null;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            updatedAt: string;
-            verified: boolean;
-        };
-        /** @description List of all domains for the auth'd project. */
-        DomainListResponse: {
-            data: components["schemas"]["Domain"][];
             /** @enum {boolean} */
-            success: true;
+            deleted: true;
         };
-        /** @description Outcome of a verification check against SES. */
-        DomainVerificationStatus: {
-            dkim?: {
-                name: string;
-                type: string;
-                value: string;
-            }[];
-            mailFromDomain?: string | null;
-            /**
-             * @description SES custom MAIL FROM setup state. Only `Success` means SES is using it.
-             * @enum {string|null}
-             */
-            mailFromStatus?: "Pending" | "Success" | "Failed" | "TemporaryFailure" | "NotConfigured" | null;
-            mxRecords?: string[];
-            verified: boolean;
+        /** @description Cursor-paginated list of the contacts belonging to a segment. */
+        SegmentContactV1List: {
+            data: components["schemas"]["SegmentContactV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
         };
-        /** @description A sent (or queued) transactional email. */
-        Email: {
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            error?: string | null;
-            from: string;
+        /** @description A contact belonging to a segment. */
+        SegmentContactV1: {
             /** Format: uuid */
             id: string;
+            email: string;
+            subscribed: boolean;
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            custom_fields: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Cursor-paginated list of workflows. */
+        WorkflowV1List: {
+            data: components["schemas"]["WorkflowV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description An automation workflow as exposed on the v1 API. */
+        WorkflowV1: {
             /** Format: uuid */
-            projectId: string;
+            id: string;
+            name: string;
+            description: string | null;
+            enabled: boolean;
             /** @enum {string} */
-            status: "PENDING" | "SENT" | "DELIVERED" | "OPENED" | "CLICKED" | "BOUNCED" | "COMPLAINED" | "FAILED";
-            subject: string;
-            tags: string[];
-            to: string;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            updatedAt: string;
+            trigger_type: "EVENT" | "MANUAL" | "SCHEDULE";
+            /** @description Trigger event for `EVENT` workflows; null for the other trigger types. */
+            event_name: string | null;
+            allow_reentry: boolean;
+            max_executions_per_hour: number | null;
+            /** @description Incremented on every structural (step/transition) change. */
+            version: number;
+            /** @description Steps in this workflow's graph, trigger step included — so a workflow that has only ever been created reports 1. Read `/graph` for the steps themselves. */
+            step_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
         };
-        /** @description Single email with its events. */
-        EmailGetResponse: {
-            data: components["schemas"]["Email"];
-            /** @enum {boolean} */
-            success: true;
+        /** @description Body for POST /api/v1/workflows. */
+        WorkflowCreateV1: {
+            name: string;
+            description?: string;
+            trigger_type?: components["schemas"]["WorkflowTriggerTypeV1"];
+            /** @description The custom event that starts this workflow, e.g. `user.signup`. Required for `EVENT` workflows (the default) and ignored for the other trigger types. */
+            event_name?: string;
+            /** @description For `SCHEDULE` workflows: how often the workflow fires, in milliseconds. Between one minute and 30 days; defaults to one hour. */
+            interval_ms?: number;
+            /** @description Workflows are created disabled. A workflow can only be enabled once every step is configured. */
+            enabled?: boolean;
+            allow_reentry?: boolean;
+            /** @description Optional LINEAR chain to create the workflow with, in run order. The trigger step is prepended and each step is wired to the next, so this cannot express branches — use `PUT /api/v1/workflows/{id}/graph` for those. Omit it to create a workflow that holds only its trigger step. */
+            sequence?: components["schemas"]["WorkflowSequenceStepV1"][];
         };
-        /** @description Cursor-paginated list of emails. */
-        EmailListResponse: {
-            data: components["schemas"]["Email"][];
-            nextCursor?: string | null;
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Receipt for a sandbox test send. */
-        EmailTestV1: {
-            /**
-             * Format: email
-             * @description This project's sandbox sender — resolved server-side, never from the body.
-             */
-            from: string;
+        /**
+         * @description What starts this workflow. Defaults to `EVENT`, which is the only kind the API created before this field existed. `EVENT` requires `event_name`; `SCHEDULE` uses `interval_ms`; `MANUAL` is started only by `POST /api/v1/workflows/{id}/executions`.
+         * @enum {string}
+         */
+        WorkflowTriggerTypeV1: "EVENT" | "MANUAL" | "SCHEDULE";
+        /** @description One step of a linear workflow sequence. */
+        WorkflowSequenceStepV1: {
+            type: components["schemas"]["WorkflowSequenceStepTypeV1"];
+            /** @description Human-readable label, e.g. `Day 0: welcome`. */
+            name: string;
+            /** @description Step configuration. Keys are camelCase — see `WorkflowStepV1` for the shape each step type expects. */
+            config: {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
             /**
              * Format: uuid
-             * @description The Email row this send created.
+             * @description For `SEND_EMAIL`: a template in this project.
+             */
+            template_id?: string;
+        };
+        /**
+         * @description A step kind that may appear in a linear `sequence`. `TRIGGER` is prepended by the server.
+         * @enum {string}
+         */
+        WorkflowSequenceStepTypeV1: "SEND_EMAIL" | "DELAY" | "WAIT_FOR_EVENT" | "CONDITION" | "EXIT" | "WEBHOOK" | "UPDATE_CONTACT" | "SEND_AT_OPTIMAL_TIME";
+        /** @description Body for PATCH /api/v1/workflows/{id}. Every field is optional; omitted fields are left unchanged. Changing the trigger while executions are running answers 409. */
+        WorkflowUpdateV1: {
+            name?: string;
+            description?: string;
+            trigger_type?: components["schemas"]["WorkflowTriggerTypeV1"] & unknown;
+            event_name?: string;
+            /** @description For `SCHEDULE` workflows: how often the workflow fires, in milliseconds. Between one minute and 30 days; defaults to one hour. */
+            interval_ms?: number;
+            enabled?: boolean;
+            allow_reentry?: boolean;
+            /** @description Per-workflow start rate cap. `null` removes the cap. */
+            max_executions_per_hour?: number | null;
+            /** @description Optional LINEAR chain that REPLACES every non-trigger step, in run order. Destructive: the existing steps are discarded and their ids do not survive, which is why omitting this field leaves the graph untouched. Branches need `PUT /api/v1/workflows/{id}/graph` instead. */
+            sequence?: components["schemas"]["WorkflowSequenceStepV1"][];
+        };
+        /** @description Confirmation that a workflow was deleted. */
+        WorkflowDeletedV1: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        /** @description Cursor-paginated list of workflow executions, newest first. */
+        WorkflowExecutionV1List: {
+            data: components["schemas"]["WorkflowExecutionV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description One contact's run through a workflow. */
+        WorkflowExecutionV1: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workflow_id: string;
+            /** Format: uuid */
+            contact_id: string;
+            /** @enum {string} */
+            status: "RUNNING" | "WAITING" | "COMPLETED" | "EXITED" | "FAILED" | "CANCELLED";
+            /** Format: uuid */
+            current_step_id: string | null;
+            exit_reason: string | null;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+        };
+        /** @description Body for POST /api/v1/workflows/{id}/executions. */
+        WorkflowExecutionStartV1: {
+            /**
+             * Format: uuid
+             * @description Contact to enter the workflow. Must belong to this project.
+             */
+            contact_id: string;
+            /** @description Extra variables merged into the contact's data for this run. */
+            context?: {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Execution, email and conversion totals for one workflow. */
+        WorkflowStatsV1: {
+            /** Format: uuid */
+            workflow_id: string;
+            name: string;
+            enabled: boolean;
+            trigger_type: components["schemas"]["WorkflowTriggerTypeV1"] & unknown;
+            /** @description Steps in the workflow's graph, trigger step included. */
+            step_count: number;
+            total: number;
+            /** @description Execution counts keyed by status; a status with no executions is absent. */
+            by_status: {
+                [key: string]: number;
+            };
+            /** @description Completed ÷ finished executions (0–1). Null until at least one execution has finished. */
+            completion_rate: number | null;
+            avg_duration_ms: number | null;
+            emails: {
+                sent: number;
+                opened: number;
+                clicked: number;
+            };
+            conversions: {
+                /** Format: uuid */
+                goal_id: string;
+                name: string;
+                event_name: string;
+                count: number;
+            }[];
+        };
+        /** @description A workflow's complete step graph. The response of `GET /api/v1/workflows/{id}/graph` is accepted verbatim by `PUT` on the same path. */
+        WorkflowGraphV1: {
+            /** Format: uuid */
+            workflow_id: string;
+            /** @description The workflow's version AFTER this read. Every structural change bumps it and writes a `workflow_versions` snapshot, so a changed number between two reads means somebody edited the graph. */
+            version: number;
+            steps: components["schemas"]["WorkflowStepReadV1"][];
+            transitions: components["schemas"]["WorkflowTransitionV1"][];
+        };
+        /** @description One node of a workflow graph, as read. */
+        WorkflowStepReadV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
              */
             id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
             /**
-             * @description Always true. It is here so a model relaying this result cannot describe a test send as a real one: the message came from the shared sandbox domain and could only reach the project owner's own inbox.
-             * @enum {boolean}
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
              */
-            sandbox: true;
+            template_id?: string | null;
+            /** @enum {string} */
+            type: "TRIGGER" | "SEND_EMAIL" | "DELAY" | "WAIT_FOR_EVENT" | "CONDITION" | "EXIT" | "WEBHOOK" | "UPDATE_CONTACT" | "SEND_AT_OPTIMAL_TIME";
+            /** @description The step's configuration, exactly as stored. See `WorkflowStepV1` for the keys each step type uses; keys are camelCase. */
+            config: {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Where this step sits on the editor canvas. */
+        WorkflowStepPositionV1: {
+            x: number;
+            y: number;
+        } & {
+            [key: string]: string | number | boolean | {
+                [key: string]: unknown;
+            } | unknown[] | null;
+        };
+        /** @description One directed edge between two steps. */
+        WorkflowTransitionV1: {
             /**
-             * @description Delivery status at the moment of the response — `PENDING` for a send still queued.
+             * Format: uuid
+             * @description Caller-chosen on a write, exactly like a step id.
+             */
+            id: string;
+            /** Format: uuid */
+            from_step_id: string;
+            /** Format: uuid */
+            to_step_id: string;
+            /** @description Null to always follow this edge. From a `CONDITION` step, `{ "branch": "yes" }`, `{ "branch": "no" }`, or `{ "branch": "<branch id>" }` in the multi form. */
+            condition: string | number | boolean | {
+                [key: string]: unknown;
+            } | unknown[] | null;
+            /** @description Evaluation order among the edges leaving one step; lowest first. */
+            priority: number;
+        };
+        /** @description Body for `PUT /api/v1/workflows/{id}/graph`. Replaces the whole graph: a step whose id you send is kept and updated, a fresh id is created, and a step you omit is deleted along with its run history. Refused with 409 while the workflow has running executions, because those runs are standing on the steps being replaced. */
+        WorkflowGraphReplaceV1: {
+            /** @description The complete step set. Exactly one must be a `TRIGGER`. */
+            steps: components["schemas"]["WorkflowStepV1"][];
+            /** @description The complete edge set. Every `from_step_id`/`to_step_id` must name a step in this same document, and a step may not point at itself. */
+            transitions: components["schemas"]["WorkflowTransitionV1"][];
+        };
+        /** @description One node of a workflow graph. */
+        WorkflowStepV1: components["schemas"]["WorkflowTriggerStepV1"] | components["schemas"]["WorkflowSendEmailStepV1"] | components["schemas"]["WorkflowDelayStepV1"] | components["schemas"]["WorkflowWaitForEventStepV1"] | components["schemas"]["WorkflowConditionStepV1"] | components["schemas"]["WorkflowExitStepV1"] | components["schemas"]["WorkflowWebhookStepV1"] | components["schemas"]["WorkflowUpdateContactStepV1"] | components["schemas"]["WorkflowSendAtOptimalTimeStepV1"];
+        /** @description The graph's single entry node. Its config mirrors the workflow's own trigger: `eventName` for `EVENT`, `intervalMs` for `SCHEDULE`, empty for `MANUAL`. */
+        WorkflowTriggerStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            status: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "OPENED" | "CLICKED" | "BOUNCED" | "COMPLAINED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
+            type: "TRIGGER";
+            config: {
+                eventName?: string;
+                intervalMs?: number;
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Sends one email to the contact. Give it either `template_id` (preferred) or an inline `subject` + `body`. */
+        WorkflowSendEmailStepV1: {
             /**
-             * Format: email
-             * @description The recipient the message was queued for.
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
              */
-            to: string;
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "SEND_EMAIL";
+            config: {
+                /** Format: uuid */
+                templateId?: string;
+                subject?: string;
+                body?: string;
+                recipient?: {
+                    /** @enum {string} */
+                    type: "CONTACT" | "CUSTOM";
+                    /** Format: email */
+                    customEmail?: string;
+                } & {
+                    [key: string]: string | number | boolean | {
+                        [key: string]: unknown;
+                    } | unknown[] | null;
+                };
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Pauses the run for `amount` × `unit`, up to 365 days. */
+        WorkflowDelayStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "DELAY";
+            config: {
+                amount?: number;
+                /** @enum {string} */
+                unit?: "minutes" | "hours" | "days";
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Parks the run until `eventName` is recorded for this contact, or `timeout` seconds pass. */
+        WorkflowWaitForEventStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "WAIT_FOR_EVENT";
+            config: {
+                eventName?: string;
+                timeout?: number;
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Branches the run. Binary form: `field` + `operator` + `value`, whose outgoing transitions carry `{ "branch": "yes" }` / `{ "branch": "no" }`. Multi form: `mode: "multi"` + `field` + `branches`, whose transitions carry the branch id. */
+        WorkflowConditionStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CONDITION";
+            config: {
+                /** @enum {string} */
+                mode?: "multi";
+                field?: string;
+                /** @enum {string} */
+                operator?: "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "exists" | "notExists";
+                /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+                value?: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+                branches?: ({
+                    id: string;
+                    name: string;
+                    /** @enum {string} */
+                    operator: "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "exists" | "notExists";
+                    /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+                    value?: string | number | boolean | {
+                        [key: string]: unknown;
+                    } | unknown[] | null;
+                } & {
+                    [key: string]: string | number | boolean | {
+                        [key: string]: unknown;
+                    } | unknown[] | null;
+                })[];
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Ends the run early and stamps `exit_reason`. */
+        WorkflowExitStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "EXIT";
+            config: {
+                reason?: string;
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Calls an external URL. `url`, header values and the JSON body's string leaves are `{{variable}}`-interpolated from the contact and the run's variables. */
+        WorkflowWebhookStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "WEBHOOK";
+            config: {
+                /** Format: uri */
+                url?: string;
+                /** @enum {string} */
+                method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+                headers?: {
+                    [key: string]: string;
+                };
+                /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+                body?: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Writes `updates` onto the contact, and optionally flips `subscribed`. */
+        WorkflowUpdateContactStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "UPDATE_CONTACT";
+            config: {
+                updates?: {
+                    [key: string]: string | number | boolean | {
+                        [key: string]: unknown;
+                    } | unknown[] | null;
+                };
+                subscribed?: boolean;
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Like `SEND_EMAIL`, but held until this contact's historically best open hour, falling back to `fallbackHour` and never waiting longer than `maxDelayHours`. */
+        WorkflowSendAtOptimalTimeStepV1: {
+            /**
+             * Format: uuid
+             * @description Stable step id. On a graph write it is CHOSEN BY THE CALLER: send back the id you read to keep a step (and its run history), a fresh uuid to add one, and omit an id to delete that step.
+             */
+            id: string;
+            name: string;
+            position: components["schemas"]["WorkflowStepPositionV1"];
+            /**
+             * Format: uuid
+             * @description The `SEND_EMAIL`/`SEND_AT_OPTIMAL_TIME` template, as a relation. Null for every other step type.
+             */
+            template_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "SEND_AT_OPTIMAL_TIME";
+            config: {
+                /** Format: uuid */
+                templateId?: string;
+                fallbackHour?: number;
+                maxDelayHours?: number;
+            } & {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
+        };
+        /** @description Body for `POST /api/v1/workflows/{id}/clone`. */
+        WorkflowCloneV1: {
+            /** @description Name for the copy. Defaults to `Copy of <original name>`. */
+            name?: string;
+        };
+        /** @description The workflow after a pause or resume, with the number of runs the call stopped. */
+        WorkflowStateChangeV1: {
+            workflow: components["schemas"]["WorkflowV1"];
+            /** @description Runs stopped by this call. Always 0 for `resume`; on `pause` it is the number of `RUNNING`/`WAITING` executions that were cancelled, which is what makes pausing different from `PATCH { enabled: false }` (that only stops NEW runs starting). */
+            cancelled_executions: number;
         };
         /** @description Receipt for a single transactional send. */
         EmailV1: {
-            /**
-             * Format: email
-             * @description The sender actually used. Worth reading rather than assuming: it is resolved server-side and may come from the template when the request named none.
-             */
-            from: string;
             /**
              * Format: uuid
              * @description The Email row this send created. Quote it in support requests.
@@ -2061,68 +4120,553 @@ export interface components {
              * @description Delivery status at the moment of the response — `PENDING` for a send the worker has not picked up yet, which is the usual answer. Later states arrive via webhooks, not here.
              * @enum {string}
              */
-            status: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "OPENED" | "CLICKED" | "BOUNCED" | "COMPLAINED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
+            status: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "BOUNCED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
             /**
              * Format: email
              * @description The recipient the message was queued for.
              */
             to: string;
+            /**
+             * Format: email
+             * @description The sender actually used. Worth reading rather than assuming: it is resolved server-side and may come from the template when the request named none.
+             */
+            from: string;
         };
-        /** @description Standard error envelope returned by all 4xx/5xx responses. Migrated routes include `success: false`; 422 validation errors add `error.details.errors`. */
-        Error: {
-            error: {
-                code: string;
-                details?: {
-                    errors: unknown[];
-                };
-                message: string;
+        /** @description Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient. */
+        SendEmailV1: {
+            subject?: string;
+            body?: string;
+            /** Format: uuid */
+            template?: string;
+            subscribed?: boolean;
+            name?: string;
+            from?: string | {
+                name?: string;
+                /** Format: email */
+                email: string;
             };
-            /** @enum {boolean} */
-            success?: false;
-        };
-        /** @description Every distinct event name in the project, most frequent first. */
-        EventNamesV1: {
-            data: string[];
-        };
-        /** @description Per-name event counts over the applied window. */
-        EventStatsV1: {
-            data: {
-                count: number;
-                name: string;
+            /** Format: email */
+            reply?: string;
+            headers?: {
+                [key: string]: string;
+            };
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            data?: {
+                [key: string]: unknown;
+            };
+            attachments?: {
+                filename: string;
+                content: string;
+                contentType: string;
+                contentId?: string;
+                /**
+                 * @default attachment
+                 * @enum {string}
+                 */
+                disposition: "attachment" | "inline";
             }[];
-            window: components["schemas"]["AnalyticsWindowV1"];
+            tags?: string[];
+            cc?: string[];
+            bcc?: string[];
+            /** @description The single recipient. Use `cc`/`bcc` to copy others on the same message. */
+            to: string | {
+                name?: string;
+                /** Format: email */
+                email: string;
+            };
         };
-        /** @description Body for POST /api/v1/events. */
-        EventTrackV1: {
+        /** @description Receipt for a sandbox test send. */
+        EmailTestV1: {
             /**
              * Format: uuid
-             * @description Contact the event belongs to. Must already exist in this project — unlike the legacy `POST /api/track`, this endpoint never creates contacts. Omit for a project-level event.
+             * @description The Email row this send created.
              */
-            contact_id?: string;
-            /** @description Arbitrary event payload. */
-            data?: {
-                [key: string]: string | number | boolean | {
-                    [key: string]: unknown;
-                } | unknown[] | null;
-            };
-            /** @description Event name, e.g. `user.signup`. */
-            name: string;
+            id: string;
+            /**
+             * @description Delivery status at the moment of the response — `PENDING` for a send still queued.
+             * @enum {string}
+             */
+            status: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "BOUNCED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
+            /**
+             * Format: email
+             * @description The recipient the message was queued for.
+             */
+            to: string;
+            /**
+             * Format: email
+             * @description This project's sandbox sender — resolved server-side, never from the body.
+             */
+            from: string;
+            /**
+             * @description Always true. It is here so a model relaying this result cannot describe a test send as a real one: the message came from the shared sandbox domain and could only reach the project owner's own inbox.
+             * @enum {boolean}
+             */
+            sandbox: true;
         };
-        /** @description A recorded custom event. */
-        EventV1: {
+        /** @description Body for POST /api/v1/emails/test. `subject` and `body` are required; `to` defaults to the project owner's verified email, and `from` is refused. */
+        SendTestEmailV1: {
+            /**
+             * Format: email
+             * @description Where to send it. Optional — it defaults to the project owner's own verified account email, which is the only address a sandbox send may reach. Any other value is refused.
+             */
+            to?: string;
+            subject: string;
+            /** @description HTML body. Merge tags are rendered as on any other send. */
+            body: string;
+            /** @description NOT ACCEPTED. The sender is always this project's sandbox address, resolved server-side; naming one here is refused rather than ignored, so a request that expects a different sender never gets a success it would misread. Read `sandbox_address` from `GET /api/v1/projects` to learn the address, or `from` off this response. */
+            from?: string;
+        };
+        /** @description Cursor-paginated list of contacts. */
+        ContactV1List: {
+            data: components["schemas"]["ContactV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description A contact as exposed on the v1 API. */
+        ContactV1: {
             /** Format: uuid */
-            contact_id: string | null;
+            id: string;
+            email: string;
+            subscribed: boolean;
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            custom_fields: string | number | boolean | {
+                [key: string]: unknown;
+            } | unknown[] | null;
             /** Format: date-time */
             created_at: string;
-            /** @description The payload recorded with the event, or null. */
-            data: {
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Body for POST /api/v1/contacts. */
+        ContactV1Create: {
+            /** Format: email */
+            email: string;
+            /** @default true */
+            subscribed: boolean;
+            /** @description Arbitrary JSON stored on the contact and available to templates as `{{ variables }}`. */
+            custom_fields?: string | number | boolean | {
                 [key: string]: unknown;
-            } | null;
+            } | unknown[] | null;
+        };
+        /** @description Body for PATCH /api/v1/contacts/{id}. `email` is deliberately absent: an address is the contact's identity on this API, and changing it in place would silently rewrite what every earlier send was addressed to. Create the new address instead. */
+        ContactV1Update: {
+            subscribed?: boolean;
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            custom_fields?: string | number | boolean | {
+                [key: string]: unknown;
+            } | unknown[] | null;
+        };
+        /** @description Acknowledgement that a contact was deleted. */
+        ContactV1Deleted: {
             /** Format: uuid */
-            email_id: string | null;
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        /** @description Body for POST /api/lists/{id}/subscribe. */
+        ListSubscribe: {
+            /** Format: email */
+            email: string;
+            /** @description Custom fields to upsert onto the contact as part of subscribing. */
+            data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description Permission to reverse an earlier opt-out. When the email already has an UNSUBSCRIBED membership on this list, the call fails with 409 RESUBSCRIBE_CONFIRMATION_REQUIRED unless this is `true`. Send `true` only when the contact is acting for themselves — a public subscribe form they submitted is affirmative consent — never for an operator-initiated add.
+             * @default false
+             */
+            allowResubscribe: boolean;
+        };
+        /** @description Body for POST /api/lists/{id}/unsubscribe. */
+        ListUnsubscribe: {
+            /** Format: email */
+            email: string;
+        };
+        /** @description Cursor-paginated list of subscriber lists. */
+        ListV1List: {
+            data: components["schemas"]["ListV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description A subscriber list as exposed on the v1 API. */
+        ListV1: {
             /** Format: uuid */
             id: string;
             name: string;
+            description: string | null;
+            double_opt_in: boolean;
+            /** Format: uuid */
+            confirmation_template_id: string | null;
+            redirect_url: string | null;
+            /** @description Memberships in ANY status, including PENDING and UNSUBSCRIBED ones. */
+            member_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Body for POST /api/v1/lists. */
+        ListV1Create: {
+            name: string;
+            description?: string | null;
+            /**
+             * @description Require the contact to confirm before the membership becomes CONFIRMED. Sendly does NOT send the confirmation email — subscribing returns a `confirm_token` and you deliver `/api/lists/confirm-subscription?token=<token>` to the contact yourself.
+             * @default false
+             */
+            double_opt_in: boolean;
+            /** Format: uuid */
+            confirmation_template_id?: string | null;
+            /**
+             * Format: uri
+             * @description Where a confirmed contact is sent after following the confirmation link.
+             */
+            redirect_url?: string | null;
+        };
+        /** @description Body for PATCH /api/v1/lists/{id}. */
+        ListV1Update: {
+            name?: string;
+            description?: string | null;
+            double_opt_in?: boolean;
+            /** Format: uuid */
+            confirmation_template_id?: string | null;
+            /** Format: uri */
+            redirect_url?: string | null;
+        };
+        /** @description Acknowledgement that a list was deleted. */
+        ListV1Deleted: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        /** @description Body for POST /api/domains. `projectId` is optional for API-key auth (derived from key) and required for session auth. `region` pins the SES region; on the first domain it locks the project, after that it must match the project's region. `stream` assigns the identity to transactional or marketing traffic at creation; omit it to leave the identity serving both. */
+        AddDomainBody: {
+            /** Format: uuid */
+            projectId?: string;
+            domain: string;
+            /**
+             * @description Override SES region for this domain. Defaults to the project region or the env default. Required to match an existing project region.
+             * @enum {string}
+             */
+            region?: "us-east-1" | "us-west-2" | "eu-west-1";
+            stream?: components["schemas"]["SendingStream"];
+            /** @description Make this the project's default identity for `stream`. Requires `stream`. Setting it demotes whichever identity held it. */
+            streamDefault?: boolean;
+        };
+        /**
+         * @description Which traffic this identity carries. Omit to leave it unassigned, which lets it carry every stream — that is what every domain added before per-stream identities does.
+         * @enum {string}
+         */
+        SendingStream: "TRANSACTIONAL" | "MARKETING";
+        /** @description Body for PATCH /api/domains/{id}. */
+        AssignDomainStream: {
+            /**
+             * @description Which traffic this identity carries. `null` unassigns it, returning it to serving every stream and clearing its default flag and default address.
+             * @enum {string|null}
+             */
+            stream?: "TRANSACTIONAL" | "MARKETING" | null;
+            /** @description Make this the project's default identity for its stream, demoting whichever held it. */
+            streamDefault?: boolean;
+            /**
+             * Format: email
+             * @description The address a send on this stream uses when it names none. Must be on this identity's own host — a default pointing elsewhere would go out unsigned by the name in the From header.
+             */
+            defaultFromAddress?: string | null;
+        };
+        /** @description Cursor-paginated list of sending domains. */
+        DomainV1List: {
+            data: components["schemas"]["DomainV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description A sending domain as exposed on the v1 API. */
+        DomainV1: {
+            /** Format: uuid */
+            id: string;
+            domain: string;
+            verified: boolean;
+            region: string | null;
+            stream: components["schemas"]["SendingStream"] & (string | null);
+            stream_default: boolean;
+            default_from_address: string | null;
+            mail_from_domain: string | null;
+            /** @description SES's CustomMailFromStatus for `mail_from_domain` — the subdomain that carries the bounce path, NOT the status of any From address. */
+            mail_from_domain_status: string | null;
+            dkim_verified: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Body for POST /api/v1/domains. */
+        DomainV1Create: {
+            domain: string;
+            /**
+             * @description AWS SES region for the project. Once a domain is added the region is locked and cannot be changed.
+             * @enum {string}
+             */
+            region?: "us-east-1" | "us-west-2" | "eu-west-1";
+            stream?: components["schemas"]["SendingStream"] & unknown;
+            /** @description Make this the project's default identity for `stream`. Requires `stream`. */
+            stream_default?: boolean;
+        };
+        /** @description Acknowledgement that a sending domain was removed. */
+        DomainV1Deleted: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        /** @description Body for POST /api/templates. */
+        CreateTemplate: {
+            name: string;
+            description?: string;
+            subject: string;
+            body: string;
+            /** Format: email */
+            from: string;
+            fromName?: string | null;
+            /** Format: email */
+            replyTo?: string | null;
+            /**
+             * @default MARKETING
+             * @enum {string}
+             */
+            emailCategory: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+        };
+        /** @description Body for PATCH /api/templates/{id}. */
+        UpdateTemplate: {
+            name?: string;
+            description?: string;
+            subject?: string;
+            body?: string;
+            /** Format: email */
+            from?: string;
+            fromName?: string | null;
+            /** Format: email */
+            replyTo?: string | null;
+            /** @enum {string} */
+            emailCategory?: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+        };
+        /** @description Cursor-paginated list of templates. */
+        TemplateV1List: {
+            data: components["schemas"]["TemplateV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description An email template as exposed on the v1 API. */
+        TemplateV1: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            subject: string;
+            body: string;
+            from: string;
+            from_name: string | null;
+            reply_to: string | null;
+            /** @enum {string} */
+            email_category: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+            version: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Body for POST /api/v1/templates. */
+        TemplateV1Create: {
+            name: string;
+            description?: string | null;
+            subject: string;
+            body: string;
+            /**
+             * Format: email
+             * @description Sender address. Its domain must be verified for this project.
+             */
+            from: string;
+            from_name?: string | null;
+            /** Format: email */
+            reply_to?: string | null;
+            /**
+             * @default MARKETING
+             * @enum {string}
+             */
+            email_category: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+        };
+        /** @description Body for PATCH /api/v1/templates/{id}. */
+        TemplateV1Update: {
+            name?: string;
+            description?: string | null;
+            subject?: string;
+            body?: string;
+            /** Format: email */
+            from?: string;
+            from_name?: string | null;
+            /** Format: email */
+            reply_to?: string | null;
+            /** @enum {string} */
+            email_category?: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+        };
+        /** @description Acknowledgement that a template was deleted. */
+        TemplateV1Deleted: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        /** @description Body for POST /api/snippets. */
+        CreateSnippet: {
+            name: string;
+            description?: string | null;
+            body: string;
+        };
+        /** @description Body for PATCH /api/snippets/{id}. */
+        UpdateSnippet: {
+            name?: string;
+            description?: string | null;
+            body?: string;
+        };
+        /** @description Body for POST /api/webhooks — register a user webhook for one or more events. */
+        CreateWebhook: {
+            /** Format: uri */
+            url: string;
+            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
+        };
+        /** @description Body for PATCH /api/webhooks/{id}. */
+        UpdateWebhook: {
+            /** Format: uri */
+            url?: string;
+            eventTypes?: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
+            /** @enum {string} */
+            status?: "ACTIVE" | "PAUSED" | "DISABLED";
+        };
+        /** @description Cursor-paginated list of webhook endpoints. */
+        WebhookV1List: {
+            data: components["schemas"]["WebhookV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description A webhook endpoint as exposed on the v1 API. The signing secret is NEVER on this shape — it is returned once, by create and by rotate, and no endpoint reads it back. */
+        WebhookV1: {
+            /** Format: uuid */
+            id: string;
+            url: string;
+            event_types: string[];
+            /** @enum {string} */
+            status: "ACTIVE" | "PAUSED" | "DISABLED";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description A newly created webhook and its one-time signing secret. */
+        WebhookV1Created: {
+            webhook: components["schemas"]["WebhookV1"];
+            /** @description The signing secret, shown EXACTLY ONCE. Store it now — no endpoint returns it again. */
+            secret: string;
+        };
+        /** @description Body for POST /api/v1/webhooks. */
+        WebhookV1Create: {
+            /** Format: uri */
+            url: string;
+            event_types: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
+        };
+        /** @description Body for PATCH /api/v1/webhooks/{id}. */
+        WebhookV1Update: {
+            /** Format: uri */
+            url?: string;
+            event_types?: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
+            /** @enum {string} */
+            status?: "ACTIVE" | "PAUSED" | "DISABLED";
+        };
+        /** @description Acknowledgement that a webhook was deleted. */
+        WebhookV1Deleted: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        /** @description A freshly rotated signing secret, and the moment the outgoing one stops verifying. */
+        WebhookV1SecretRotated: {
+            /** @description The new signing secret, shown EXACTLY ONCE. Store it now — no endpoint returns it again. */
+            secret: string;
+            /**
+             * Format: date-time
+             * @description When the PREVIOUS secret stops verifying. Until then every delivery carries both signatures, so a consumer can redeploy its verifier without dropping an event.
+             */
+            previous_secret_expires_at: string;
+        };
+        CreateApiKeyBody: {
+            name: string;
+            /** @enum {string} */
+            legacyGrantPreset?: "FULL" | "SENDING_ONLY";
+            /**
+             * @description `LIVE` (default) or `TEST`. A test key can only send from the project's sandbox address, which accepts only the project's own verified account addresses as recipients, so it cannot reach a customer. Its sends are real sends down the same pipeline and are marked `sentInTestMode`. Fixed at creation.
+             * @enum {string}
+             */
+            mode?: "LIVE" | "TEST";
+            /** @description The explicit grant the new key will carry. Omitted ⇒ materialised from `legacyGrantPreset`. A `SENDING_ONLY` key may carry only `emails:send`. */
+            scopes?: ("emails:send" | "emails:read" | "contacts:read" | "contacts:write" | "campaigns:read" | "campaigns:write" | "segments:read" | "segments:write" | "workflows:read" | "workflows:write" | "templates:read" | "templates:write" | "domains:read" | "domains:write" | "webhooks:read" | "webhooks:write" | "suppression:read" | "suppression:write" | "analytics:read" | "usage:read" | "events:read" | "events:write" | "projects:read" | "projects:write" | "api-keys:read" | "api-keys:write" | "campaigns:send" | "mailboxes:read" | "mailboxes:write" | "emails:test" | "deliverability:read" | "mailboxes:send" | "validation:read" | "validation:write" | "topics:read" | "topics:write" | "lists:read" | "lists:write")[];
+            /** Format: uuid */
+            domainId?: string | null;
+        };
+        /** @description Body for POST /api/suppression — manually add an email to the suppression list. */
+        AddSuppression: {
+            /** Format: email */
+            email: string;
+            /**
+             * @default MANUAL
+             * @enum {string}
+             */
+            reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+        };
+        /** @description Cursor-paginated list of suppressed addresses. */
+        SuppressionV1List: {
+            data: components["schemas"]["SuppressionV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description A suppressed address as exposed on the v1 API. */
+        SuppressionV1: {
+            email: string;
+            /** @enum {string} */
+            reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+            source: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Body for POST /api/v1/suppressions. */
+        SuppressionV1Create: {
+            /** Format: email */
+            email: string;
+            /**
+             * @default MANUAL
+             * @enum {string}
+             */
+            reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+        };
+        /** @description Acknowledgement that an address was un-suppressed. */
+        SuppressionV1Deleted: {
+            email: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        /** @description Body for POST /api/track — record a custom event for a contact. */
+        TrackEvent: {
+            event: string;
+            /** Format: email */
+            email: string;
+            subscribed?: boolean;
+            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
+            data?: {
+                [key: string]: unknown;
+            };
         };
         /** @description Cursor-paginated list of events, newest first. */
         EventV1List: {
@@ -2131,98 +4675,323 @@ export interface components {
             /** @description Pass as `after` to fetch the next page. `null` on the last page. */
             next_cursor: string | null;
         };
-        /** @description A filter condition: one or more groups combined with `logic`. */
-        FilterConditionV1: {
-            groups: components["schemas"]["FilterGroupV1"][];
-            /** @enum {string} */
-            logic: "AND" | "OR";
+        /** @description A recorded custom event. */
+        EventV1: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            contact_id: string | null;
+            /** Format: uuid */
+            email_id: string | null;
+            /** @description The payload recorded with the event, or null. */
+            payload: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            created_at: string;
         };
-        /** @description A group of filters. The filters inside one group ALWAYS combine with AND; `conditions` nests a further condition under this group, which is how OR-of-ANDs (and deeper) is expressed. */
-        FilterGroupV1: {
-            conditions?: components["schemas"]["FilterConditionV1"];
-            filters: components["schemas"]["SegmentFilterV1"][];
+        /** @description Body for POST /api/v1/events. */
+        EventTrackV1: {
+            /** @description Event name, e.g. `user.signup`. */
+            name: string;
+            /**
+             * Format: uuid
+             * @description Contact the event belongs to. Must already exist in this project — unlike the legacy `POST /api/track`, this endpoint never creates contacts. Omit for a project-level event.
+             */
+            contact_id?: string;
+            /** @description Arbitrary event payload. */
+            payload?: {
+                [key: string]: string | number | boolean | {
+                    [key: string]: unknown;
+                } | unknown[] | null;
+            };
         };
-        /** @description Success envelope carrying the affected resource's id, e.g. after a delete. */
-        IdResponse: {
+        /** @description Every distinct event name in the project, most frequent first. */
+        EventNamesV1: {
+            data: string[];
+        };
+        /** @description Per-name event counts over the applied window. */
+        EventStatsV1: {
+            data: {
+                name: string;
+                count: number;
+            }[];
+            window: components["schemas"]["AnalyticsWindowV1"];
+        };
+        /** @description The time range this response was computed over, after the 90-day clamp. */
+        AnalyticsWindowV1: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+        };
+        /** @description Daily email counters across the window. Every day in range is present, zero-filled. */
+        AnalyticsTimeseriesV1: {
+            data: {
+                /** Format: date-time */
+                date: string;
+                emails: number;
+                delivered: number;
+                opens: number;
+                clicks: number;
+                bounces: number;
+            }[];
+            window: components["schemas"]["AnalyticsWindowV1"];
+        };
+        /** @description Campaign counters and engagement over the window. */
+        AnalyticsCampaignStatsV1: {
+            total: number;
+            /** @description Campaigns in DRAFT or SCHEDULED. */
+            active: number;
+            completed: number;
+            /** @description Percentage, one decimal place. */
+            average_open_rate: number;
+            average_click_rate: number;
+            window: components["schemas"]["AnalyticsWindowV1"];
+        };
+        /** @description Sent campaigns ranked by open rate. */
+        AnalyticsTopCampaignsV1: {
             data: {
                 /** Format: uuid */
                 id: string;
-            };
-            /** @enum {boolean} */
-            success: true;
+                subject: string;
+                sent: number;
+                opened: number;
+                clicked: number;
+                open_rate: number;
+                click_rate: number;
+            }[];
+            window: components["schemas"]["AnalyticsWindowV1"];
         };
-        /** @description Body for POST /api/lists/{id}/subscribe. */
-        ListSubscribe: {
+        /** @description A composed answer to why mail from one domain may not be arriving: its DNS identity, the project's recent delivery outcomes, one address's suppression state, and the findings drawn from them. */
+        DeliverabilityDiagnosisV1: {
+            domain: string;
+            address: string | null;
+            /** Format: date-time */
+            checked_at: string;
+            identity: components["schemas"]["DeliverabilityIdentityV1"];
+            suppression: components["schemas"]["DeliverabilitySuppressionV1"];
+            recent_delivery: components["schemas"]["DeliverabilityRecentDeliveryV1"];
+            /** @description What is wrong, worst first. An empty array means nothing here explains a delivery problem. */
+            findings: components["schemas"]["DeliverabilityFindingV1"][];
+        };
+        /** @description The sending identity's DNS health, as last refreshed. */
+        DeliverabilityIdentityV1: {
+            /** @description Whether this project has a domain record at all. False makes every other field null. */
+            registered: boolean;
+            verified: boolean;
             /**
-             * @description Permission to reverse an earlier opt-out. When the email already has an UNSUBSCRIBED membership on this list, the call fails with 409 RESUBSCRIBE_CONFIRMATION_REQUIRED unless this is `true`. Send `true` only when the contact is acting for themselves — a public subscribe form they submitted is affirmative consent — never for an operator-initiated add.
-             * @default false
+             * @description DKIM signing. This is the one that decides whether Sendly will send from the domain at all.
+             * @enum {string|null}
              */
-            allowResubscribe: boolean;
-            /** @description Custom fields to upsert onto the contact as part of subscribing. */
-            data?: {
-                [key: string]: unknown;
-            };
-            /** Format: email */
-            email: string;
+            dkim_status: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /**
+             * @description SPF alignment for the sending identity.
+             * @enum {string|null}
+             */
+            spf_status: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /**
+             * @description The DMARC policy published at `_dmarc.<domain>`.
+             * @enum {string|null}
+             */
+            dmarc_status: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /**
+             * @description Inbound receiving only. Null unless the domain has receiving enabled.
+             * @enum {string|null}
+             */
+            mx_status: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            mail_from_domain: string | null;
+            /** @description Raw SES `CustomMailFromStatus` (`Pending`/`Success`/`Failed`/`TemporaryFailure`), or `NotConfigured`. `Failed` means SES silently fell back to `amazonses.com`, which is why the value is reported rather than folded into a boolean. */
+            mail_from_domain_status: string | null;
+            /**
+             * Format: date-time
+             * @description When the DNS refresh job last looked. These statuses are a CACHE, not a live lookup.
+             */
+            last_checked_at: string | null;
         };
-        /** @description Result of a list-subscribe call. */
-        ListSubscribeResponse: {
-            data: {
-                /** @description Present only when the list has doubleOptIn enabled. Sendly does not send the confirmation email — deliver /api/lists/confirm?token=<confirmToken> to the contact. Valid for 24 hours. */
-                confirmToken?: string;
-                /** @description True when the membership row did not exist before this call. */
-                created: boolean;
-                /** Format: uuid */
-                membershipId: string;
-                /**
-                 * @description Status the membership held before this call; null when it did not exist. Use this rather than `created` to describe the transition to the user.
-                 * @enum {string|null}
-                 */
-                previousStatus: "PENDING" | "CONFIRMED" | "UNSUBSCRIBED" | null;
+        /** @description Null unless the request named an `address`. */
+        DeliverabilitySuppressionV1: {
+            suppressed: boolean;
+            /** @enum {string|null} */
+            reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE" | null;
+            /** @enum {string|null} */
+            source: "SES_WEBHOOK" | "API" | "DASHBOARD" | null;
+            /** Format: date-time */
+            suppressed_at: string | null;
+        } | null;
+        /** @description Delivery outcomes over the requested window. */
+        DeliverabilityRecentDeliveryV1: {
+            window_days: number;
+            /**
+             * @description PROJECT-WIDE, not per-domain, and said so rather than implied. `Email` has no sending-domain column, so narrowing these counters to one domain would mean a scan over every row the project has ever sent. A project that sends from one domain — most of them — can read these as that domain's.
+             * @enum {string}
+             */
+            scope: "project";
+            sent: number;
+            delivered: number;
+            bounced: number;
+            complained: number;
+            failed: number;
+            /** @description Bounced ÷ sent (0–1), or null when nothing was sent in the window. */
+            bounce_rate: number | null;
+            complaint_rate: number | null;
+        };
+        /** @description One diagnosed problem, with its fix. */
+        DeliverabilityFindingV1: {
+            /** @description Stable identifier for this finding, e.g. `domain_not_verified`. Branch on this, not on `summary`. */
+            code: string;
+            severity: components["schemas"]["DeliverabilityFindingSeverityV1"];
+            /** @description What is wrong, in one sentence. */
+            summary: string;
+            /** @description What to do about it. */
+            remedy: string;
+        };
+        /**
+         * @description `blocking`: mail from this domain cannot be delivered as configured. `degraded`: it delivers, but inbox placement or sender reputation is at risk. `info`: worth knowing, nothing to fix.
+         * @enum {string}
+         */
+        DeliverabilityFindingSeverityV1: "blocking" | "degraded" | "info";
+        /** @description Cursor-paginated recipient-domain rollup, newest day first. */
+        RecipientDomainStatsV1List: {
+            data: components["schemas"]["RecipientDomainStatsV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description Delivery outcomes for one recipient domain on one day. */
+        RecipientDomainStatsV1: {
+            /** @description The recipient's domain, lowercased: the part after the `@`. */
+            domain: string;
+            /** @description The UTC day these counts cover, as `YYYY-MM-DD`. */
+            day: string;
+            sent: number;
+            delivered: number;
+            bounced: number;
+            complained: number;
+            opened: number;
+            /**
+             * Format: date-time
+             * @description When the rollup job last rebuilt this row. These counts are a CACHE, refreshed hourly.
+             */
+            computed_at: string;
+        };
+        /** @description Cursor-paginated DMARC aggregate reports, newest window first. */
+        DmarcReportV1List: {
+            data: components["schemas"]["DmarcReportV1"][];
+            has_more: boolean;
+            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description One DMARC aggregate (RUA) report. */
+        DmarcReportV1: {
+            id: string;
+            /** @description The receiver's own id for this report. */
+            report_id: string;
+            /** @description The reporting receiver, e.g. `google.com`. */
+            org_name: string;
+            /** @description The domain of yours the report is about. */
+            policy_domain: string;
+            /** Format: date-time */
+            range_begin: string;
+            /** Format: date-time */
+            range_end: string;
+            total_count: number;
+            /** @description Messages DMARC-ALIGNED (SPF or DKIM aligned and passing), from `policy_evaluated`. Not the raw auth results: a message can pass SPF for a domain that is not the one in its From header, which is the case DMARC exists to catch. */
+            pass_count: number;
+            fail_count: number;
+            /** @description Per-sending-source rows, as the receiver reported them. */
+            sources: {
+                source_ip: string;
+                count: number;
+                disposition: string;
+                dkim: string;
+                spf: string;
+                header_from: string;
+            }[];
+            /** Format: date-time */
+            received_at: string;
+        };
+        /** @description Current email usage against the limits that are actually enforced. */
+        UsageV1: {
+            /**
+             * @description `custom` when an operator set per-category limits, `pro` on an active subscription or store entitlement, else `free`.
+             * @enum {string}
+             */
+            plan: "free" | "pro" | "custom";
+            monthly: {
+                emails_sent: number;
+                /** @description Monthly cap on the total. Null when per-category limits govern instead. */
+                limit: number | null;
+                categories: {
+                    transactional: {
+                        emails_sent: number;
+                        limit: number | null;
+                    };
+                    campaign: {
+                        emails_sent: number;
+                        limit: number | null;
+                    };
+                    workflow: {
+                        emails_sent: number;
+                        limit: number | null;
+                    };
+                    inbound: {
+                        emails_sent: number;
+                        limit: number | null;
+                    };
+                };
+            };
+            daily: {
+                /** @description Today's sends. Null when the counter could not be read. */
+                emails_sent: number | null;
+                limit: number;
                 /** @enum {string} */
-                status: "PENDING" | "CONFIRMED" | "UNSUBSCRIBED";
+                trust_tier: "NEW" | "ESTABLISHED" | "TRUSTED";
             };
-            /** @enum {boolean} */
-            success: true;
         };
-        /** @description Body for POST /api/lists/{id}/unsubscribe. */
-        ListUnsubscribe: {
-            /** Format: email */
-            email: string;
-        };
-        /** @description Echoes the address that was unsubscribed. */
-        ListUnsubscribeResponse: {
-            data: {
-                /** Format: email */
-                email: string;
-            };
-            /** @enum {boolean} */
-            success: true;
+        /** @description The project the presented credential is scoped to. */
+        ProjectV1: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description A disabled project sends nothing; every send is refused. */
+            disabled: boolean;
+            /** @description This project's quick-start sender, usable with no domain setup — but only to the project owner's own verified address, and under a daily cap. Null when none can be derived. */
+            sandbox_address: string | null;
+            /** @description Locked once the first domain is added. */
+            ses_region: string | null;
+            /** @enum {string} */
+            tracking: "ENABLED" | "DISABLED" | "MARKETING_ONLY";
+            /** @description ISO 639-1 code for customer-facing content. */
+            language: string;
+            /** Format: date-time */
+            created_at: string;
         };
         /** @description A receiving mailbox on one of the project's verified domains. */
         Mailbox: {
+            /** Format: uuid */
+            id: string;
             /**
              * Format: email
              * @description The full mailbox address, e.g. `support@superbooks.io`.
              */
             address: string;
-            /** Format: date-time */
-            createdAt: string;
             displayName: string | null;
-            /**
-             * Format: uuid
-             * @description The verified domain this mailbox lives on.
-             */
-            domainId: string;
-            /** Format: uuid */
-            id: string;
-            /** @description Always null. Mailbox quotas are not implemented — the value was never applied to the mail account — so this field reports the absence rather than a number nothing enforces. */
-            quotaBytes: number | null;
             /**
              * @description `PROVISIONING` while the mail account is being created, `ACTIVE` once it can receive, `SUSPENDED` when receiving is paused, `FAILED` when provisioning did not complete. A `FAILED` mailbox can be re-created with the same address — the retry reclaims the row.
              * @enum {string}
              */
             status: "PROVISIONING" | "ACTIVE" | "SUSPENDED" | "FAILED";
+            /** @description Always null. Mailbox quotas are not implemented — the value was never applied to the mail account — so this field reports the absence rather than a number nothing enforces. */
+            quotaBytes: number | null;
+            /**
+             * Format: uuid
+             * @description The verified domain this mailbox lives on.
+             */
+            domainId: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         /** @description A mailbox plus its IMAP/SMTP connection settings. */
         MailboxDetail: components["schemas"]["Mailbox"] & {
@@ -2246,698 +5015,219 @@ export interface components {
                 };
             };
         };
-        /** @description RFC 9457 problem document, served as `application/problem+json`. Returned by every 4xx/5xx response on the `/api/v1` surface. */
-        Problem: {
-            /** @description Machine-readable lowercase error code, e.g. `scope_missing`. */
-            code: string;
-            /** @description Explanation specific to this occurrence. */
-            detail?: string;
-            /** @description Field-level failures. Present on 422 `validation_error` responses. */
-            errors?: {
-                code: string;
-                message: string;
-                /** @description RFC 6901 JSON Pointer to the offending field. */
-                pointer: string;
-            }[];
-            /** @description Request path the failure occurred on. */
-            instance?: string;
-            /** @description Correlation id — quote it in support requests. */
-            request_id?: string;
-            /** @description HTTP status code, repeated in the body. */
-            status: number;
-            /** @description Short, stable summary — the same for every occurrence of a `type`. */
-            title: string;
+        CreateMailboxBody: {
+            /**
+             * Format: uuid
+             * @description Defaults to the project the credential resolves to. Naming a different one is refused.
+             */
+            projectId?: string;
+            /**
+             * Format: uuid
+             * @description A VERIFIED domain belonging to this project.
+             */
+            domainId: string;
+            /** @description The part before the `@`, e.g. `support`. Lowercased server-side. */
+            localPart: string;
+            displayName?: string;
+            /** @description NOT IMPLEMENTED — sending any value answers 400. */
+            quotaBytes?: number;
+        };
+        /** @description Body for POST /api/mailboxes/{id}/drafts — ask for help writing, never for sending. */
+        DraftMailboxMessage: {
+            /** @enum {string} */
+            mode: "draft" | "rewrite" | "subject";
+            brief?: string;
+            draft?: string;
+            instruction?: string;
+            /** @enum {string} */
+            tone?: "friendly" | "neutral" | "formal" | "apologetic" | "direct";
+            recipientContext?: string;
+            senderAddress?: string;
+        };
+        /** @description Body for POST /api/mailboxes/{id}/messages — a new outbound message from a hosted mailbox. */
+        ComposeMailboxMessage: {
+            to: string[];
+            cc?: string[];
+            bcc?: string[];
+            subject: string;
+            body: string;
+        };
+        /** @description An IMAP/SMTP credential for one mailbox, described but never reproduced. */
+        AppPassword: {
+            /** Format: uuid */
+            id: string;
+            /** @description What the credential is for, e.g. `Thunderbird on my laptop`. */
+            name: string;
+            /** @description Which protocols this password may authenticate. `imap` reads, `smtp` sends. */
+            scopes: ("imap" | "smtp")[];
+            /** @description The last four characters of the secret — enough to tell two credentials apart, and nothing more. */
+            lastFour: string;
+            /**
+             * Format: date-time
+             * @description Null until a mail client has authenticated with it at least once.
+             */
+            lastUsedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description A newly created app password, handed over as a one-time link rather than as a secret. */
+        AppPasswordReveal: {
+            /** Format: uuid */
+            id: string;
             /**
              * Format: uri
-             * @description Dereferenceable URI identifying the error class, anchored on the docs errors page.
+             * @description A single-use link that shows the password once, in a browser. Opening it requires a signed-in Sendly session belonging to a project admin — the connection that created the password cannot open it, and the second attempt to open it fails whoever makes it.
              */
-            type: string;
-        };
-        ProjectRecord: {
-            billingLimitCampaigns: number | null;
-            billingLimitInbound: number | null;
-            billingLimitTransactional: number | null;
-            billingLimitWorkflows: number | null;
+            revealUrl: string;
             /**
              * Format: date-time
-             * @description ISO 8601 datetime string
+             * @description When the link stops working. Five minutes after creation; the password itself does not expire.
              */
-            createdAt: string;
-            disabled: boolean;
-            disabledReason: string | null;
-            /** Format: uuid */
-            id: string;
-            /** @description ISO 639-1 code for customer-facing content. */
-            language: string;
-            name: string;
-            organizationId: string | null;
-            /** @description Local-part of the sandbox quick-start sender; null until first derived. */
-            sandboxHandle: string | null;
-            sesRegion: string | null;
-            stripeCustomerId: string | null;
-            stripeSubscriptionId: string | null;
-            /** @enum {string} */
-            tracking: "ENABLED" | "DISABLED" | "MARKETING_ONLY";
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            updatedAt: string;
+            revealExpiresAt: string;
         };
-        /** @description The project the presented credential is scoped to. */
-        ProjectV1: {
-            /** Format: date-time */
-            created_at: string;
-            /** @description A disabled project sends nothing; every send is refused. */
-            disabled: boolean;
-            /** Format: uuid */
-            id: string;
-            /** @description ISO 639-1 code for customer-facing content. */
-            language: string;
-            name: string;
-            /** @description This project's quick-start sender, usable with no domain setup — but only to the project owner's own verified address, and under a daily cap. Null when none can be derived. */
-            sandbox_address: string | null;
-            /** @description Locked once the first domain is added. */
-            ses_region: string | null;
-            /** @enum {string} */
-            tracking: "ENABLED" | "DISABLED" | "MARKETING_ONLY";
-        };
-        /** @description A contact belonging to a segment. */
-        SegmentContactV1: {
-            /** Format: date-time */
-            created_at: string;
-            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
-            custom_fields: {
-                [key: string]: unknown;
-            };
-            email: string;
-            /** Format: uuid */
-            id: string;
-            subscribed: boolean;
-        };
-        /** @description Cursor-paginated list of the contacts belonging to a segment. */
-        SegmentContactV1List: {
-            data: components["schemas"]["SegmentContactV1"][];
-            has_more: boolean;
-            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
-            next_cursor: string | null;
-        };
-        /** @description One comparison. `field` addresses a contact column (`email`, `createdAt`, …) or a `customFields.<key>` path. `value` is whatever the operator compares against — its JSON type follows the field, and it is omitted entirely for the presence operators (`exists`, `notExists`). `unit` applies only to the relative-time operators (`within`, `olderThan`, and the `triggered*` family). */
-        SegmentFilterV1: {
-            field: string;
-            /** @enum {string} */
-            operator: "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "exists" | "notExists" | "within" | "olderThan" | "triggered" | "triggeredWithin" | "triggeredOlderThan" | "notTriggered" | "notTriggeredWithin" | "isMemberOf";
-            /** @enum {string} */
-            unit?: "days" | "hours" | "minutes";
-            value?: unknown;
-        };
-        /** @description A segment as exposed on the v1 API. */
-        SegmentV1: {
-            condition: components["schemas"]["FilterConditionV1"] | null;
-            /** Format: date-time */
-            created_at: string;
-            description: string | null;
-            /** Format: uuid */
-            id: string;
-            member_count: number;
-            name: string;
-            track_membership: boolean;
-            /** @enum {string} */
-            type: "DYNAMIC" | "STATIC";
-            /** Format: date-time */
-            updated_at: string;
-        };
-        /** @description Body for POST /api/v1/segments. `condition` is required when `type` is `DYNAMIC`. */
-        SegmentV1Create: {
-            condition?: components["schemas"]["FilterConditionV1"];
-            description?: string;
+        /** @description Body for POST /api/mailboxes/:id/app-passwords. */
+        CreateAppPassword: {
             name: string;
             /**
-             * @description Emit segment entry/exit events as contacts move in and out. Off by default — it costs a membership write per transition.
-             * @default false
+             * @default [
+             *       "imap",
+             *       "smtp"
+             *     ]
              */
-            track_membership: boolean;
-            /**
-             * @default DYNAMIC
-             * @enum {string}
-             */
-            type: "DYNAMIC" | "STATIC";
-        };
-        /** @description Acknowledgement that a segment was deleted. */
-        SegmentV1Deleted: {
-            /** @enum {boolean} */
-            deleted: true;
-            /** Format: uuid */
-            id: string;
-        };
-        /** @description Cursor-paginated list of segments. */
-        SegmentV1List: {
-            data: components["schemas"]["SegmentV1"][];
-            has_more: boolean;
-            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
-            next_cursor: string | null;
-        };
-        /** @description Body for PATCH /api/v1/segments/{id}. `type` is deliberately absent — it is fixed at creation. `condition` is ignored on a STATIC segment. */
-        SegmentV1Update: {
-            condition?: components["schemas"]["FilterConditionV1"];
-            description?: string;
-            name?: string;
-            track_membership?: boolean;
-        };
-        /** @description Body for POST /api/emails — send a single transactional email. Either `template` or `subject`+`body` is required. */
-        SendEmail: {
-            attachments?: {
-                content: string;
-                contentId?: string;
-                contentType: string;
-                /**
-                 * @default attachment
-                 * @enum {string}
-                 */
-                disposition: "attachment" | "inline";
-                filename: string;
-            }[];
-            bcc?: string[];
-            body?: string;
-            cc?: string[];
-            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
-            data?: {
-                [key: string]: unknown;
-            };
-            from?: string | {
-                /** Format: email */
-                email: string;
-                name?: string;
-            };
-            headers?: {
-                [key: string]: string;
-            };
-            name?: string;
-            /** Format: email */
-            reply?: string;
-            subject?: string;
-            subscribed?: boolean;
-            tags?: string[];
-            /** Format: uuid */
-            template?: string;
-            to: string | {
-                /** Format: email */
-                email: string;
-                name?: string;
-            } | (string | {
-                /** Format: email */
-                email: string;
-                name?: string;
-            })[];
-        };
-        /** @description Result of a send (`executeSendEmail`): one `emails` entry per recipient — a single request with an array `to` fans out to several — plus the send `timestamp`. */
-        SendEmailData: {
-            emails: components["schemas"]["SendEmailRecipientResult"][];
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            timestamp: string;
-        };
-        /** @description Per-recipient result: the upserted `contact` (id + email) and `email` — the id of the queued email record for that recipient. */
-        SendEmailRecipientResult: {
-            contact: {
-                /** Format: email */
-                email: string;
-                /** Format: uuid */
-                id: string;
-            };
-            /** Format: uuid */
-            email: string;
-        };
-        /** @description Successful response for `POST /api/emails`. `data.emails[i].email` is the queued email id for recipient `i`; poll `GET /api/emails/{id}` for its delivery status. */
-        SendEmailResponse: {
-            data: components["schemas"]["SendEmailData"];
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient. */
-        SendEmailV1: {
-            attachments?: {
-                content: string;
-                contentId?: string;
-                contentType: string;
-                /**
-                 * @default attachment
-                 * @enum {string}
-                 */
-                disposition: "attachment" | "inline";
-                filename: string;
-            }[];
-            bcc?: string[];
-            body?: string;
-            cc?: string[];
-            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
-            data?: {
-                [key: string]: unknown;
-            };
-            from?: string | {
-                /** Format: email */
-                email: string;
-                name?: string;
-            };
-            headers?: {
-                [key: string]: string;
-            };
-            name?: string;
-            /** Format: email */
-            reply?: string;
-            subject?: string;
-            subscribed?: boolean;
-            tags?: string[];
-            /** Format: uuid */
-            template?: string;
-            /** @description The single recipient. Use `cc`/`bcc` to copy others on the same message. */
-            to: string | {
-                /** Format: email */
-                email: string;
-                name?: string;
-            };
-        };
-        /** @description Body for POST /api/v1/emails/test. `subject` and `body` are required; `to` defaults to the project owner's verified email, and `from` is refused. */
-        SendTestEmailV1: {
-            /** @description HTML body. Merge tags are rendered as on any other send. */
-            body: string;
-            /** @description NOT ACCEPTED. The sender is always this project's sandbox address, resolved server-side; naming one here is refused rather than ignored, so a request that expects a different sender never gets a success it would misread. Read `sandbox_address` from `GET /api/v1/projects` to learn the address, or `from` off this response. */
-            from?: string;
-            subject: string;
-            /**
-             * Format: email
-             * @description Where to send it. Optional — it defaults to the project owner's own verified account email, which is the only address a sandbox send may reach. Any other value is refused.
-             */
-            to?: string;
-        };
-        /** @description Bare success envelope with no payload. */
-        SuccessEmpty: {
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description A single suppressed-email record. */
-        Suppression: {
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            /** Format: email */
-            email: string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            projectId: string;
-            /** @enum {string} */
-            reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
-            /** @enum {string} */
-            source: "SES_WEBHOOK" | "API" | "DASHBOARD";
-        };
-        /** @description Result of GET /api/suppression/{email} — whether the address is suppressed. */
-        SuppressionCheckResponse: {
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt?: string;
-            /** @enum {string} */
-            reason?: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
-            /** @enum {string} */
-            source?: "SES_WEBHOOK" | "API" | "DASHBOARD";
-            suppressed: boolean;
-        };
-        /** @description Cursor-paginated list of suppressions. */
-        SuppressionListResponse: {
-            cursor?: string | null;
-            data: components["schemas"]["Suppression"][];
-            hasMore?: boolean;
-            nextCursor?: string | null;
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description A reusable email template. */
-        Template: {
-            body: string;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            description?: string | null;
-            /** Format: email */
-            from: string;
-            fromName?: string | null;
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** Format: uuid */
-            projectId: string;
-            /** Format: email */
-            replyTo?: string | null;
-            subject: string;
-            /** @enum {string} */
-            type: "MARKETING" | "TRANSACTIONAL" | "HEADLESS";
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            updatedAt: string;
-        };
-        /** @description Cursor-paginated list of templates. */
-        TemplateListResponse: {
-            data: {
-                /** @description Cursor for the next page; omitted on the last page. */
-                cursor?: string;
-                data: components["schemas"]["Template"][];
-                hasMore: boolean;
-                total: number;
-            };
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Body for POST /api/track — record a custom event for a contact. */
-        TrackEvent: {
-            /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
-            data?: {
-                [key: string]: unknown;
-            };
-            /** Format: email */
-            email: string;
-            event: string;
-            subscribed?: boolean;
-        };
-        /** @description Response from POST /api/track. */
-        TrackEventResponse: {
-            data: {
-                /** Format: uuid */
-                contact: string;
-                /** Format: uuid */
-                event: string;
-                /**
-                 * Format: date-time
-                 * @description ISO 8601 datetime string
-                 */
-                timestamp: string;
-            };
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Body for PATCH /api/contacts/{id}. `email` is immutable here — use upsert to change addresses. */
-        UpdateContactBody: {
-            customFields?: {
-                [key: string]: unknown;
-            };
-            subscribed?: boolean;
-        };
-        /** @description Body for PATCH /api/templates/{id}. */
-        UpdateTemplate: {
-            body?: string;
-            description?: string;
-            /** Format: email */
-            from?: string;
-            fromName?: string | null;
-            name?: string;
-            /** Format: email */
-            replyTo?: string | null;
-            subject?: string;
-            /** @enum {string} */
-            type?: "TRANSACTIONAL" | "MARKETING" | "HEADLESS";
-        };
-        /** @description Body for PATCH /api/webhooks/{id}. */
-        UpdateWebhook: {
-            eventTypes?: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
-            /** @enum {string} */
-            status?: "ACTIVE" | "PAUSED" | "DISABLED";
-            /** Format: uri */
-            url?: string;
-        };
-        /** @description Current email usage against the limits that are actually enforced. */
-        UsageV1: {
-            daily: {
-                /** @description Today's sends. Null when the counter could not be read. */
-                emails_sent: number | null;
-                limit: number;
-                /** @enum {string} */
-                trust_tier: "NEW" | "ESTABLISHED" | "TRUSTED";
-            };
-            monthly: {
-                categories: {
-                    campaign: {
-                        emails_sent: number;
-                        limit: number | null;
-                    };
-                    inbound: {
-                        emails_sent: number;
-                        limit: number | null;
-                    };
-                    transactional: {
-                        emails_sent: number;
-                        limit: number | null;
-                    };
-                    workflow: {
-                        emails_sent: number;
-                        limit: number | null;
-                    };
-                };
-                emails_sent: number;
-                /** @description Monthly cap on the total. Null when per-category limits govern instead. */
-                limit: number | null;
-            };
-            /**
-             * @description `custom` when an operator set per-category limits, `pro` on an active subscription or store entitlement, else `free`.
-             * @enum {string}
-             */
-            plan: "free" | "pro" | "custom";
+            scopes: ("imap" | "smtp")[];
         };
         /** @description Body for POST /api/verify — validate email syntax, MX, disposable, etc. */
         VerifyEmail: {
             /** Format: email */
             email: string;
         };
-        /** @description Response from POST /api/verify — outcome of the syntax/MX/disposable check. */
-        VerifyEmailResponse: {
-            data: {
-                /** Format: email */
-                email: string;
-                reason?: string;
-                valid: boolean;
-            } & {
-                [key: string]: unknown;
-            };
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description A user-managed outbound webhook. */
-        Webhook: {
-            consecutiveFailures: number;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            disabledAt?: string | null;
-            eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
-            /** Format: uuid */
-            id: string;
-            lastFour?: string;
-            /** Format: uuid */
-            projectId: string;
-            /** @enum {string} */
-            status: "ACTIVE" | "PAUSED" | "DISABLED";
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            updatedAt: string;
-            /** Format: uri */
-            url: string;
-        };
-        /** @description An attempted webhook delivery. */
-        WebhookCall: {
-            attempt: number;
-            /**
-             * Format: date-time
-             * @description ISO 8601 datetime string
-             */
-            createdAt: string;
-            eventType: string;
-            /** Format: uuid */
-            id: string;
-            payload: {
-                [key: string]: unknown;
-            };
-            responseBody?: string | null;
-            responseStatus?: number | null;
-            /** @enum {string} */
-            status: "PENDING" | "SUCCESS" | "FAILED";
-            /** Format: uuid */
-            webhookId: string;
-        };
-        /** @description Cursor-paginated list of recent calls for a single webhook. */
-        WebhookCallsListResponse: {
-            cursor?: string | null;
-            data: components["schemas"]["WebhookCall"][];
-            hasMore?: boolean;
-            nextCursor?: string | null;
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Result of POST /api/webhooks. `secret` is the only time the plaintext is returned — store it securely. */
-        WebhookCreateResponse: {
-            /** @description A user-managed outbound webhook. */
-            data: components["schemas"]["Webhook"] & {
-                /** @description Plaintext shared secret. Returned ONCE on create. */
-                secret: string;
-            };
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Single webhook (no secret). */
-        WebhookGetResponse: {
-            data: components["schemas"]["Webhook"];
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description List of webhooks for the auth'd project. */
-        WebhookListResponse: {
-            data: components["schemas"]["Webhook"][];
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Response from POST /api/webhooks/{id}/rotate-secret — returns the new plaintext once. */
-        WebhookRotateSecretResponse: {
-            data: {
-                /** Format: uuid */
-                id: string;
-                /** @description New plaintext shared secret. */
-                secret: string;
-            };
-            /** @enum {boolean} */
-            success: true;
-        };
-        /** @description Body for POST /api/v1/workflows. */
-        WorkflowCreateV1: {
-            allow_reentry?: boolean;
-            description?: string;
-            /** @description Workflows are created disabled. A workflow can only be enabled once every step is configured. */
-            enabled?: boolean;
-            /** @description The custom event that starts this workflow, e.g. `user.signup`. */
-            event_name: string;
-            name: string;
-        };
-        /** @description Confirmation that a workflow was deleted. */
-        WorkflowDeletedV1: {
-            /** @enum {boolean} */
-            deleted: true;
-            /** Format: uuid */
-            id: string;
-        };
-        /** @description Body for POST /api/v1/workflows/{id}/executions. */
-        WorkflowExecutionStartV1: {
-            /**
-             * Format: uuid
-             * @description Contact to enter the workflow. Must belong to this project.
-             */
-            contact_id: string;
-            /** @description Extra variables merged into the contact's data for this run. */
-            context?: {
-                [key: string]: string | number | boolean | {
-                    [key: string]: unknown;
-                } | unknown[] | null;
-            };
-        };
-        /** @description One contact's run through a workflow. */
-        WorkflowExecutionV1: {
-            /** Format: date-time */
-            completed_at: string | null;
-            /** Format: uuid */
-            contact_id: string;
-            /** Format: uuid */
-            current_step_id: string | null;
-            exit_reason: string | null;
-            /** Format: uuid */
-            id: string;
-            /** Format: date-time */
-            started_at: string;
-            /** @enum {string} */
-            status: "RUNNING" | "WAITING" | "COMPLETED" | "EXITED" | "FAILED" | "CANCELLED";
-            /** Format: uuid */
-            workflow_id: string;
-        };
-        /** @description Cursor-paginated list of workflow executions, newest first. */
-        WorkflowExecutionV1List: {
-            data: components["schemas"]["WorkflowExecutionV1"][];
+        TopicListV1: {
+            data: components["schemas"]["TopicV1"][];
+            cursor: string | null;
             has_more: boolean;
-            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
-            next_cursor: string | null;
         };
-        /** @description Execution, email and conversion totals for one workflow. */
-        WorkflowStatsV1: {
-            avg_duration_ms: number | null;
-            /** @description Execution counts keyed by status; a status with no executions is absent. */
-            by_status: {
-                [key: string]: number;
-            };
-            /** @description Completed ÷ finished executions (0–1). Null until at least one execution has finished. */
-            completion_rate: number | null;
-            conversions: {
-                count: number;
-                event_name: string;
-                /** Format: uuid */
-                goal_id: string;
-                name: string;
-            }[];
-            emails: {
-                clicked: number;
-                opened: number;
-                sent: number;
-            };
-            total: number;
-            /** Format: uuid */
-            workflow_id: string;
-        };
-        /** @description Body for PATCH /api/v1/workflows/{id}. Every field is optional; omitted fields are left unchanged. Changing the trigger while executions are running answers 409. */
-        WorkflowUpdateV1: {
-            allow_reentry?: boolean;
-            description?: string;
-            enabled?: boolean;
-            event_name?: string;
-            /** @description Per-workflow start rate cap. `null` removes the cap. */
-            max_executions_per_hour?: number | null;
-            name?: string;
-        };
-        /** @description An automation workflow as exposed on the v1 API. */
-        WorkflowV1: {
-            allow_reentry: boolean;
+        /** @description One subject this project mails about. */
+        TopicV1: {
+            id: string;
+            /** @description Stable, URL-safe, unique within the project. This is what a preference form and an API caller name the topic by, so it must survive a rename of `name` — which is the whole reason it exists beside one. */
+            key: string;
+            name: string;
+            description: string | null;
+            /** @description What a contact with NO answer counts as. True is the honest default for a topic added after a list already exists: those contacts consented to hear from you, and inventing an opt-out they never asked for would silence mail they expect. False means the topic must be opted INTO, and absence means `not asked` rather than `no`. */
+            default_opt_in: boolean;
+            /** @description Hidden from the preference centre and from new sends, WITHOUT discarding the opt-outs recorded against it. There is no delete for the same reason: deleting a topic would delete the choices people made about it. */
+            archived: boolean;
+            /** @description Contacts who explicitly said yes. Excludes those covered only by `default_opt_in`. */
+            subscribed_count: number;
+            unsubscribed_count: number;
             /** Format: date-time */
             created_at: string;
-            description: string | null;
-            enabled: boolean;
-            /** @description Trigger event for `EVENT` workflows; null for the other trigger types. */
-            event_name: string | null;
-            /** Format: uuid */
-            id: string;
-            max_executions_per_hour: number | null;
-            name: string;
-            /** @enum {string} */
-            trigger_type: "EVENT" | "MANUAL" | "SCHEDULE";
-            /** Format: date-time */
-            updated_at: string;
-            /** @description Incremented on every structural (step/transition) change. */
-            version: number;
         };
-        /** @description Cursor-paginated list of workflows. */
-        WorkflowV1List: {
-            data: components["schemas"]["WorkflowV1"][];
+        TopicCreateV1: {
+            /** @description Stable, URL-safe, unique within the project. This is what a preference form and an API caller name the topic by, so it must survive a rename of `name` — which is the whole reason it exists beside one. */
+            key: string;
+            name: string;
+            description?: string | null;
+            default_opt_in?: boolean;
+        };
+        /** @description `key` is deliberately absent. It is the name every stored preference and every integration refers to, so changing it would silently orphan them. */
+        TopicUpdateV1: {
+            name?: string;
+            description?: string | null;
+            default_opt_in?: boolean;
+            archived?: boolean;
+        };
+        TopicSubscriptionV1: {
+            topic_id: string;
+            contact_id: string;
+            status: components["schemas"]["TopicSubscriptionStatusV1"];
+            /** Format: date-time */
+            confirmed_at: string | null;
+            /** @description Present only when this call started a double opt-in. Sendly does NOT send the confirmation email — you do, from your own verified domain, because it is your relationship with the contact and your sending reputation. The subscription stays `pending`, and is NOT mailed, until someone opens this link. */
+            confirmation_url: string | null;
+        };
+        /**
+         * @description `subscribed`: mail them about this. `unsubscribed`: do not. `pending`: a confirmation link was sent and has NOT been clicked — never treat this as consent, which is the whole point of double opt-in.
+         * @enum {string}
+         */
+        TopicSubscriptionStatusV1: "pending" | "subscribed" | "unsubscribed";
+        TopicSubscribeV1: {
+            /** Format: uuid */
+            contact_id: string;
+            /** @description True asks to subscribe, which starts a DOUBLE OPT-IN: the contact is parked at `pending` and a confirmation link is sent. There is no way to skip that from the API — a subscription an API caller asserts is not evidence the mailbox holder agreed, and treating it as consent is exactly what double opt-in exists to stop. False records an unsubscribe, which takes effect immediately. */
+            subscribed: boolean;
+        };
+        /** @description Everything this contact has said about what they want. `subscribed` on a topic already folds in `default_opt_in`, so a contact who has never answered still reads correctly. */
+        ContactTopicPreferencesV1: {
+            contact_id: string;
+            /** @description The global marketing opt-out, which OUTRANKS every topic. False means no marketing reaches this contact whatever the topics below say. */
+            subscribed: boolean;
+            topics: {
+                topic_id: string;
+                /** @description Stable, URL-safe, unique within the project. This is what a preference form and an API caller name the topic by, so it must survive a rename of `name` — which is the whole reason it exists beside one. */
+                key: string;
+                name: string;
+                /** @description The EFFECTIVE answer: what the send path concludes for this contact today. */
+                subscribed: boolean;
+                pending: boolean;
+            }[];
+        };
+        /** @description One verdict per address, in the order they were given. */
+        EmailValidationBatchV1: {
+            results: components["schemas"]["EmailValidationV1"][];
+        };
+        /** @description One address's verdict, with the evidence behind it. */
+        EmailValidationV1: {
+            email: string;
+            verdict: components["schemas"]["EmailValidationVerdictV1"];
+            /** @description A throwaway-inbox provider. The ONLY flag here that lowers the verdict. */
+            is_disposable: boolean;
+            /** @description The local part addresses a role (`support@`, `info@`), not a person. List-quality information: role mailboxes are deliverable and companies answer them. */
+            is_role_address: boolean;
+            /** @description A free/consumer provider (Gmail, Outlook). List-quality information, not a problem. */
+            is_personal: boolean;
+            /** @description The domain publishes MX records. */
+            has_mx_records: boolean;
+            /** @description Human-readable findings. Prose for a person to read — branch on `verdict`, never on these. */
+            reasons: string[];
+        };
+        /**
+         * @description `deliverable`: the domain resolves and accepts mail, with no badness signal. `undeliverable`: the domain does not exist or publishes no MX records. `risky`: deliverable, but a throwaway-inbox provider — mailing it costs sender reputation. `unknown`: DNS did not answer in time, so this address was NOT checked. Ask again; never delete a contact on `unknown`.
+         * @enum {string}
+         */
+        EmailValidationVerdictV1: "deliverable" | "undeliverable" | "risky" | "unknown";
+        EmailValidationBatchRequestV1: {
+            /** @description The addresses to check, at most 50. Every distinct DOMAIN costs a DNS round trip, so this endpoint is bounded by latency rather than payload size — validate a whole list with `POST /api/v1/lists/{id}/validation-runs`, which is a background job. */
+            emails: string[];
+        };
+        /** @description One bulk validation run over a list. */
+        EmailValidationRunV1: {
+            id: string;
+            list_id: string | null;
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "failed";
+            /** @description Addresses checked so far. There is deliberately no total: a list changes size while a run walks it, so a denominator captured up front would be wrong by the time you read it. */
+            processed_count: number;
+            deliverable_count: number;
+            undeliverable_count: number;
+            risky_count: number;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            /** @description Set only on `failed`. Prose for an operator; never parse it. */
+            failure_reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description One page of a run's results. No total — a run over a large list holds millions of rows, and the run's own counters are the numbers worth reading. */
+        EmailValidationResultListV1: {
+            data: (components["schemas"]["EmailValidationV1"] & {
+                contact_id: string | null;
+            })[];
+            /** @description Pass as `cursor` for the next page; null on the last. */
+            cursor: string | null;
             has_more: boolean;
-            /** @description Pass as `after` to fetch the next page. `null` on the last page. */
-            next_cursor: string | null;
         };
     };
     responses: never;
@@ -2948,3834 +5238,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    listContacts: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string;
-                search?: string;
-                subscribed?: "true" | "false";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Contact list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ContactListResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createContact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateContact"];
-            };
-        };
-        responses: {
-            /** @description Contact created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Contact"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Email already exists for this project */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    bulkCreateContacts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ContactBulkCreateBody"];
-            };
-        };
-        responses: {
-            /** @description Bulk-create result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            created: number;
-                            errors: {
-                                index: number;
-                                message: string;
-                            }[];
-                            skipped: number;
-                        };
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    bulkDeleteContacts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ContactBulkDeleteBody"];
-            };
-        };
-        responses: {
-            /** @description Bulk-delete result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            deleted: number;
-                        };
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    upsertContact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateContact"];
-            };
-        };
-        responses: {
-            /** @description Contact created or updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Contact"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getContact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Contact */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Contact"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteContact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Contact deleted */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IdResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    updateContact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateContactBody"];
-            };
-        };
-        responses: {
-            /** @description Updated contact */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Contact"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listDomains: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Domain list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DomainListResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    addDomain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddDomainBody"];
-            };
-        };
-        responses: {
-            /** @description Domain added */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Domain"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description AWS SES rejected the identity setup (unusable credentials, a missing IAM permission, or a refusal on Amazon's side). No domain row is written, and the request is not at fault — retrying it unchanged will not help. */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getDomain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Domain */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Domain"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteDomain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Domain removed */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuccessEmpty"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    startDomainSetup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Guided setup session */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            /**
-                             * Format: uri
-                             * @description Open this in a browser to publish the records. Short-lived and domain-specific.
-                             */
-                            connectUrl: string;
-                            /** @description When `connectUrl` stops working. */
-                            expiresAt: string;
-                            token: string;
-                        };
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getDomainVerification: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Verification status */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["DomainVerificationStatus"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    verifyDomain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Verification status */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["DomainVerificationStatus"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listEmails: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string;
-                tag?: string;
-                status?: "PENDING" | "SENT" | "DELIVERED" | "OPENED" | "CLICKED" | "BOUNCED" | "COMPLAINED" | "FAILED";
-                from?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Email list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailListResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    sendEmail: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Replay-safety key (24h TTL). Reuse it only to retry the identical request. */
-                "Idempotency-Key"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendEmail"];
-            };
-        };
-        responses: {
-            /** @description Email accepted / sent */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SendEmailResponse"];
-                };
-            };
-            /** @description Validation error, or `TOO_MANY_UNIQUE_TEMPLATES` — a new account submitted more distinct message bodies in one request than content review allows. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions, project disabled, or `CONTENT_REJECTED`: the message was flagged by automated content review and was not sent. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description `IDEMPOTENCY_KEY_REUSED` — this `Idempotency-Key` was already used for a request with a different body. Reuse a key only to retry the identical request; otherwise send a new key. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description `CONTENT_REVIEW_UNAVAILABLE` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    sendEmailBatch: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BatchSendBody"];
-            };
-        };
-        responses: {
-            /** @description All entries sent */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchSendResponse"];
-                };
-            };
-            /** @description Partial success — at least one entry failed */
-            207: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchSendResponse"];
-                };
-            };
-            /** @description Validation error, or `TOO_MANY_UNIQUE_TEMPLATES` — a new account submitted more distinct message bodies in one request than content review allows. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions, project disabled, or `CONTENT_REJECTED`: the message was flagged by automated content review and was not sent. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description `IDEMPOTENCY_KEY_REUSED` — this `Idempotency-Key` was already used for a request with a different body. Reuse a key only to retry the identical request; otherwise send a new key. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description `CONTENT_REVIEW_UNAVAILABLE` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getEmail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Email */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailGetResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    cancelScheduledEmail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Email cancelled */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailGetResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Email already past PENDING */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    subscribeToList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description List id. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ListSubscribe"];
-            };
-        };
-        responses: {
-            /** @description Contact subscribed, or an existing membership returned unchanged */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListSubscribeResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description The contact previously unsubscribed from this list and `allowResubscribe` was not set. `error.code` is `RESUBSCRIBE_CONFIRMATION_REQUIRED` and `error.details.previousStatus` is `UNSUBSCRIBED`. Retry with `allowResubscribe: true` once the contact has consented. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    unsubscribeFromList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description List id. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ListUnsubscribe"];
-            };
-        };
-        responses: {
-            /** @description Contact unsubscribed */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListUnsubscribeResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listMailboxes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Mailbox list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Mailbox"][];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createMailbox: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateMailboxBody"];
-            };
-        };
-        responses: {
-            /** @description Mailbox provisioned */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Mailbox"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description The address already exists, the domain is not verified, or the project is at its 10-mailbox limit. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Provisioning failed in the mail server. The mailbox row is left `FAILED` and can be retried. */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getMailbox: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Mailbox with connection settings */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["MailboxDetail"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteMailbox: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Mailbox deleted */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            /** @enum {boolean} */
-                            deleted: true;
-                        };
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listAppPasswords: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description App password list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["AppPassword"][];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createAppPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateAppPassword"];
-            };
-        };
-        responses: {
-            /** @description App password created; the secret is behind the one-time link */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["AppPasswordReveal"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    revokeAppPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                passwordId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description App password revoked */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            /** @enum {boolean} */
-                            revoked: true;
-                        };
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listApiKeys: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project id. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description API key list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiKeyListResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createApiKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project id. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateApiKeyBody"];
-            };
-        };
-        responses: {
-            /** @description API key created; the secret is behind the reveal link. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @description An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created. */
-                        data: components["schemas"]["ApiKey"] & {
-                            /**
-                             * Format: date-time
-                             * @description When the reveal link stops working. Create or rotate again to get a new one.
-                             */
-                            revealExpiresAt: string;
-                            /**
-                             * Format: uri
-                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
-                             */
-                            revealUrl: string;
-                        };
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    revokeApiKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project id. */
-                id: string;
-                /** @description API key id. */
-                keyId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description API key revoked */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuccessEmpty"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    rotateApiKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project id. */
-                id: string;
-                /** @description API key id. */
-                keyId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description API key rotated; the new secret is behind the reveal link. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: {
-                            lastFour: string;
-                            /**
-                             * Format: date-time
-                             * @description When the reveal link stops working. Create or rotate again to get a new one.
-                             */
-                            revealExpiresAt: string;
-                            /**
-                             * Format: uri
-                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
-                             */
-                            revealUrl: string;
-                        };
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listSuppressions: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string;
-                reason?: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Suppression list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuppressionListResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    addSuppression: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddSuppression"];
-            };
-        };
-        responses: {
-            /** @description Suppression added */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Suppression"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    checkSuppression: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description URL-encoded email address */
-                email: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Suppression check result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuppressionCheckResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    removeSuppression: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description URL-encoded email address */
-                email: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Suppression removed */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listTemplates: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string;
-                search?: string;
-                type?: "MARKETING" | "TRANSACTIONAL" | "HEADLESS";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Template list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplateListResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTemplate"];
-            };
-        };
-        responses: {
-            /** @description Template created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Template"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Template */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Template"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Template deleted */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IdResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Template still in use */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    updateTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTemplate"];
-            };
-        };
-        responses: {
-            /** @description Updated template */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: components["schemas"]["Template"];
-                        /** @enum {boolean} */
-                        success: true;
-                    };
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Resource not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    trackEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TrackEvent"];
-            };
-        };
-        responses: {
-            /** @description Event tracked */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TrackEventResponse"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createProject: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    /**
-                     * @description AWS SES region for the project. Once a domain is added the region is locked and cannot be changed.
-                     * @enum {string}
-                     */
-                    sesRegion?: "us-east-1" | "us-west-2" | "eu-west-1";
-                };
-            };
-        };
-        responses: {
-            /** @description Project created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectRecord"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unauthorized — missing or invalid auth */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden — insufficient permissions or project disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Validation failed — request body or query parameters did not match the schema */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Rate limit or billing limit exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    v1GetCampaignAnalytics: {
-        parameters: {
-            query?: {
-                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
-                from?: string | null;
-                /** @description End of the window (ISO 8601). Defaults to now. */
-                to?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Campaign statistics */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AnalyticsCampaignStatsV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1GetAnalyticsTimeseries: {
-        parameters: {
-            query?: {
-                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
-                from?: string | null;
-                /** @description End of the window (ISO 8601). Defaults to now. */
-                to?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Daily time series */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AnalyticsTimeseriesV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1ListTopCampaigns: {
-        parameters: {
-            query?: {
-                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
-                from?: string | null;
-                /** @description End of the window (ISO 8601). Defaults to now. */
-                to?: string | null;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Ranked campaigns */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AnalyticsTopCampaignsV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     v1ListCampaigns: {
         parameters: {
             query?: {
@@ -7188,6 +5650,108 @@ export interface operations {
             };
         };
     };
+    v1SendCampaign: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Replay-safety key (24h TTL). Reuse it only to retry the identical request. */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CampaignV1Send"];
+            };
+        };
+        responses: {
+            /** @description The campaign, now `SENDING` or `SCHEDULED` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignV1"];
+                };
+            };
+            /** @description `validation_error` — the campaign has already been sent or is sending, has no recipients, or `scheduled_for` is not in the future. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no campaign with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — the request did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. A key names ONE request, so it is never silently served another one's result: send a new key. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     v1CancelCampaign: {
         parameters: {
             query?: never;
@@ -7446,108 +6010,6 @@ export interface operations {
             };
         };
     };
-    v1SendCampaign: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Replay-safety key (24h TTL). Reuse it only to retry the identical request. */
-                "Idempotency-Key"?: string;
-            };
-            path: {
-                /** @description Resource id. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["CampaignV1Send"];
-            };
-        };
-        responses: {
-            /** @description The campaign, now `SENDING` or `SCHEDULED` */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CampaignV1"];
-                };
-            };
-            /** @description `validation_error` — the campaign has already been sent or is sending, has no recipients, or `scheduled_for` is not in the future. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `resource_not_found` — no campaign with this id belongs to the authenticated project. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — the request did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. A key names ONE request, so it is never silently served another one's result: send a new key. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     v1GetCampaignStats: {
         parameters: {
             query?: never;
@@ -7625,214 +6087,29 @@ export interface operations {
             };
         };
     };
-    v1SendEmail: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Replay-safety key (24h TTL). Reuse it only to retry the identical request. */
-                "Idempotency-Key"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendEmailV1"];
-            };
-        };
-        responses: {
-            /** @description Email queued */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_disabled`, `domain_not_allowed` — the `from` address does not resolve to a verified domain on this project — or `content_rejected`: automated content review flagged the message and it was not sent. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `resource_not_found` — `template` names a template that does not belong to this project. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — the body did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `content_review_unavailable` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1SendTestEmail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendTestEmailV1"];
-            };
-        };
-        responses: {
-            /** @description Test email queued */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailTestV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient), or `content_rejected` from automated content review. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner; no retry fixes it. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — the body did not match the schema, most often because it named a `from`. A test send always comes from the sandbox address. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — the project's daily sandbox send cap is spent. It resets at 00:00 UTC. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `content_review_unavailable` — content review could not run for this new account. Safe to retry. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1ListEvents: {
+    v1ListCampaignFailures: {
         parameters: {
             query?: {
                 limit?: number;
                 /** @description Opaque cursor from a previous response's `next_cursor`. */
                 after?: string;
-                /** @description Return only events with this exact name. */
-                event_name?: string;
             };
             header?: never;
-            path?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Event list */
+            /** @description Failed sends */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventV1List"];
+                    "application/json": components["schemas"]["CampaignV1FailureList"];
                 };
             };
             /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
@@ -7853,76 +6130,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1TrackEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EventTrackV1"];
-            };
-        };
-        responses: {
-            /** @description Event recorded */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `resource_not_found` — no contact with this id in the authenticated project. */
+            /** @description `resource_not_found` — no campaign with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -7960,22 +6168,34 @@ export interface operations {
             };
         };
     };
-    v1ListEventNames: {
+    v1RetryCampaignFailures: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Event names */
+            /** @description The retry was queued */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventNamesV1"];
+                    "application/json": components["schemas"]["CampaignV1RetryFailed"];
+                };
+            };
+            /** @description `validation_error` — only a `SENT` campaign can have its failed sends retried. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
@@ -7996,143 +6216,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1GetEventStats: {
-        parameters: {
-            query?: {
-                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
-                from?: string | null;
-                /** @description End of the window (ISO 8601). Defaults to now. */
-                to?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Event counts */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventStatsV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1GetProject: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The authenticated project */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `resource_not_found` — the project was deleted between authentication and this read. */
+            /** @description `resource_not_found` — no campaign with this id belongs to the authenticated project. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — a retry is already running for this campaign. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8641,71 +6735,6 @@ export interface operations {
             };
         };
     };
-    v1GetUsage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current usage */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UsageV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     v1ListWorkflows: {
         parameters: {
             query?: {
@@ -8808,83 +6837,6 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `internal_error`. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    v1CancelWorkflowExecution: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workflow execution id. */
-                execution_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Cancelled execution */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkflowExecutionV1"];
-                };
-            };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `resource_not_found` — no execution with this id in the authenticated project. */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9347,6 +7299,83 @@ export interface operations {
             };
         };
     };
+    v1CancelWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow execution id. */
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled execution */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowExecutionV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no execution with this id in the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     v1GetWorkflowStats: {
         parameters: {
             query?: {
@@ -9427,7 +7456,508 @@ export interface operations {
             };
         };
     };
-    verifyEmailAddress: {
+    v1GetWorkflowGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workflow's graph */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowGraphV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ReplaceWorkflowGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowGraphReplaceV1"];
+            };
+        };
+        responses: {
+            /** @description The graph as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowGraphV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — the workflow has running executions, or an id in the document already belongs to a different workflow. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CloneWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WorkflowCloneV1"];
+            };
+        };
+        responses: {
+            /** @description The cloned workflow */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1PauseWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workflow, and the number of runs this call cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowStateChangeV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ResumeWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workflow, with `cancelled_executions` always 0 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowStateChangeV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1SendEmail: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Replay-safety key (24h TTL). Reuse it only to retry the identical request. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendEmailV1"];
+            };
+        };
+        responses: {
+            /** @description Email queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_disabled`, `domain_not_allowed` — the `from` address does not resolve to a verified domain on this project — or `content_rejected`: automated content review flagged the message and it was not sent. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — `template` names a template that does not belong to this project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — the body did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `content_review_unavailable` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1SendTestEmail: {
         parameters: {
             query?: never;
             header?: never;
@@ -9436,21 +7966,4390 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["VerifyEmail"];
+                "application/json": components["schemas"]["SendTestEmailV1"];
             };
         };
         responses: {
-            /** @description Verification result */
+            /** @description Test email queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTestV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient), or `content_rejected` from automated content review. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner; no retry fixes it. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — the body did not match the schema, most often because it named a `from`. A test send always comes from the sandbox address. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — the project's daily sandbox send cap is spent. It resets at 00:00 UTC. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `content_review_unavailable` — content review could not run for this new account. Safe to retry. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listEmails: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                tag?: string;
+                /** @description Delivery lifecycle of the message. Engagement is reported separately. */
+                status?: components["schemas"]["EmailDeliveryStatus"];
+                from?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Email list */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VerifyEmailResponse"];
+                    "application/json": components["schemas"]["EmailListResponse"];
                 };
             };
             /** @description Validation error */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    sendEmail: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Replay-safety key (24h TTL). Reuse it only to retry the identical request. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendEmail"];
+            };
+        };
+        responses: {
+            /** @description Email accepted / sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendEmailResponse"];
+                };
+            };
+            /** @description Validation error, or `TOO_MANY_UNIQUE_TEMPLATES` — a new account submitted more distinct message bodies in one request than content review allows. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions, project disabled, or `CONTENT_REJECTED`: the message was flagged by automated content review and was not sent. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `IDEMPOTENCY_KEY_REUSED` — this `Idempotency-Key` was already used for a request with a different body. Reuse a key only to retry the identical request; otherwise send a new key. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `CONTENT_REVIEW_UNAVAILABLE` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Email and its delivery history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDetailResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    sendEmailBatch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchSendBody"];
+            };
+        };
+        responses: {
+            /** @description All entries sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchSendResponse"];
+                };
+            };
+            /** @description Partial success — at least one entry failed */
+            207: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchSendResponse"];
+                };
+            };
+            /** @description Validation error, or `TOO_MANY_UNIQUE_TEMPLATES` — a new account submitted more distinct message bodies in one request than content review allows. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions, project disabled, or `CONTENT_REJECTED`: the message was flagged by automated content review and was not sent. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `IDEMPOTENCY_KEY_REUSED` — this `Idempotency-Key` was already used for a request with a different body. Reuse a key only to retry the identical request; otherwise send a new key. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `CONTENT_REVIEW_UNAVAILABLE` — content review could not run for this new account, so the message was not accepted. Safe to retry after a short delay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelScheduledEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Email cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Email already past PENDING */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listContacts: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                search?: string;
+                subscribed?: "true" | "false";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactListResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateContact"];
+            };
+        };
+        responses: {
+            /** @description Contact created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Contact"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Email already exists for this project */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    upsertContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateContact"];
+            };
+        };
+        responses: {
+            /** @description Contact created or updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Contact"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    bulkCreateContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactBulkCreateBody"];
+            };
+        };
+        responses: {
+            /** @description Bulk-create result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            created: number;
+                            skipped: number;
+                            errors: {
+                                index: number;
+                                message: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    bulkDeleteContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactBulkDeleteBody"];
+            };
+        };
+        responses: {
+            /** @description Bulk-delete result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            deleted: number;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Contact"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateContactBody"];
+            };
+        };
+        responses: {
+            /** @description Updated contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Contact"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    v1ListContacts: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+                /** @description Case-insensitive substring match on the email address. */
+                search?: string;
+                /** @description Filter to subscribed (`true`) or unsubscribed (`false`) contacts. Omit for both. */
+                subscribed?: "true" | "false";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CreateContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactV1Create"];
+            };
+        };
+        responses: {
+            /** @description The created contact */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — a contact with this email already exists in this project. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no contact with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1DeleteContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contact deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactV1Deleted"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no contact with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1UpdateContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactV1Update"];
+            };
+        };
+        responses: {
+            /** @description The updated contact */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no contact with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    subscribeToList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description List id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListSubscribe"];
+            };
+        };
+        responses: {
+            /** @description Contact subscribed, or an existing membership returned unchanged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSubscribeResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The contact previously unsubscribed from this list and `allowResubscribe` was not set. `error.code` is `RESUBSCRIBE_CONFIRMATION_REQUIRED` and `error.details.previousStatus` is `UNSUBSCRIBED`. Retry with `allowResubscribe: true` once the contact has consented. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    unsubscribeFromList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description List id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListUnsubscribe"];
+            };
+        };
+        responses: {
+            /** @description Contact unsubscribed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListUnsubscribeResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    v1ListLists: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subscriber lists */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CreateList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListV1Create"];
+            };
+        };
+        responses: {
+            /** @description The created list */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no list with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1DeleteList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListV1Deleted"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no list with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1UpdateList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListV1Update"];
+            };
+        };
+        responses: {
+            /** @description The updated list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no list with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listDomains: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainListResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddDomainBody"];
+            };
+        };
+        responses: {
+            /** @description Domain added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Domain"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description AWS SES rejected the identity setup (unusable credentials, a missing IAM permission, or a refusal on Amazon's side). No domain row is written, and the request is not at fault — retrying it unchanged will not help. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Domain"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Domain removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEmpty"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    assignDomainStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignDomainStream"];
+            };
+        };
+        responses: {
+            /** @description Updated sending identity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Domain"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDomainVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verification status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["DomainVerificationStatus"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verifyDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verification status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["DomainVerificationStatus"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startDomainSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guided setup session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            token: string;
+                            /**
+                             * Format: uri
+                             * @description Open this in a browser to publish the records. Short-lived and domain-specific.
+                             */
+                            connectUrl: string;
+                            /** @description When `connectUrl` stops working. */
+                            expiresAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    v1ListDomains: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sending domain list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CreateDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainV1Create"];
+            };
+        };
+        responses: {
+            /** @description The registered sending domain, awaiting DNS */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — this domain is already registered to a project you can send from. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error` — AWS SES rejected the identity setup (unusable credentials, a missing IAM permission, or a refusal on Amazon's side). No domain row is written, and the request is not at fault: retrying it unchanged will not help. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sending domain */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no sending domain with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1DeleteDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sending domain removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainV1Deleted"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no sending domain with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — the domain is still in use by a template, workflow step or active campaign. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1VerifyDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sending domain, as SES and DNS now report it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no sending domain with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listTemplates: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                search?: string;
+                emailCategory?: "MARKETING" | "TRANSACTIONAL" | "SELF_MANAGED_UNSUBSCRIBE";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateListResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTemplate"];
+            };
+        };
+        responses: {
+            /** @description Template created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Template"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Template"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Template still in use */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTemplate"];
+            };
+        };
+        responses: {
+            /** @description Updated template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Template"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    v1ListTemplates: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+                /** @description Case-insensitive substring match on the name. */
+                search?: string;
+                email_category?: "TRANSACTIONAL" | "MARKETING" | "SELF_MANAGED_UNSUBSCRIBE";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CreateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateV1Create"];
+            };
+        };
+        responses: {
+            /** @description The created template */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no template with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1DeleteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateV1Deleted"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no template with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — the template is still referenced by a workflow step or an active campaign. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1UpdateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateV1Update"];
+            };
+        };
+        responses: {
+            /** @description The updated template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no template with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listSnippets: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snippet list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnippetListResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createSnippet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSnippet"];
+            };
+        };
+        responses: {
+            /** @description Snippet created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Snippet"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A snippet with that name already exists in this project */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSnippet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snippet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Snippet"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteSnippet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snippet deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateSnippet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSnippet"];
+            };
+        };
+        responses: {
+            /** @description Updated snippet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Snippet"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A snippet with that name already exists in this project */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9835,6 +12734,82 @@ export interface operations {
             };
         };
     };
+    rotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secret rotated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookRotateSecretResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listWebhookCalls: {
         parameters: {
             query?: {
@@ -9914,24 +12889,475 @@ export interface operations {
             };
         };
     };
-    rotateWebhookSecret: {
+    v1ListWebhooks: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CreateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookV1Create"];
+            };
+        };
+        responses: {
+            /** @description The created webhook and its one-time signing secret */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookV1Created"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetWebhook: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Secret rotated */
+            /** @description The webhook */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WebhookRotateSecretResponse"];
+                    "application/json": components["schemas"]["WebhookV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no webhook with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1DeleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhook deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookV1Deleted"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no webhook with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1UpdateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookV1Update"];
+            };
+        };
+        responses: {
+            /** @description The updated webhook */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no webhook with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1RotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new signing secret and the moment the previous one stops verifying */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookV1SecretRotated"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no webhook with this id belongs to the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listApiKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyListResponse"];
                 };
             };
             /** @description Validation error */
@@ -9986,6 +13412,3378 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiKeyBody"];
+            };
+        };
+        responses: {
+            /** @description API key created; the secret is behind the reveal link. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        /** @description An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created. */
+                        data: components["schemas"]["ApiKey"] & {
+                            /**
+                             * Format: uri
+                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
+                             */
+                            revealUrl: string;
+                            /**
+                             * Format: date-time
+                             * @description When the reveal link stops working. Create or rotate again to get a new one.
+                             */
+                            revealExpiresAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rotateApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+                /** @description API key id. */
+                keyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key rotated; the new secret is behind the reveal link. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            lastFour: string;
+                            /**
+                             * Format: uri
+                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
+                             */
+                            revealUrl: string;
+                            /**
+                             * Format: date-time
+                             * @description When the reveal link stops working. Create or rotate again to get a new one.
+                             */
+                            revealExpiresAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project id. */
+                id: string;
+                /** @description API key id. */
+                keyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessEmpty"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSuppressions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                reason?: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suppression list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuppressionListResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addSuppression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSuppression"];
+            };
+        };
+        responses: {
+            /** @description Suppression added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Suppression"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkSuppression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description URL-encoded email address */
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suppression check result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuppressionCheckResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removeSuppression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description URL-encoded email address */
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suppression removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    v1ListSuppressions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+                /** @description Filter to one reason. Omit for every suppressed address. */
+                reason?: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suppression list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuppressionV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CreateSuppression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuppressionV1Create"];
+            };
+        };
+        responses: {
+            /** @description The suppressed address */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuppressionV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetSuppression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The suppressed address, URL-encoded. */
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suppression record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuppressionV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — this address is not suppressed for the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1DeleteSuppression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The suppressed address, URL-encoded. */
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Address removed from the suppression list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuppressionV1Deleted"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    trackEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackEvent"];
+            };
+        };
+        responses: {
+            /** @description Event tracked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackEventResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    v1ListEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+                /** @description Return only events with this exact name. */
+                event_name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1TrackEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventTrackV1"];
+            };
+        };
+        responses: {
+            /** @description Event recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no contact with this id in the authenticated project. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ListEventNames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event names */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventNamesV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetEventStats: {
+        parameters: {
+            query?: {
+                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
+                from?: string | null;
+                /** @description End of the window (ISO 8601). Defaults to now. */
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventStatsV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetAnalyticsTimeseries: {
+        parameters: {
+            query?: {
+                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
+                from?: string | null;
+                /** @description End of the window (ISO 8601). Defaults to now. */
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Daily time series */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsTimeseriesV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetCampaignAnalytics: {
+        parameters: {
+            query?: {
+                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
+                from?: string | null;
+                /** @description End of the window (ISO 8601). Defaults to now. */
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsCampaignStatsV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ListTopCampaigns: {
+        parameters: {
+            query?: {
+                /** @description Start of the window (ISO 8601). Defaults to 30 days ago; clamped to at most 90 days back. */
+                from?: string | null;
+                /** @description End of the window (ISO 8601). Defaults to now. */
+                to?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranked campaigns */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsTopCampaignsV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1DiagnoseDeliverability: {
+        parameters: {
+            query: {
+                /** @description A sending domain in this project, e.g. `example.com`. */
+                domain: string;
+                /** @description Optionally, one RECIPIENT address to check as well. Adds its suppression state — the single most common reason a specific person stops receiving mail while everyone else still does. */
+                address?: string;
+                /** @description How far back the delivery counters look. 1–30 days; defaults to 7. */
+                window_days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The diagnosis, with findings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliverabilityDiagnosisV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ListRecipientDomainStats: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+                /** @description How far back to read. 1-30 days; defaults to 30, which is the window the job maintains. */
+                days?: number;
+                /** @description Restrict to one recipient domain. */
+                domain?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor-paginated recipient-domain rollup */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipientDomainStatsV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ListDmarcReports: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor from a previous response's `next_cursor`. */
+                after?: string;
+                /** @description How far back to read, by the report's window start. 1-180 days; defaults to 30. */
+                days?: number;
+                /** @description Restrict to reports about one of your domains. */
+                domain?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor-paginated DMARC aggregate reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmarcReportV1List"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current usage */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The authenticated project */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — the project was deleted between authentication and this read. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listMailboxes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mailbox list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Mailbox"][];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createMailbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMailboxBody"];
+            };
+        };
+        responses: {
+            /** @description Mailbox provisioned */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["Mailbox"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The address already exists, the domain is not verified, or the project is at its 10-mailbox limit. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Provisioning failed in the mail server. The mailbox row is left `FAILED` and can be retried. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMailbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mailbox with connection settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["MailboxDetail"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteMailbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mailbox deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @enum {boolean} */
+                            deleted: true;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    draftMailboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftMailboxMessage"];
+            };
+        };
+        responses: {
+            /** @description A draft. Nothing was sent. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @description Suggested subject, or null. */
+                            subject: string | null;
+                            /** @description Suggested plain-text body, or null. */
+                            body: string | null;
+                            /** @description Alternative subject lines (`subject` mode); empty otherwise. */
+                            subjects: string[];
+                            /**
+                             * @description Always false. Reported rather than assumed, so a draft cannot be mistaken for a send.
+                             * @enum {boolean}
+                             */
+                            sent: false;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The drafting model was unreachable or returned nothing usable. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    sendMailboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeMailboxMessage"];
+            };
+        };
+        responses: {
+            /** @description Message submitted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @enum {boolean} */
+                            submitted: true;
+                            /**
+                             * Format: uuid
+                             * @description The conversation this send started. Replies thread onto it.
+                             */
+                            conversationId: string;
+                            /**
+                             * Format: uuid
+                             * @description The stored outbound message.
+                             */
+                            messageId: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The mailbox is not active, a recipient is suppressed (`RECIPIENT_SUPPRESSED`), or the content scanner refused the message (`CONTENT_REFUSED`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The mail server refused the submission. Nothing was sent. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Message screening could not reach a verdict. Nothing was sent; retry shortly. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAppPasswords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description App password list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["AppPassword"][];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAppPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAppPassword"];
+            };
+        };
+        responses: {
+            /** @description App password created; the secret is behind the one-time link */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: components["schemas"]["AppPasswordReveal"];
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeAppPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                passwordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description App password revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @enum {boolean} */
+                            revoked: true;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /**
+                     * @description AWS SES region for the project. Once a domain is added the region is locked and cannot be changed.
+                     * @enum {string}
+                     */
+                    sesRegion?: "us-east-1" | "us-west-2" | "eu-west-1";
+                };
+            };
+        };
+        responses: {
+            /** @description Project created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectRecord"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed — request body or query parameters did not match the schema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verifyEmailAddress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmail"];
+            };
+        };
+        responses: {
+            /** @description Verification result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyEmailResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    v1ListTopics: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                include_archived?: boolean | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of topics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicListV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1CreateTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicCreateV1"];
+            };
+        };
+        responses: {
+            /** @description The created topic */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The topic. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The topic */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1UpdateTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The topic. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicUpdateV1"];
+            };
+        };
+        responses: {
+            /** @description The updated topic */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1SetTopicSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The topic. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicSubscribeV1"];
+            };
+        };
+        responses: {
+            /** @description The resulting subscription */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicSubscriptionV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetContactTopicPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The contact. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The contact's preferences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactTopicPreferencesV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ValidateEmails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailValidationBatchRequestV1"];
+            };
+        };
+        responses: {
+            /** @description One verdict per address, in the order they were given */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailValidationBatchV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1StartListValidationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The list to validate. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run, accepted and queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailValidationRunV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1GetValidationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The validation run. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailValidationRunV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ListValidationRunResults: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                /** @description Return only results with this verdict — `undeliverable` is the usual filter. */
+                verdict?: components["schemas"]["EmailValidationVerdictV1"] & unknown;
+            };
+            header?: never;
+            path: {
+                /** @description The validation run. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailValidationResultListV1"];
+                };
+            };
+            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

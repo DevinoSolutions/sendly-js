@@ -46,13 +46,15 @@ describe("events resource (/api/v1)", () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(201, { id: "ev_1", name: "user.signup", contact_id: "ct_1" }));
 
-    // `data` takes arbitrary JSON — scalars included, not only nested objects.
-    const recorded = await client.events.record({ name: "user.signup", contact_id: "ct_1", data: { plan: "pro" } });
+    // `payload` takes arbitrary JSON — scalars included, not only nested objects.
+    // It was `data` before 1.1; the field is the event's own body, and `data` said
+    // nothing about whose it was on a wire where every envelope has a `data`.
+    const recorded = await client.events.record({ name: "user.signup", contact_id: "ct_1", payload: { plan: "pro" } });
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/v1/events");
     expect(init.method).toBe("POST");
-    expect(getCallBody(fetchMock)).toEqual({ name: "user.signup", contact_id: "ct_1", data: { plan: "pro" } });
+    expect(getCallBody(fetchMock)).toEqual({ name: "user.signup", contact_id: "ct_1", payload: { plan: "pro" } });
     // No envelope on v1 — the created event is the response body.
     expect(recorded.id).toBe("ev_1");
   });

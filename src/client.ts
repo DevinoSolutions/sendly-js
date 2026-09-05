@@ -1,6 +1,7 @@
 import { AnalyticsResource } from "./resources/analytics";
 import { CampaignsResource } from "./resources/campaigns";
 import { ContactsResource } from "./resources/contacts";
+import { DeliverabilityResource } from "./resources/deliverability";
 import { DomainsResource } from "./resources/domains";
 import { EmailsResource } from "./resources/emails";
 import { EventsResource } from "./resources/events";
@@ -8,9 +9,12 @@ import { ListsResource } from "./resources/lists";
 import { MailboxesResource } from "./resources/mailboxes";
 import { ProjectsResource } from "./resources/projects";
 import { SegmentsResource } from "./resources/segments";
+import { SnippetsResource } from "./resources/snippets";
 import { SuppressionResource } from "./resources/suppression";
 import { TemplatesResource } from "./resources/templates";
+import { TopicsResource } from "./resources/topics";
 import { UsageResource } from "./resources/usage";
+import { ValidationResource } from "./resources/validation";
 import { VerifyResource } from "./resources/verify";
 import { WebhooksResource } from "./resources/webhooks";
 import { WorkflowsResource } from "./resources/workflows";
@@ -18,7 +22,7 @@ import { errorFromResponse, SendlyConnectionError, SendlyError } from "./errors"
 import type { ErrorEnvelope } from "./types";
 
 /** Build-time package version (kept in sync with package.json). */
-export const SDK_VERSION = "1.0.0";
+export const SDK_VERSION = "1.1.0";
 
 /** Default production API base. Override via `baseUrl` for staging or self-hosted deployments. */
 export const DEFAULT_BASE_URL = "https://api.sendly.now";
@@ -39,8 +43,14 @@ export interface SendlyClientOptions {
 export interface RequestOptions {
   /** Path relative to baseUrl, must start with `/`. */
   path: string;
-  /** HTTP method. */
-  method: "GET" | "POST" | "PATCH" | "DELETE";
+  /**
+   * HTTP method.
+   *
+   * `PUT` exists for exactly one operation — replacing a workflow graph — and the
+   * distinction is the point: a graph is replaced whole, never patched, because a
+   * partial edit to a node list has no meaning without the edges that reference it.
+   */
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   /** Optional JSON body. Will be serialized + Content-Type set. */
   body?: unknown;
   /**
@@ -76,6 +86,8 @@ export class Sendly {
   readonly events: EventsResource;
   readonly verify: VerifyResource;
   readonly lists: ListsResource;
+  /** Reusable body fragments a template includes with `{{> name}}`. */
+  readonly snippets: SnippetsResource;
   /** Receiving mailboxes. Reads only — the writes need a user, not an API key. */
   readonly mailboxes: MailboxesResource;
 
@@ -91,6 +103,12 @@ export class Sendly {
   readonly usage: UsageResource;
   /** The project this key belongs to, on the versioned `/api/v1` surface. */
   readonly projects: ProjectsResource;
+  /** Consent topics and what each contact has said they want. */
+  readonly topics: TopicsResource;
+  /** Address validation — one batch, or a whole list. */
+  readonly validation: ValidationResource;
+  /** Why mail from your domains is or is not arriving. */
+  readonly deliverability: DeliverabilityResource;
 
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -125,6 +143,7 @@ export class Sendly {
     this.events = new EventsResource(this);
     this.verify = new VerifyResource(this);
     this.lists = new ListsResource(this);
+    this.snippets = new SnippetsResource(this);
     this.mailboxes = new MailboxesResource(this);
 
     this.campaigns = new CampaignsResource(this);
@@ -133,6 +152,9 @@ export class Sendly {
     this.analytics = new AnalyticsResource(this);
     this.usage = new UsageResource(this);
     this.projects = new ProjectsResource(this);
+    this.topics = new TopicsResource(this);
+    this.validation = new ValidationResource(this);
+    this.deliverability = new DeliverabilityResource(this);
   }
 
   /**
