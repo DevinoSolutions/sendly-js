@@ -1433,7 +1433,7 @@ var TopicsResource = class {
    * is no delete — archiving is the retire button, because a topic is where
    * people's answers are recorded. {@link listAll} drives the loop for you.
    *
-   * Paginated on `limit` + `cursor`, not the `after` the rest of v1 uses.
+   * Paginated on `limit` + `after`, like every other v1 collection.
    */
   async list(query) {
     return this.client.request({
@@ -1445,22 +1445,15 @@ var TopicsResource = class {
   /**
    * Iterate every topic across pages, yielding one topic at a time.
    *
-   * The walk is written out here rather than delegated to `paginateCursor`
-   * because this endpoint names its cursor `cursor` on both sides — the query
-   * parameter and the response field — where every other v1 list takes `after`
-   * and answers `next_cursor`.
+   * This used to be written out by hand: the endpoint named its cursor `cursor`
+   * on both sides where every other v1 list takes `after` and answers
+   * `next_cursor`, so the shared walker sent a parameter the route ignored and
+   * read a field it never returned — which silently re-fetched page one until
+   * `has_more` happened to be false. The route speaks the one dialect now, so
+   * this delegates like every other collection.
    */
   async *listAll(query) {
-    let cursor = query?.cursor;
-    for (; ; ) {
-      const page = await this.list({ ...query, cursor });
-      for (const topic of page.data) {
-        yield topic;
-      }
-      const next = page.cursor;
-      if (!page.has_more || next === null || next === cursor) return;
-      cursor = next;
-    }
+    yield* paginateCursor((after) => this.list({ ...query, after }), query?.after);
   }
   /**
    * Create a topic.
@@ -1593,9 +1586,8 @@ var ValidationResource = class {
    * is the page to read before acting on a run, and `unknown` is the one never
    * to act on, since those addresses were not actually checked.
    *
-   * This list pages on `cursor`, not the `after` every other v1 collection
-   * takes, and its envelope carries the next page under `cursor` rather than
-   * `next_cursor`. {@link listResultsAll} drives that loop for you.
+   * Pages on `after` and answers `next_cursor`, like every other v1
+   * collection. {@link listResultsAll} drives that loop for you.
    */
   async listResults(id, query) {
     return this.client.request({
@@ -1607,23 +1599,13 @@ var ValidationResource = class {
   /**
    * Iterate every result across pages, yielding one address's verdict at a time.
    *
-   * Hand-rolled rather than routed through `paginateCursor`: the shared helper
-   * sends `after` and reads `next_cursor`, and this endpoint speaks `cursor` on
-   * both sides, so the helper would send an ignored parameter and re-fetch page
-   * one forever. Stops on `has_more: false`, a null cursor, or a cursor the
-   * server repeats.
+   * This was hand-rolled through 1.0, because the endpoint spoke `cursor` on
+   * both sides while the shared helper sends `after` and reads `next_cursor` —
+   * so routing it through the helper would have sent an ignored parameter and
+   * re-fetched page one forever. The route speaks the one dialect now.
    */
   async *listResultsAll(id, query) {
-    let cursor = query?.cursor;
-    for (; ; ) {
-      const page = await this.listResults(id, { ...query, cursor });
-      for (const result of page.data ?? []) {
-        yield result;
-      }
-      const next = page.cursor;
-      if (!page.has_more || next === null || next === void 0 || next === cursor) return;
-      cursor = next;
-    }
+    yield* paginateCursor((after) => this.listResults(id, { ...query, after }), query?.after);
   }
 };
 

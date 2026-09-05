@@ -59,6 +59,24 @@ API that 1.0 did not.
   documented. What to change: read `events.list` if you wanted custom events, and
   keep your own copy of the body if you were reading it back out of here.
 
+- **`emails.list` and `emails.cancelSchedule` narrowed the same way.** All three
+  handlers on that surface were returning the whole database row and each had got
+  there separately; they share one field list now. The list was the widest of
+  them, since it leaked a page of rows at a time, and `cancelSchedule` returned
+  the `dedupKey` in the same response that released it. The same eight fields
+  named above are gone from both, and both now carry `to`.
+
+  `emails.cancelSchedule` resolves `EmailResponse`, which is what the contract has
+  always published for it — the SDK had typed it as an empty envelope since 1.0,
+  so this is the type catching up to the document AND the route catching up to the
+  type.
+
+- **`sentAt`, `deliveredAt` and `bouncedAt` are now declared on `Email`.** They
+  were reaching callers only because of the whole-row leak above and were in no
+  published schema, so the honest options were to declare them or drop them.
+  Declared: they are ordinary delivery facts and callers read them. They are
+  nullable, and null means the transition has not happened.
+
 - **`EmailGetResponse` is gone, split in two.** It named the operation rather
   than the shape, and was then reused by an operation that is not a GET. There
   are now `EmailResponse` (a single email) and `EmailDetailResponse` (an email
@@ -213,15 +231,14 @@ false })` stops new runs and leaves every in-flight contact walking the
 
 ### Notes
 
-- **Pagination is not uniform, and the exception is worth knowing.** Most v1
-  lists take `after` and answer `next_cursor`. **`topics.list` and
-  `validation.listResults` take `cursor` and answer `cursor`.** Both kinds are
-  forward-only opaque cursors and both stop on `has_more: false`; only the
-  parameter names differ. `topics.listAll` and `validation.listResultsAll` hide
-  it — they are hand-rolled rather than routed through `paginateCursor`, which
-  sends `after` and reads `next_cursor` and would otherwise re-fetch page one
-  forever. A caller driving pages by hand needs to know which endpoint speaks
-  which.
+- **Pagination is uniform again.** Every v1 list takes `after` and answers
+  `next_cursor`. `topics.list` and `validation.listResults` were the two
+  exceptions through 1.0 — they took `cursor` and answered `cursor` — and the
+  platform collapsed that to one dialect for this release, so both now route
+  through `paginateCursor` like every other collection. **This is breaking for a
+  caller driving those two by hand**: pass `after` instead of `cursor`, and read
+  `next_cursor` instead of `cursor`. Anyone using `topics.listAll` or
+  `validation.listResultsAll` is unaffected.
 - **`NOT_SDK_CALLABLE` is unchanged.** Creating and deleting a mailbox, creating
   and revoking an app password, the four API-key operations, and creating a
   project still resolve the acting user from a session and answer `401` to any

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { SendlyValidationError } from "../index";
 import type { EmailValidationResultListV1 } from "../types";
-import { getCall, getCallBody, jsonResponse, makeClient, problemResponse, rejection } from "./helpers";
+import { cursorPage, getCall, getCallBody, jsonResponse, makeClient, problemResponse, rejection } from "./helpers";
 
 type ValidationResult = EmailValidationResultListV1["data"][number];
 
@@ -21,13 +21,12 @@ function validation(email: string, verdict: ValidationResult["verdict"]): Valida
 /**
  * One page of a run's results.
  *
- * Deliberately not `helpers.cursorPage`: this endpoint's envelope names the
- * next page `cursor`, not `next_cursor`, so the shared builder would describe a
- * shape the API never sends.
+ * `helpers.cursorPage`, the builder every other v1 list test uses. Through 1.0
+ * this file had its own because the endpoint answered the next page under
+ * `cursor` rather than `next_cursor` — and a local fixture is exactly how a
+ * second dialect stays invisible, so it is gone rather than updated.
  */
-function resultsPage(data: ValidationResult[], cursor: string | null): Response {
-  return jsonResponse(200, { data, cursor, has_more: cursor !== null });
-}
+const resultsPage = cursorPage<ValidationResult>;
 
 describe("validation resource (/api/v1)", () => {
   test("validateEmails POSTs the batch to /api/v1/email-validations", async () => {
@@ -87,18 +86,18 @@ describe("validation resource (/api/v1)", () => {
     expect(run.status).toBe("running");
   });
 
-  test("listResults serializes limit, verdict and the `cursor` page parameter", async () => {
+  test("listResults serializes limit, verdict and the `after` page parameter", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(resultsPage([], null));
 
-    await client.validation.listResults("vrun_1", { limit: 50, verdict: "undeliverable", cursor: "cur_1" });
+    await client.validation.listResults("vrun_1", { limit: 50, verdict: "undeliverable", after: "cur_1" });
 
     const { url } = getCall(fetchMock);
     expect(url).toContain("http://localhost/api/v1/validation-runs/vrun_1/results?");
     expect(url).toContain("limit=50");
     expect(url).toContain("verdict=undeliverable");
-    expect(url).toContain("cursor=cur_1");
-    expect(url).not.toContain("after=");
+    expect(url).toContain("after=cur_1");
+    expect(url).not.toContain("cursor=");
   });
 
   test("listResults resolves the envelope itself — the page is not unwrapped to its data array", async () => {
@@ -108,11 +107,11 @@ describe("validation resource (/api/v1)", () => {
     const page = await client.validation.listResults("vrun_1");
 
     expect(page.has_more).toBe(true);
-    expect(page.cursor).toBe("cur_2");
+    expect(page.next_cursor).toBe("cur_2");
     expect(page.data).toHaveLength(1);
   });
 
-  test("listResultsAll pages on `cursor`, not the `after` the other v1 lists take", async () => {
+  test("listResultsAll pages on `after`, the one v1 pagination parameter", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock
       .mockResolvedValueOnce(resultsPage([validation("a@example.com", "undeliverable")], "cur_2"))
@@ -126,8 +125,8 @@ describe("validation resource (/api/v1)", () => {
     expect(seen).toEqual(["a@example.com", "b@example.com"]);
     expect(fetchMock.mock.calls).toHaveLength(2);
     const second = getCall(fetchMock, 1).url;
-    expect(second).toContain("cursor=cur_2");
-    expect(second).not.toContain("after=");
+    expect(second).toContain("after=cur_2");
+    expect(second).not.toContain("cursor=");
     expect(second).toContain("verdict=undeliverable");
   });
 

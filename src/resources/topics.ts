@@ -1,4 +1,5 @@
 import type { Sendly } from "../client";
+import { paginateCursor } from "../pagination";
 import type {
   CreateTopicV1Request,
   ListTopicsV1Query,
@@ -27,7 +28,7 @@ export class TopicsResource {
    * is no delete — archiving is the retire button, because a topic is where
    * people's answers are recorded. {@link listAll} drives the loop for you.
    *
-   * Paginated on `limit` + `cursor`, not the `after` the rest of v1 uses.
+   * Paginated on `limit` + `after`, like every other v1 collection.
    */
   async list(query?: ListTopicsV1Query): Promise<TopicListV1> {
     return this.client.request<TopicListV1>({
@@ -40,23 +41,15 @@ export class TopicsResource {
   /**
    * Iterate every topic across pages, yielding one topic at a time.
    *
-   * The walk is written out here rather than delegated to `paginateCursor`
-   * because this endpoint names its cursor `cursor` on both sides — the query
-   * parameter and the response field — where every other v1 list takes `after`
-   * and answers `next_cursor`.
+   * This used to be written out by hand: the endpoint named its cursor `cursor`
+   * on both sides where every other v1 list takes `after` and answers
+   * `next_cursor`, so the shared walker sent a parameter the route ignored and
+   * read a field it never returned — which silently re-fetched page one until
+   * `has_more` happened to be false. The route speaks the one dialect now, so
+   * this delegates like every other collection.
    */
   async *listAll(query?: ListTopicsV1Query): AsyncGenerator<TopicV1, void, undefined> {
-    let cursor = query?.cursor;
-    for (;;) {
-      const page = await this.list({ ...query, cursor });
-      for (const topic of page.data) {
-        yield topic;
-      }
-      const next = page.cursor;
-      // A page that repeats the cursor it was handed would otherwise spin forever.
-      if (!page.has_more || next === null || next === cursor) return;
-      cursor = next;
-    }
+    yield* paginateCursor<TopicV1>((after) => this.list({ ...query, after }), query?.after);
   }
 
   /**

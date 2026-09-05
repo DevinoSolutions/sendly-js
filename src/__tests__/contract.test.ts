@@ -600,11 +600,11 @@ describe("OpenAPI contract", () => {
     // The v1 list envelope is `{ data, has_more, next_cursor }`; any operation
     // answering with it should be walkable without the caller managing cursors.
     //
-    // Two envelopes exist. Topics and validation results answer
-    // `{ data, cursor, has_more }` — the next page arrives under `cursor`, and the
-    // request parameter is `cursor` rather than `after`. Those resources drive the
-    // loop themselves instead of using the shared helper, so this guard looks for
-    // the generator, not for the helper.
+    // ONE envelope, as of the 1.1 contract. Topics and validation results used to
+    // answer `{ data, cursor, has_more }` and take `cursor`, which meant the shared
+    // page-walker sent a parameter they ignored and read a field they never returned.
+    // Detection is still by SHAPE rather than by an endpoint list, so a resource that
+    // reintroduces the second dialect is caught rather than assumed away.
     const cursorListOps = new Set<string>();
     for (const [path, methods] of Object.entries(spec.paths)) {
       if (!path.startsWith("/api/v1")) continue;
@@ -612,7 +612,7 @@ describe("OpenAPI contract", () => {
       const name = schema?.$ref?.split("/").pop();
       const resolved = name ? spec.components?.schemas?.[name] : undefined;
       const props = resolved?.properties ?? schema?.properties;
-      if (props && "data" in props && "has_more" in props && ("next_cursor" in props || "cursor" in props)) {
+      if (props && "data" in props && "has_more" in props && "next_cursor" in props) {
         cursorListOps.add(`GET ${path}`);
       }
     }

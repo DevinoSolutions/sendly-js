@@ -764,8 +764,8 @@ against, and they carry `request_id` on every failure.
 
 ### Pagination
 
-Most v1 lists take `limit` (1–100, default 20) and `after` (an opaque cursor from
-the previous response's `next_cursor`). Page manually, or let the SDK do it —
+Every v1 list takes `limit` (1–100, default 20) and `after` (an opaque cursor
+from the previous response's `next_cursor`). Page manually, or let the SDK do it —
 each list has a companion `*All` async generator that walks the pages and yields
 individual items:
 
@@ -790,26 +790,11 @@ The seventeen companions: `campaigns.listAll`, `campaigns.listFailuresAll`,
 `validation.listResultsAll`, `webhooks.listAllV1`, `workflows.listAll` and
 `workflows.listExecutionsAll`.
 
-**Two endpoints name their cursor differently, and this is the one genuinely
-surprising thing in the surface.** `topics.list` and `validation.listResults`
-take `cursor` and answer `cursor`, where every other v1 list takes `after` and
-answers `next_cursor`. Both kinds are forward-only opaque cursors and both stop
-on `has_more: false`; only the parameter names differ.
-
-```ts
-// after / next_cursor — every list except the two below.
-let page = await sendly.templates.listV1({ limit: 50 });
-page = await sendly.templates.listV1({ limit: 50, after: page.next_cursor! });
-
-// cursor / cursor — topics and validation results.
-let topics = await sendly.topics.list({ limit: 50 });
-topics = await sendly.topics.list({ limit: 50, cursor: topics.cursor! });
-```
-
-`topics.listAll` and `validation.listResultsAll` hide the difference — they are
-hand-rolled for exactly this reason, because the shared `paginateCursor` helper
-sends `after` and reads `next_cursor` and would re-fetch page one forever. Drive
-pages by hand only if you know which of the two a given endpoint speaks.
+Through 1.0 there were two dialects: `topics.list` and
+`validation.listResults` took `cursor` and answered `cursor` where every other
+v1 list took `after`. The platform collapsed that for 1.1, so there is one shape
+to learn and one to write. If you were driving either of those two by hand, pass
+`after` and read `next_cursor`.
 
 Keep the filter and sort arguments **fixed for the whole walk** — the cursor
 encodes them, and changing them mid-pagination is answered with

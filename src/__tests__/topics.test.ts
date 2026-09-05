@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { TopicV1 } from "../types";
-import { getCall, getCallBody, jsonResponse, makeClient } from "./helpers";
+import { cursorPage, getCall, getCallBody, jsonResponse, makeClient } from "./helpers";
 
 function topic(id: string): TopicV1 {
   // eslint-disable-next-line sendly/no-unknown-cast-laundering -- minimal fixture; only the fields under assertion matter
@@ -10,12 +10,12 @@ function topic(id: string): TopicV1 {
 /**
  * One page of the topics list envelope.
  *
- * Deliberately not `helpers.cursorPage`: that builds the `next_cursor` field
- * the rest of v1 answers with, and topics answer `cursor` instead.
+ * `helpers.cursorPage`, the same builder every other v1 list test uses. Through
+ * 1.0 this file had its own, because topics answered the next page under
+ * `cursor` where the rest of v1 answers `next_cursor`. A local fixture is how a
+ * second dialect stays invisible, so this one is gone rather than updated.
  */
-function topicPage(data: TopicV1[], cursor: string | null): Response {
-  return jsonResponse(200, { data, has_more: cursor !== null, cursor });
-}
+const topicPage = cursorPage<TopicV1>;
 
 describe("topics resource (/api/v1)", () => {
   test("list GETs /api/v1/topics and resolves the bare page, envelope and all", async () => {
@@ -32,18 +32,18 @@ describe("topics resource (/api/v1)", () => {
     expect(page.data[0]?.id).toBe("top_1");
   });
 
-  test("list serializes limit, cursor and include_archived", async () => {
+  test("list serializes limit, after and include_archived", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(topicPage([], null));
 
-    await client.topics.list({ limit: 10, cursor: "cur_top", include_archived: true });
+    await client.topics.list({ limit: 10, after: "cur_top", include_archived: true });
 
     const { url } = getCall(fetchMock);
     expect(url).toContain("limit=10");
-    expect(url).toContain("cursor=cur_top");
+    expect(url).toContain("after=cur_top");
     expect(url).toContain("include_archived=true");
-    // The v1 pagination parameter everywhere else; topics must not emit it.
-    expect(url).not.toContain("after=");
+    // `cursor` was this endpoint's own parameter through 1.0 and is not one now.
+    expect(url).not.toContain("cursor=");
   });
 
   test("create POSTs /api/v1/topics with the key and opt-in default", async () => {
@@ -111,7 +111,7 @@ describe("topics resource (/api/v1)", () => {
     expect(fetchMock.mock.calls).toHaveLength(2);
   });
 
-  test("listAll follows the `cursor` parameter this endpoint names, never `after`", async () => {
+  test("listAll follows `after`, the one v1 pagination parameter", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock
       .mockResolvedValueOnce(topicPage([topic("top_1")], "cur_2"))
@@ -123,8 +123,8 @@ describe("topics resource (/api/v1)", () => {
     expect(seen).toEqual(["top_1", "top_2"]);
 
     const second = getCall(fetchMock, 1).url;
-    expect(second).toContain("cursor=cur_2");
-    expect(second).not.toContain("after=");
+    expect(second).toContain("after=cur_2");
+    expect(second).not.toContain("cursor=");
     expect(second).toContain("limit=1");
   });
 
@@ -133,7 +133,7 @@ describe("topics resource (/api/v1)", () => {
     fetchMock.mockResolvedValue(topicPage([topic("top_1")], "cur_stuck"));
 
     const seen: string[] = [];
-    for await (const item of client.topics.listAll({ cursor: "cur_stuck" })) seen.push(item.id);
+    for await (const item of client.topics.listAll({ after: "cur_stuck" })) seen.push(item.id);
 
     expect(seen).toEqual(["top_1"]);
     expect(fetchMock.mock.calls).toHaveLength(1);

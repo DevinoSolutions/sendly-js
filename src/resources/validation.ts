@@ -1,4 +1,5 @@
 import type { Sendly } from "../client";
+import { paginateCursor } from "../pagination";
 import type {
   EmailValidationBatchV1,
   EmailValidationResultListV1,
@@ -63,9 +64,8 @@ export class ValidationResource {
    * is the page to read before acting on a run, and `unknown` is the one never
    * to act on, since those addresses were not actually checked.
    *
-   * This list pages on `cursor`, not the `after` every other v1 collection
-   * takes, and its envelope carries the next page under `cursor` rather than
-   * `next_cursor`. {@link listResultsAll} drives that loop for you.
+   * Pages on `after` and answers `next_cursor`, like every other v1
+   * collection. {@link listResultsAll} drives that loop for you.
    */
   async listResults(id: string, query?: ListValidationResultsV1Query): Promise<EmailValidationResultListV1> {
     return this.client.request<EmailValidationResultListV1>({
@@ -78,25 +78,15 @@ export class ValidationResource {
   /**
    * Iterate every result across pages, yielding one address's verdict at a time.
    *
-   * Hand-rolled rather than routed through `paginateCursor`: the shared helper
-   * sends `after` and reads `next_cursor`, and this endpoint speaks `cursor` on
-   * both sides, so the helper would send an ignored parameter and re-fetch page
-   * one forever. Stops on `has_more: false`, a null cursor, or a cursor the
-   * server repeats.
+   * This was hand-rolled through 1.0, because the endpoint spoke `cursor` on
+   * both sides while the shared helper sends `after` and reads `next_cursor` —
+   * so routing it through the helper would have sent an ignored parameter and
+   * re-fetched page one forever. The route speaks the one dialect now.
    */
   async *listResultsAll(
     id: string,
     query?: ListValidationResultsV1Query,
   ): AsyncGenerator<EmailValidationResultV1, void, undefined> {
-    let cursor = query?.cursor;
-    for (;;) {
-      const page = await this.listResults(id, { ...query, cursor });
-      for (const result of page.data ?? []) {
-        yield result;
-      }
-      const next = page.cursor;
-      if (!page.has_more || next === null || next === undefined || next === cursor) return;
-      cursor = next;
-    }
+    yield* paginateCursor<EmailValidationResultV1>((after) => this.listResults(id, { ...query, after }), query?.after);
   }
 }
