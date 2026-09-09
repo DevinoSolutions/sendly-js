@@ -43,7 +43,7 @@ describe("domains setup hand-off", () => {
 describe("domains resource", () => {
   test("create POSTs /api/domains", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(jsonResponse(201, { success: true, data: { id: "d_1", name: "mail.example.com" } }));
+    fetchMock.mockResolvedValue(jsonResponse(201, { success: true, data: { id: "d_1", domain: "mail.example.com" } }));
     const result = await client.domains.create({ domain: "mail.example.com" });
     expect(getCall(fetchMock).url).toBe("http://localhost/api/domains");
     expect((result as { id: string }).id).toBe("d_1");
@@ -58,18 +58,48 @@ describe("domains resource", () => {
 
   test("verify POSTs /api/domains/{id}/verify", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { status: "PENDING" } }));
+    // `status` is SES's own raw DKIM state; the per-record checks are their own fields.
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        success: true,
+        data: {
+          domain: "mail.example.com",
+          status: "Pending",
+          verified: false,
+          dkimStatus: "PENDING",
+          spfStatus: "NOT_CHECKED",
+          dmarcStatus: "NOT_CHECKED",
+          mailFromDomain: null,
+        },
+      }),
+    );
     await client.domains.verify("d_1");
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/domains/d_1/verify");
     expect(init.method).toBe("POST");
   });
 
-  test("getVerification GETs /api/domains/{id}/verify", async () => {
+  test("getVerification GETs /api/domains/{id}/verify and reports each record type", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { status: "VERIFIED" } }));
-    await client.domains.getVerification("d_1");
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        success: true,
+        data: {
+          domain: "mail.example.com",
+          status: "Success",
+          verified: true,
+          dkimStatus: "VERIFIED",
+          spfStatus: "VERIFIED",
+          dmarcStatus: "NOT_CHECKED",
+          mailFromDomain: "bounce.mail.example.com",
+        },
+      }),
+    );
+    const status = await client.domains.getVerification("d_1");
     expect(getCall(fetchMock).init.method).toBe("GET");
+    // DMARC unchecked while DKIM and SPF pass — one status per record type, not one verdict.
+    expect(status.dkimStatus).toBe("VERIFIED");
+    expect(status.dmarcStatus).toBe("NOT_CHECKED");
   });
 
   test("throws SendlyPermissionError on 403", async () => {
@@ -87,7 +117,7 @@ describe("domains stream assignment (legacy)", () => {
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
         success: true,
-        data: { id: "d_1", name: "mail.example.com", stream: "MARKETING", streamDefault: true },
+        data: { id: "d_1", domain: "mail.example.com", stream: "MARKETING", streamDefault: true },
       }),
     );
 

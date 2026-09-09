@@ -25,13 +25,17 @@ describe("suppression resource", () => {
     expect(getCall(fetchMock).url).toBe("http://localhost/api/suppression");
   });
 
-  test("list serializes reason filter", async () => {
+  test("list serializes reason filter and hands back the bare body", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(jsonResponse(200, { success: true, data: { items: [] } }));
-    await client.suppression.list({ reason: "MANUAL", limit: 100 });
+    // Alone among the legacy reads, this route answers no `{ success, data }`
+    // envelope — the page IS the body, so there is nothing to unwrap.
+    fetchMock.mockResolvedValue(jsonResponse(200, { items: [], nextCursor: null }));
+    const page = await client.suppression.list({ reason: "MANUAL", limit: 100 });
     const { url } = getCall(fetchMock);
     expect(url).toContain("reason=MANUAL");
     expect(url).toContain("limit=100");
+    expect(page.items).toEqual([]);
+    expect(page.nextCursor).toBeNull();
   });
 
   test("get encodes email path segment", async () => {
