@@ -422,6 +422,12 @@ var DeliverabilityResource = class {
    * receive: only reports about a registered domain are stored, and receivers
    * send them on their own schedule (typically once a day).
    *
+   * `intake_configured` says which kind of empty you are looking at. When it is
+   * `false` this deployment has no DMARC report intake mailbox at all, so no
+   * report can ever arrive and an empty `data` means the feature is off — not
+   * that your domains are clean. The two are otherwise indistinguishable, so
+   * read the flag before reporting "no DMARC failures" to anyone.
+   *
    * `pass_count` counts DMARC ALIGNMENT taken from `policy_evaluated`, not raw
    * authentication results — a message can pass SPF for a domain that is not
    * the one in its From header, which is exactly the case DMARC exists to
@@ -453,7 +459,10 @@ var DomainsResource = class {
    * `eu-west-1`). On the very first domain for a project this also locks the
    * project's region; subsequent calls must match.
    *
-   * The response includes DNS records to set.
+   * The response carries `dkimTokens` — the SES DKIM tokens to publish as
+   * CNAME records before the domain can verify — alongside `dkimStatus`,
+   * `spfStatus` and `dmarcStatus`, each the result of the last DNS check for
+   * that record type.
    */
   async create(body) {
     const envelope = await this.client.request({
@@ -478,7 +487,14 @@ var DomainsResource = class {
     });
     return this.client.unwrap(envelope);
   }
-  /** Trigger SES verification for a domain. */
+  /**
+   * Trigger SES verification for a domain.
+   *
+   * `status` is SES's own raw DKIM verification state (`Success`, `Pending`),
+   * while `dkimStatus`, `spfStatus` and `dmarcStatus` are this platform's own
+   * DNS check per record type. `tokens` carries the DKIM tokens SES has still
+   * to report and is absent once verification has resolved.
+   */
   async verify(id) {
     const envelope = await this.client.request({
       method: "POST",
@@ -1210,7 +1226,14 @@ var SuppressionResource = class {
     });
     return this.client.unwrap(envelope);
   }
-  /** List suppressions with optional reason filter + cursor pagination. */
+  /**
+   * List suppressions with optional reason filter + cursor pagination.
+   *
+   * Alone among the legacy reads, this route answers no `{ success, data }`
+   * envelope: the page IS the body, `{ items, nextCursor }`, so nothing is
+   * unwrapped. Each record carries `scope` — `PROJECT` for every record this
+   * API creates or returns today.
+   */
   async list(query) {
     return this.client.request({
       method: "GET",
@@ -1330,7 +1353,14 @@ var TemplatesResource = class {
     });
     return this.client.unwrap(envelope);
   }
-  /** Patch an existing template. */
+  /**
+   * Patch an existing template.
+   *
+   * An update that changes the rendered content increments `currentVersion`;
+   * one that only renames leaves it alone. A campaign records the version it
+   * sent, so comparing the two is how a caller tells "the template changed
+   * since" from "the template was renamed".
+   */
   async update(id, body) {
     const envelope = await this.client.request({
       method: "PATCH",
@@ -1640,6 +1670,10 @@ var WebhooksResource = class {
    * Create a new outbound webhook subscription. The response includes the
    * signing secret — store it now, it is only returned in full at creation
    * and rotation time.
+   *
+   * `data` holds the two separately: `data.webhook` is the endpoint and
+   * `data.secret` is the plaintext. The endpoint's own fields are NOT spread
+   * alongside the secret, so the id is `data.webhook.id`.
    */
   async create(body) {
     return this.client.request({
