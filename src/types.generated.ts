@@ -3283,6 +3283,8 @@ export interface components {
         DmarcReportV1List: {
             data: components["schemas"]["DmarcReportV1"][];
             has_more: boolean;
+            /** @description Whether this deployment has a DMARC report intake mailbox configured. When `false` no report can ever arrive, so an empty `data` means the feature is off rather than that your domains are clean — the two are otherwise indistinguishable. */
+            intake_configured: boolean;
             /** @description Pass as `after` to fetch the next page. `null` on the last page. */
             next_cursor: string | null;
         };
@@ -3295,13 +3297,27 @@ export interface components {
             createdAt: string;
             /** @description The address a send on this stream uses when it names none. Always on this identity's own host. */
             defaultFromAddress?: string | null;
-            dkim?: {
-                name: string;
-                type: string;
-                value: string;
-            }[];
+            /**
+             * @description Result of the last DNS check for this record type.
+             * @enum {string|null}
+             */
+            dkimStatus?: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /** @description SES DKIM tokens to publish as CNAME records before the domain can verify. */
+            dkimTokens?: string[] | null;
+            /**
+             * @description Result of the last DNS check for this record type.
+             * @enum {string|null}
+             */
+            dmarcStatus?: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /** @description The bare domain, e.g. `mail.acme.com`. */
+            domain: string;
             /** Format: uuid */
             id: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            lastHealthCheckAt?: string | null;
             /** @description Custom MAIL FROM subdomain SES has on record (normally `sendly.<domain>`). */
             mailFromDomain?: string | null;
             /**
@@ -3309,10 +3325,16 @@ export interface components {
              * @enum {string|null}
              */
             mailFromDomainStatus?: "Pending" | "Success" | "Failed" | "TemporaryFailure" | "NotConfigured" | null;
-            name: string;
             /** Format: uuid */
             projectId: string;
+            /** @description Whether inbound mail for this domain is routed to Sendly mailboxes. */
+            receivingEnabled: boolean;
             region?: string | null;
+            /**
+             * @description Result of the last DNS check for this record type.
+             * @enum {string|null}
+             */
+            spfStatus?: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
             /**
              * @description Which traffic this identity carries. `null` means unassigned, and an unassigned identity carries every stream — the behaviour of every domain added before per-stream identities. A send whose stream does not match an ASSIGNED identity is refused.
              * @enum {string|null}
@@ -3380,18 +3402,23 @@ export interface components {
         };
         /** @description Outcome of a verification check against SES. */
         DomainVerificationStatus: {
-            dkim?: {
-                name: string;
-                type: string;
-                value: string;
-            }[];
-            mailFromDomain?: string | null;
+            /** @enum {string} */
+            dkimStatus: "VERIFIED" | "PENDING" | "FAILED";
+            /** @enum {string} */
+            dmarcStatus: "VERIFIED" | "FAILED" | "NOT_CHECKED";
+            domain: string;
+            mailFromDomain: string | null;
             /**
              * @description SES custom MAIL FROM setup state. Only `Success` means SES is using it.
              * @enum {string|null}
              */
             mailFromDomainStatus?: "Pending" | "Success" | "Failed" | "TemporaryFailure" | "NotConfigured" | null;
-            mxRecords?: string[];
+            /** @enum {string} */
+            spfStatus: "VERIFIED" | "FAILED" | "NOT_CHECKED";
+            /** @description Raw SES DKIM verification status, e.g. `Success` or `Pending`. */
+            status: string;
+            /** @description DKIM tokens SES still has to report. Absent once verification has resolved. */
+            tokens?: string[];
             verified: boolean;
         };
         /** @description Body for POST /api/mailboxes/{id}/drafts — ask for help writing, never for sending. */
@@ -4216,6 +4243,11 @@ export interface components {
             projectId: string;
             /** @enum {string} */
             reason: "HARD_BOUNCE" | "COMPLAINT" | "MANUAL" | "UNSUBSCRIBE";
+            /**
+             * @description How far the suppression reaches. `PROJECT` is every record this API creates or returns today.
+             * @enum {string}
+             */
+            scope: "PROJECT" | "GLOBAL";
             /** @enum {string} */
             source: "SES_WEBHOOK" | "API" | "DASHBOARD";
         };
@@ -4232,14 +4264,11 @@ export interface components {
             source?: "SES_WEBHOOK" | "API" | "DASHBOARD";
             suppressed: boolean;
         };
-        /** @description Cursor-paginated list of suppressions. */
+        /** @description Cursor-paginated list of suppressions. NOTE: this route answers a bare body — there is no `{success, data}` envelope. */
         SuppressionListResponse: {
-            cursor?: string | null;
-            data: components["schemas"]["Suppression"][];
-            hasMore?: boolean;
-            nextCursor?: string | null;
-            /** @enum {boolean} */
-            success: true;
+            items: components["schemas"]["Suppression"][];
+            /** @description Cursor for the next page, or `null` on the last page. Never omitted. */
+            nextCursor: string | null;
         };
         /** @description A suppressed address as exposed on the v1 API. */
         SuppressionV1: {
@@ -4281,6 +4310,8 @@ export interface components {
              * @description ISO 8601 datetime string
              */
             createdAt: string;
+            /** @description Version counter, incremented by an update that changes the rendered content. A campaign records the version it sent, so this is how a caller tells 'the template changed since' from 'the template was renamed'. */
+            currentVersion: number;
             description?: string | null;
             /** @enum {string} */
             emailCategory: "MARKETING" | "TRANSACTIONAL" | "SELF_MANAGED_UNSUBSCRIBE";
@@ -4556,7 +4587,7 @@ export interface components {
             /** @enum {boolean} */
             success: true;
         };
-        /** @description A user-managed outbound webhook. */
+        /** @description A user-managed outbound webhook. Never carries a secret. */
         Webhook: {
             consecutiveFailures: number;
             /**
@@ -4569,10 +4600,16 @@ export interface components {
              * @description ISO 8601 datetime string
              */
             disabledAt?: string | null;
+            /** @description Sending domains this endpoint is scoped to. Empty means every domain on the project. */
+            domains: string[];
             eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
             /** Format: uuid */
             id: string;
-            lastFour?: string;
+            /**
+             * Format: date-time
+             * @description While a rotation is in flight, when the OLD secret stops being accepted. `null` outside a rotation.
+             */
+            previousSecretExpiresAt?: string | null;
             /** Format: uuid */
             projectId: string;
             /** @enum {string} */
@@ -4617,10 +4654,10 @@ export interface components {
         };
         /** @description Result of POST /api/webhooks. `secret` is the only time the plaintext is returned — store it securely. */
         WebhookCreateResponse: {
-            /** @description A user-managed outbound webhook. */
-            data: components["schemas"]["Webhook"] & {
+            data: {
                 /** @description Plaintext shared secret. Returned ONCE on create. */
                 secret: string;
+                webhook: components["schemas"]["Webhook"];
             };
             /** @enum {boolean} */
             success: true;
@@ -11240,7 +11277,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The contact. */
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
@@ -11267,6 +11304,15 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no contact with this id belongs to the authenticated project. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12834,7 +12880,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The list to validate. */
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
@@ -12861,6 +12907,15 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no list with this id belongs to the authenticated project. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14257,7 +14312,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The topic. */
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
@@ -14284,6 +14339,15 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no topic with this id belongs to the authenticated project. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14325,7 +14389,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The topic. */
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
@@ -14356,6 +14420,15 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no topic with this id belongs to the authenticated project. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14397,7 +14470,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The topic. */
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
@@ -14428,6 +14501,15 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no topic with this id belongs to the authenticated project. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14534,7 +14616,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The validation run. */
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
@@ -14561,6 +14643,15 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no validation run with this id belongs to the authenticated project. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14608,7 +14699,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description The validation run. */
+                /** @description Resource id. */
                 id: string;
             };
             cookie?: never;
@@ -14635,6 +14726,15 @@ export interface operations {
             };
             /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — no validation run with this id belongs to the authenticated project. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15375,7 +15475,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -15452,7 +15552,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -15542,7 +15642,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -15632,7 +15732,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -15715,7 +15815,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -15882,7 +15982,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -15963,7 +16063,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -16049,7 +16149,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -16126,7 +16226,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -16206,7 +16306,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `resource_not_found` — no workflow with this id in the authenticated project. */
+            /** @description `resource_not_found` — no workflow with this id belongs to the authenticated project. */
             404: {
                 headers: {
                     [name: string]: unknown;
