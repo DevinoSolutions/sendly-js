@@ -326,13 +326,26 @@ answered still reads correctly.
 
 ```ts
 const domain = await sendly.domains.create({ domain: "mail.your-domain.com" });
+// Publish each token as a CNAME record before verification can succeed.
+console.log(domain.dkimTokens);
+
 await sendly.domains.verify(domain.id);
+
 const status = await sendly.domains.getVerification(domain.id);
+// One status per record type, not one verdict for the domain.
+console.log(status.dkimStatus, status.spfStatus, status.dmarcStatus);
 ```
 
 Pass `region` to pin the domain to an SES region (`us-east-1`, `us-west-2` or
 `eu-west-1`). The first domain locks the project's region; later ones must match
 it.
+
+A domain reports each DNS record type separately — `dkimStatus`, `spfStatus` and
+`dmarcStatus` are each `NOT_CHECKED`, `PENDING`, `VERIFIED` or `FAILED`, and
+`lastHealthCheckAt` says when they were last filled. `status` on the verification
+response is a different thing: SES's own raw DKIM state (`Success`, `Pending`),
+which is why both are published rather than collapsed into one. `receivingEnabled`
+says whether inbound mail for the domain is routed to Sendly mailboxes.
 
 Publishing the DNS records by hand is not the only route. `startSetup` opens the
 guided hand-off and returns the session exactly as the API returns it:
@@ -446,6 +459,11 @@ const template = await sendly.templates.create({
 `emailCategory` is `MARKETING`, `TRANSACTIONAL` or `SELF_MANAGED_UNSUBSCRIBE`
 (the member that used to be called `HEADLESS`). It defaults to `MARKETING` and
 is also the legacy list filter: `templates.list({ emailCategory: "MARKETING" })`.
+
+A template carries `currentVersion`, a counter an update increments only when it
+changes the **rendered content** — a rename leaves it alone. A campaign records
+the version it sent, so comparing the two is how you tell "the template changed
+since this went out" from "somebody retitled it".
 
 A **snippet** is a reusable fragment a template pulls in with `{{> name}}`.
 `name` is the literal identifier templates include, unique within the project, so
@@ -587,10 +605,22 @@ day.
 
 ```ts
 const reports = await sendly.deliverability.listDmarcReports({ limit: 20 });
+
+// Which kind of empty is this? `false` means no intake mailbox exists, so no
+// report can ever arrive — the feature is off, your domains are not "clean".
+if (!reports.intake_configured) {
+  console.warn("DMARC report intake is not configured on this deployment");
+}
+
 for (const report of reports.data) {
   console.log(report.org_name, report.policy_domain, report.pass_count, report.fail_count);
 }
 ```
+
+`intake_configured` exists because the two empty lists are otherwise
+indistinguishable, and reporting "no DMARC failures" off a feature that was
+never switched on is the worse of the two mistakes. Read the flag before you
+tell anyone the domains are healthy.
 
 `pass_count` counts DMARC **alignment** taken from `policy_evaluated`, not raw
 authentication results — a message can pass SPF for a domain that is not the one
@@ -603,8 +633,14 @@ const created = await sendly.webhooks.create({
   url: "https://your-app.com/webhooks/sendly",
   eventTypes: ["email.delivered", "email.bounced", "email.complained"],
 });
-// store `created.data.secret` securely — used to verify HMAC signatures
+// store `created.data.secret` securely — used to verify HMAC signatures.
+// The endpoint is beside it rather than spread around it: `created.data.webhook.id`.
 ```
+
+A webhook record carries `domains` — the sending domains this endpoint is scoped
+to, where an empty array means every domain on the project — and, while a
+rotation is in flight, `previousSecretExpiresAt`. A record never carries a
+secret or any fragment of one.
 
 On v1 the same registration resolves the secret beside the webhook, and adds
 rotation:
@@ -630,7 +666,17 @@ dropping an event.
 
 ```ts
 await sendly.suppression.add({ email: "angry@example.com", reason: "MANUAL" });
+
+// Alone among the legacy reads, this one answers no `{ success, data }`
+// envelope — the page IS the body.
+const page = await sendly.suppression.list({ reason: "MANUAL", limit: 100 });
+for (const record of page.items) {
+  console.log(record.email, record.reason, record.scope);
+}
 ```
+
+`scope` is `PROJECT` on every record this API creates or returns today; `GLOBAL`
+is reserved for a platform-wide block recorded outside your project.
 
 The v1 half addresses a record by the **address itself** and answers definitively
 either way — `200` means suppressed and says why, `404 resource_not_found` means
