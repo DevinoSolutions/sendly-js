@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { SendlyNotFoundError } from "../index";
-import { getCall, jsonResponse, makeClient, rejection } from "./helpers";
+import { getCall, getCallBody, jsonResponse, makeClient, rejection } from "./helpers";
 
 const MAILBOX = {
   id: "mb_1",
@@ -86,5 +86,100 @@ describe("mailboxes resource", () => {
 
     const error = await rejection<SendlyNotFoundError>(client.mailboxes.get("nope"));
     expect(error).toBeInstanceOf(SendlyNotFoundError);
+  });
+
+  test("sendMessage POSTs the composed body to /messages and unwraps the legacy envelope", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(201, {
+        success: true,
+        data: { submitted: true, conversationId: "cv_1", messageId: "msg_1" },
+      }),
+    );
+
+    const submitted = await client.mailboxes.sendMessage("mb_1", {
+      to: ["customer@example.com"],
+      subject: "Your order",
+      body: "It shipped this morning.",
+    });
+
+    const { url, init } = getCall(fetchMock);
+    expect(url).toBe("http://localhost/api/mailboxes/mb_1/messages");
+    expect(init.method).toBe("POST");
+    // Unlike the v1 resources, this legacy route's `{ success, data }` wrapper is stripped.
+    expect(submitted).toEqual({ submitted: true, conversationId: "cv_1", messageId: "msg_1" });
+  });
+
+  test("sendMessage takes no `from` — the mailbox in the path is the sender", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(201, {
+        success: true,
+        data: { submitted: true, conversationId: "cv_1", messageId: "msg_1" },
+      }),
+    );
+
+    await client.mailboxes.sendMessage("mb_1", {
+      to: ["customer@example.com"],
+      bcc: ["archive@example.com"],
+      subject: "Your order",
+      body: "It shipped this morning.",
+    });
+
+    const body = getCallBody(fetchMock) as Record<string, unknown>;
+    expect(body).toEqual({
+      to: ["customer@example.com"],
+      bcc: ["archive@example.com"],
+      subject: "Your order",
+      body: "It shipped this morning.",
+    });
+    expect(Object.keys(body)).not.toContain("from");
+  });
+
+  test("draftMessage POSTs to /drafts, unwraps, and comes back with sent: false", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        success: true,
+        data: { subject: "Your order shipped", body: "Hi there —", subjects: [], sent: false },
+      }),
+    );
+
+    const draft = await client.mailboxes.draftMessage("mb_1", { mode: "draft", brief: "order shipped" });
+
+    const { url, init } = getCall(fetchMock);
+    expect(url).toBe("http://localhost/api/mailboxes/mb_1/drafts");
+    expect(init.method).toBe("POST");
+    expect(getCallBody(fetchMock)).toEqual({ mode: "draft", brief: "order shipped" });
+    // The whole safety story of this pair: drafting never mails anybody.
+    expect(draft.sent).toBe(false);
+    expect(draft.subject).toBe("Your order shipped");
+  });
+
+  test("draftMessage in subject mode returns the alternatives, not a send receipt", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        success: true,
+        data: { subject: null, body: null, subjects: ["Shipped!", "On its way"], sent: false },
+      }),
+    );
+
+    const draft = await client.mailboxes.draftMessage("mb_1", { mode: "subject", draft: "your order shipped" });
+
+    expect(draft.subjects).toEqual(["Shipped!", "On its way"]);
+    // A draft carries no conversation or message id — nothing was created.
+    expect(Object.keys(draft)).not.toContain("messageId");
+  });
+
+  test("the composition routes percent-encode the mailbox id too", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { success: true, data: { subject: null, body: null, subjects: [], sent: false } }),
+    );
+
+    await client.mailboxes.draftMessage("mb/../evil", { mode: "draft" });
+
+    expect(getCall(fetchMock).url).toBe("http://localhost/api/mailboxes/mb%2F..%2Fevil/drafts");
   });
 });

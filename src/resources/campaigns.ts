@@ -4,10 +4,14 @@ import { idemHeader } from "./idempotency";
 import type { IdempotencyOptions } from "./idempotency";
 import type {
   CampaignDeletedV1,
+  CampaignFailureListV1,
+  CampaignFailureV1,
   CampaignListV1,
+  CampaignRetryFailedV1,
   CampaignStatsV1,
   CampaignV1,
   CreateCampaignV1Request,
+  ListCampaignFailuresV1Query,
   ListCampaignsV1Query,
   SendCampaignV1Request,
   UpdateCampaignV1Request,
@@ -129,6 +133,51 @@ export class CampaignsResource {
     return this.client.request<CampaignStatsV1>({
       method: "GET",
       path: `/api/v1/campaigns/${encodeURIComponent(id)}/stats`,
+    });
+  }
+
+  /**
+   * The recipients this campaign did not reach, and why.
+   *
+   * {@link stats} says how many sends failed; only this says who. `reason`
+   * comes from a fixed vocabulary rather than the underlying error text, so it
+   * is stable enough to branch on — and it is `null` on rows recorded before
+   * reasons were captured.
+   *
+   * Cursor-paginated like every other v1 list, but uniquely it also carries
+   * `total`: {@link retryFailed} acts on that number, and `has_more` alone
+   * cannot tell you whether 3 or 30,000 sends failed.
+   */
+  async listFailures(id: string, query?: ListCampaignFailuresV1Query): Promise<CampaignFailureListV1> {
+    return this.client.request<CampaignFailureListV1>({
+      method: "GET",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}/failures`,
+      query,
+    });
+  }
+
+  /** Iterate every failed send across pages, yielding one recipient at a time. */
+  async *listFailuresAll(
+    id: string,
+    query?: ListCampaignFailuresV1Query,
+  ): AsyncGenerator<CampaignFailureV1, void, undefined> {
+    yield* paginateCursor<CampaignFailureV1>((after) => this.listFailures(id, { ...query, after }), query?.after);
+  }
+
+  /**
+   * Re-drive only the recipients whose send failed. Nobody who already received
+   * the campaign is mailed a second time — each ledger row is claimed before it
+   * is touched, and a row whose email exists already is re-queued, not re-sent.
+   *
+   * The walk runs in the background, so this resolves as soon as it is queued,
+   * reporting `queued`: how many failed rows it was started for. Only a `SENT`
+   * campaign qualifies (`400 validation_error` otherwise), and a retry already
+   * running answers `409 conflict`. Takes no body.
+   */
+  async retryFailed(id: string): Promise<CampaignRetryFailedV1> {
+    return this.client.request<CampaignRetryFailedV1>({
+      method: "POST",
+      path: `/api/v1/campaigns/${encodeURIComponent(id)}/retry-failed`,
     });
   }
 }

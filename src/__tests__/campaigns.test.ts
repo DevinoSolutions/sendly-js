@@ -1,11 +1,21 @@
 import { describe, expect, test } from "vitest";
 import { SendlyConflictError, SendlyNotFoundError } from "../index";
-import type { CampaignV1 } from "../types";
+import type { CampaignFailureV1, CampaignV1 } from "../types";
 import { cursorPage, getCall, getCallBody, jsonResponse, makeClient, problemResponse, rejection } from "./helpers";
 
 function campaign(id: string): CampaignV1 {
   // eslint-disable-next-line sendly/no-unknown-cast-laundering -- minimal fixture; only the fields under assertion matter
   return { id, name: `Campaign ${id}`, status: "DRAFT" } as unknown as CampaignV1;
+}
+
+function failure(id: string): CampaignFailureV1 {
+  return {
+    id,
+    contact_id: `ct_${id}`,
+    email: `${id}@example.com`,
+    reason: "HARD_BOUNCE",
+    failed_at: "2026-09-01T00:00:00.000Z",
+  };
 }
 
 describe("campaigns resource (/api/v1)", () => {
@@ -224,6 +234,92 @@ describe("campaigns resource (/api/v1)", () => {
     );
 
     const error = await rejection<SendlyConflictError>(client.campaigns.send("cmp_1"));
+    expect(error).toBeInstanceOf(SendlyConflictError);
+    expect(error.errorCode).toBe("conflict");
+  });
+
+  test("listFailures GETs the failures sub-path and keeps the `total` this list uniquely carries", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        data: [
+          {
+            id: "fail_1",
+            contact_id: "ct_1",
+            email: "bounced@example.com",
+            reason: "HARD_BOUNCE",
+            failed_at: "2026-09-01T00:00:00.000Z",
+          },
+        ],
+        has_more: false,
+        next_cursor: null,
+        total: 4211,
+      }),
+    );
+
+    const page = await client.campaigns.listFailures("cmp_1");
+
+    const { url, init } = getCall(fetchMock);
+    expect(url).toBe("http://localhost/api/v1/campaigns/cmp_1/failures");
+    expect(init.method).toBe("GET");
+    // Bare v1 body: no `{ success, data }` unwrap happened, and `total` survives.
+    expect(page.total).toBe(4211);
+    expect(page.data[0]?.reason).toBe("HARD_BOUNCE");
+  });
+
+  test("listFailures serializes the cursor query params", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { data: [], has_more: false, next_cursor: null, total: 0 }));
+
+    await client.campaigns.listFailures("cmp_1", { limit: 50, after: "fail_9" });
+
+    const { url } = getCall(fetchMock);
+    expect(url).toContain("limit=50");
+    expect(url).toContain("after=fail_9");
+  });
+
+  test("listFailuresAll walks two pages, threads the cursor, and stops on the last one", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock
+      .mockResolvedValueOnce(cursorPage([failure("fail_1")], "fail_1"))
+      .mockResolvedValueOnce(cursorPage([failure("fail_2"), failure("fail_3")], null));
+
+    const seen: string[] = [];
+    for await (const row of client.campaigns.listFailuresAll("cmp_1")) seen.push(row.id);
+
+    expect(seen).toEqual(["fail_1", "fail_2", "fail_3"]);
+    expect(fetchMock.mock.calls).toHaveLength(2);
+    expect(getCall(fetchMock, 0).url).not.toContain("after=");
+    expect(getCall(fetchMock, 1).url).toContain("/campaigns/cmp_1/failures");
+    expect(getCall(fetchMock, 1).url).toContain("after=fail_1");
+  });
+
+  test("retryFailed POSTs retry-failed with no body and resolves the queued count", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { id: "cmp_1", queued: 12 }));
+
+    const ack = await client.campaigns.retryFailed("cmp_1");
+
+    const { url, init } = getCall(fetchMock);
+    expect(url).toBe("http://localhost/api/v1/campaigns/cmp_1/retry-failed");
+    expect(init.method).toBe("POST");
+    // The route takes no body — sending one would be a contract change.
+    expect(init.body).toBeUndefined();
+    expect(ack).toEqual({ id: "cmp_1", queued: 12 });
+  });
+
+  test("retrying a campaign whose retry is already running surfaces the conflict code", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      problemResponse(409, {
+        type: "https://docs.sendly.now/errors/conflict",
+        title: "Conflict",
+        detail: "A retry is already running for this campaign.",
+        code: "conflict",
+      }),
+    );
+
+    const error = await rejection<SendlyConflictError>(client.campaigns.retryFailed("cmp_1"));
     expect(error).toBeInstanceOf(SendlyConflictError);
     expect(error.errorCode).toBe("conflict");
   });

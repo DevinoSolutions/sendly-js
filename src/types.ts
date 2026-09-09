@@ -33,7 +33,27 @@ export type BatchEntryResult = components["schemas"]["BatchEntryResult"];
 
 export type EmailRecord = components["schemas"]["Email"];
 export type EmailListResponse = components["schemas"]["EmailListResponse"];
-export type EmailGetResponse = components["schemas"]["EmailGetResponse"];
+
+/**
+ * One transition in a message's delivery history — the append-only record
+ * behind `status`. `status` says where the message is now; these say how it got
+ * there.
+ */
+export type EmailEvent = components["schemas"]["EmailEvent"];
+
+/** An email together with its delivery history, oldest first. */
+export type EmailWithEvents = components["schemas"]["EmailWithEvents"];
+
+/**
+ * A single email with no history — what `emails.cancelSchedule` resolves.
+ *
+ * Was `EmailGetResponse` in 1.0, which named the operation rather than the
+ * shape and was then reused by an operation that is not a GET.
+ */
+export type EmailResponse = components["schemas"]["EmailResponse"];
+
+/** `emails.get` — one email plus its delivery events. */
+export type EmailDetailResponse = components["schemas"]["EmailDetailResponse"];
 
 export type ListEmailsQuery = NonNullable<paths["/api/emails"]["get"]["parameters"]["query"]>;
 
@@ -53,6 +73,8 @@ export type ListContactsQuery = NonNullable<paths["/api/contacts"]["get"]["param
 export type DomainRecord = components["schemas"]["Domain"];
 export type DomainListResponse = components["schemas"]["DomainListResponse"];
 export type AddDomainRequest = components["schemas"]["AddDomainBody"];
+/** Body for pointing a verified domain at a sending stream. */
+export type AssignDomainStreamRequest = components["schemas"]["AssignDomainStream"];
 export type DomainVerificationStatus = components["schemas"]["DomainVerificationStatus"];
 
 /**
@@ -69,6 +91,18 @@ export type MailboxRecord = components["schemas"]["Mailbox"];
 /** A mailbox plus the IMAP/SMTP host, port and username a mail client needs. */
 export type MailboxDetail = components["schemas"]["MailboxDetail"];
 export type AppPasswordRecord = components["schemas"]["AppPassword"];
+
+/** Body for composing and SENDING from a hosted mailbox, as that address. */
+export type ComposeMailboxMessageRequest = components["schemas"]["ComposeMailboxMessage"];
+/**
+ * Body for asking Sendly's assistant to WRITE mailbox text — a message from a
+ * brief, a rewrite, or subject-line alternatives.
+ *
+ * It stores nothing and sends nothing: the answer is text handed back for you to
+ * review, with no id of any kind. `mailboxes:read` is enough to call it, where
+ * sending needs `mailboxes:send`.
+ */
+export type DraftMailboxMessageRequest = components["schemas"]["DraftMailboxMessage"];
 
 // ---------- Templates ----------
 
@@ -90,6 +124,20 @@ export type CreateWebhookRequest = components["schemas"]["CreateWebhook"];
 export type UpdateWebhookRequest = components["schemas"]["UpdateWebhook"];
 export type WebhookCall = components["schemas"]["WebhookCall"];
 export type WebhookCallsListResponse = components["schemas"]["WebhookCallsListResponse"];
+
+// ---------- Snippets ----------
+//
+// Reusable fragments a template pulls in with `{{> name}}`. Legacy dialect
+// (envelope + camelCase), and gated by the same `templates:*` scopes as the
+// templates that include them — a snippet is part of a template body, not a
+// resource with an audience of its own.
+
+export type SnippetRecord = components["schemas"]["Snippet"];
+export type SnippetListResponse = components["schemas"]["SnippetListResponse"];
+export type CreateSnippetRequest = components["schemas"]["CreateSnippet"];
+export type UpdateSnippetRequest = components["schemas"]["UpdateSnippet"];
+
+export type ListSnippetsQuery = NonNullable<paths["/api/snippets"]["get"]["parameters"]["query"]>;
 
 // ---------- Suppression ----------
 
@@ -142,8 +190,8 @@ export type CampaignV1 = components["schemas"]["CampaignV1"];
 export type CampaignListV1 = components["schemas"]["CampaignV1List"];
 export type CampaignDeletedV1 = components["schemas"]["CampaignV1Deleted"];
 export type CampaignStatsV1 = components["schemas"]["CampaignV1Stats"];
-/** `type` defaults to `MARKETING` server-side, so it is optional here. */
-export type CreateCampaignV1Request = PartialKeys<components["schemas"]["CampaignV1Create"], "type">;
+/** `email_category` defaults to `MARKETING` server-side, so it is optional here. */
+export type CreateCampaignV1Request = PartialKeys<components["schemas"]["CampaignV1Create"], "email_category">;
 export type UpdateCampaignV1Request = components["schemas"]["CampaignV1Update"];
 export type SendCampaignV1Request = components["schemas"]["CampaignV1Send"];
 
@@ -223,6 +271,143 @@ export type AnalyticsCampaignsV1Query = NonNullable<paths["/api/v1/analytics/cam
 export type ListTopCampaignsV1Query = NonNullable<
   paths["/api/v1/analytics/top-campaigns"]["get"]["parameters"]["query"]
 >;
+
+// ---------- Contacts (v1) ----------
+
+export type ContactV1 = components["schemas"]["ContactV1"];
+export type ContactListV1 = components["schemas"]["ContactV1List"];
+export type ContactDeletedV1 = components["schemas"]["ContactV1Deleted"];
+/** `subscribed` defaults to `true` server-side, so it is optional here. */
+export type CreateContactV1Request = PartialKeys<components["schemas"]["ContactV1Create"], "subscribed">;
+export type UpdateContactV1Request = components["schemas"]["ContactV1Update"];
+/** Everything one contact has said they want, topic by topic. */
+export type ContactTopicPreferencesV1 = components["schemas"]["ContactTopicPreferencesV1"];
+
+export type ListContactsV1Query = NonNullable<paths["/api/v1/contacts"]["get"]["parameters"]["query"]>;
+
+// ---------- Lists (v1) ----------
+
+export type ListV1 = components["schemas"]["ListV1"];
+export type ListListV1 = components["schemas"]["ListV1List"];
+export type ListDeletedV1 = components["schemas"]["ListV1Deleted"];
+/** `double_opt_in` defaults to `false` server-side, so it is optional here. */
+export type CreateListV1Request = PartialKeys<components["schemas"]["ListV1Create"], "double_opt_in">;
+export type UpdateListV1Request = components["schemas"]["ListV1Update"];
+
+export type ListListsV1Query = NonNullable<paths["/api/v1/lists"]["get"]["parameters"]["query"]>;
+
+// ---------- Templates (v1) ----------
+
+export type TemplateV1 = components["schemas"]["TemplateV1"];
+export type TemplateListV1 = components["schemas"]["TemplateV1List"];
+export type TemplateDeletedV1 = components["schemas"]["TemplateV1Deleted"];
+/** `email_category` defaults to `MARKETING` server-side, so it is optional here. */
+export type CreateTemplateV1Request = PartialKeys<components["schemas"]["TemplateV1Create"], "email_category">;
+export type UpdateTemplateV1Request = components["schemas"]["TemplateV1Update"];
+
+export type ListTemplatesV1Query = NonNullable<paths["/api/v1/templates"]["get"]["parameters"]["query"]>;
+
+// ---------- Domains (v1) ----------
+
+export type DomainV1 = components["schemas"]["DomainV1"];
+export type DomainListV1 = components["schemas"]["DomainV1List"];
+export type DomainDeletedV1 = components["schemas"]["DomainV1Deleted"];
+export type CreateDomainV1Request = components["schemas"]["DomainV1Create"];
+
+export type ListDomainsV1Query = NonNullable<paths["/api/v1/domains"]["get"]["parameters"]["query"]>;
+
+// ---------- Webhooks (v1) ----------
+
+export type WebhookV1 = components["schemas"]["WebhookV1"];
+export type WebhookListV1 = components["schemas"]["WebhookV1List"];
+export type WebhookDeletedV1 = components["schemas"]["WebhookV1Deleted"];
+/** The create response, and the only time the signing secret is readable. */
+export type WebhookCreatedV1 = components["schemas"]["WebhookV1Created"];
+/** Rotation answers the new secret once, for the same reason. */
+export type WebhookSecretRotatedV1 = components["schemas"]["WebhookV1SecretRotated"];
+export type CreateWebhookV1Request = components["schemas"]["WebhookV1Create"];
+export type UpdateWebhookV1Request = components["schemas"]["WebhookV1Update"];
+
+export type ListWebhooksV1Query = NonNullable<paths["/api/v1/webhooks"]["get"]["parameters"]["query"]>;
+
+// ---------- Suppressions (v1) ----------
+
+export type SuppressionV1 = components["schemas"]["SuppressionV1"];
+export type SuppressionListV1 = components["schemas"]["SuppressionV1List"];
+export type SuppressionDeletedV1 = components["schemas"]["SuppressionV1Deleted"];
+/** `reason` defaults to `MANUAL` server-side, so it is optional here. */
+export type CreateSuppressionV1Request = PartialKeys<components["schemas"]["SuppressionV1Create"], "reason">;
+
+export type ListSuppressionsV1Query = NonNullable<paths["/api/v1/suppressions"]["get"]["parameters"]["query"]>;
+
+// ---------- Topics (v1) ----------
+
+export type TopicV1 = components["schemas"]["TopicV1"];
+export type TopicListV1 = components["schemas"]["TopicListV1"];
+export type CreateTopicV1Request = components["schemas"]["TopicCreateV1"];
+export type UpdateTopicV1Request = components["schemas"]["TopicUpdateV1"];
+export type SetTopicSubscriptionV1Request = components["schemas"]["TopicSubscribeV1"];
+export type TopicSubscriptionV1 = components["schemas"]["TopicSubscriptionV1"];
+export type TopicSubscriptionStatusV1 = components["schemas"]["TopicSubscriptionStatusV1"];
+
+export type ListTopicsV1Query = NonNullable<paths["/api/v1/topics"]["get"]["parameters"]["query"]>;
+
+// ---------- Email validation (v1) ----------
+
+export type ValidateEmailsV1Request = components["schemas"]["EmailValidationBatchRequestV1"];
+export type EmailValidationBatchV1 = components["schemas"]["EmailValidationBatchV1"];
+export type EmailValidationV1 = components["schemas"]["EmailValidationV1"];
+export type EmailValidationVerdictV1 = components["schemas"]["EmailValidationVerdictV1"];
+export type EmailValidationRunV1 = components["schemas"]["EmailValidationRunV1"];
+export type EmailValidationResultListV1 = components["schemas"]["EmailValidationResultListV1"];
+/**
+ * One address's verdict inside a run's results — a validation plus the
+ * `contact_id` it came from. The spec composes it inline rather than naming a
+ * component, so it is read off the page it appears in.
+ */
+export type EmailValidationResultV1 = EmailValidationResultListV1["data"][number];
+
+export type ListValidationResultsV1Query = NonNullable<
+  paths["/api/v1/validation-runs/{id}/results"]["get"]["parameters"]["query"]
+>;
+
+// ---------- Deliverability (v1) ----------
+
+export type DeliverabilityDiagnosisV1 = components["schemas"]["DeliverabilityDiagnosisV1"];
+export type DeliverabilityFindingV1 = components["schemas"]["DeliverabilityFindingV1"];
+export type DeliverabilityFindingSeverityV1 = components["schemas"]["DeliverabilityFindingSeverityV1"];
+export type DeliverabilityIdentityV1 = components["schemas"]["DeliverabilityIdentityV1"];
+export type DeliverabilityRecentDeliveryV1 = components["schemas"]["DeliverabilityRecentDeliveryV1"];
+export type DeliverabilitySuppressionV1 = components["schemas"]["DeliverabilitySuppressionV1"];
+export type RecipientDomainStatsV1 = components["schemas"]["RecipientDomainStatsV1"];
+export type RecipientDomainStatsListV1 = components["schemas"]["RecipientDomainStatsV1List"];
+export type DmarcReportV1 = components["schemas"]["DmarcReportV1"];
+export type DmarcReportListV1 = components["schemas"]["DmarcReportV1List"];
+
+export type DiagnoseDeliverabilityV1Query = NonNullable<
+  paths["/api/v1/deliverability/diagnose"]["get"]["parameters"]["query"]
+>;
+export type ListRecipientDomainStatsV1Query = NonNullable<
+  paths["/api/v1/deliverability/domains"]["get"]["parameters"]["query"]
+>;
+export type ListDmarcReportsV1Query = NonNullable<paths["/api/v1/deliverability/dmarc"]["get"]["parameters"]["query"]>;
+
+// ---------- Campaign failures (v1) ----------
+
+export type CampaignFailureV1 = components["schemas"]["CampaignV1Failure"];
+export type CampaignFailureListV1 = components["schemas"]["CampaignV1FailureList"];
+export type CampaignRetryFailedV1 = components["schemas"]["CampaignV1RetryFailed"];
+
+export type ListCampaignFailuresV1Query = NonNullable<
+  paths["/api/v1/campaigns/{id}/failures"]["get"]["parameters"]["query"]
+>;
+
+// ---------- Workflow graph and lifecycle (v1) ----------
+
+export type WorkflowGraphV1 = components["schemas"]["WorkflowGraphV1"];
+export type ReplaceWorkflowGraphV1Request = components["schemas"]["WorkflowGraphReplaceV1"];
+export type CloneWorkflowV1Request = components["schemas"]["WorkflowCloneV1"];
+export type WorkflowStateChangeV1 = components["schemas"]["WorkflowStateChangeV1"];
 
 // Re-export the raw shapes for advanced use.
 export type { components, operations, paths } from "./types.generated";

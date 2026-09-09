@@ -4,7 +4,7 @@ import type { IdempotencyOptions } from "./idempotency";
 import type {
   BatchSendRequest,
   BatchSendResponse,
-  EmailGetResponse,
+  EmailDetailResponse,
   EmailListResponse,
   EmailTestV1,
   EmailV1,
@@ -12,8 +12,8 @@ import type {
   SendEmailData,
   SendEmailRequest,
   SendEmailV1Request,
+  EmailResponse,
   SendTestEmailV1Request,
-  SuccessEmpty,
 } from "../types";
 
 // `IdempotencyOptions` now lives in ./idempotency, shared with every other
@@ -103,17 +103,31 @@ export class EmailsResource {
     });
   }
 
-  /** Fetch a single email and its delivery events. */
-  async get(id: string): Promise<EmailGetResponse> {
-    return this.client.request<EmailGetResponse>({
+  /**
+   * Fetch a single email together with its DELIVERY history, oldest first.
+   *
+   * `events` here is the delivery timeline behind `status` — not the custom
+   * events recorded with `events.record`, which are read from `events.list`.
+   * Before 1.1 this operation answered the wrong relation and published the
+   * message's dedup and idempotency ledger keys along with it.
+   */
+  async get(id: string): Promise<EmailDetailResponse> {
+    return this.client.request<EmailDetailResponse>({
       method: "GET",
       path: `/api/emails/${encodeURIComponent(id)}`,
     });
   }
 
-  /** Cancel a scheduled (PENDING) email before it fires. */
-  async cancelSchedule(id: string): Promise<SuccessEmpty> {
-    return this.client.request<SuccessEmpty>({
+  /**
+   * Cancel a scheduled (PENDING) email before it fires.
+   *
+   * Resolves the email itself, not an empty acknowledgement: the contract has
+   * always published `EmailResponse` here, and the caller wants the row's new
+   * status more than it wants a `{ success: true }` it already inferred from the
+   * absence of an exception.
+   */
+  async cancelSchedule(id: string): Promise<EmailResponse> {
+    return this.client.request<EmailResponse>({
       method: "DELETE",
       path: `/api/emails/${encodeURIComponent(id)}/schedule`,
     });

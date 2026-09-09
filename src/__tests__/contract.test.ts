@@ -157,7 +157,13 @@ const MANIFEST: readonly ManifestEntry[] = [
   {
     key: "templates.create",
     invoke: (c) =>
-      c.templates.create({ name: "n", subject: "s", body: "b", from: "sender@example.com", type: "TRANSACTIONAL" }),
+      c.templates.create({
+        name: "n",
+        subject: "s",
+        body: "b",
+        from: "sender@example.com",
+        emailCategory: "TRANSACTIONAL",
+      }),
   },
   { key: "templates.list", invoke: (c) => c.templates.list() },
   { key: "templates.get", invoke: (c) => c.templates.get(ID) },
@@ -237,6 +243,123 @@ const MANIFEST: readonly ManifestEntry[] = [
   { key: "events.record", invoke: (c) => c.events.record({ name: "user.signup" }) },
   { key: "events.listNames", invoke: (c) => c.events.listNames() },
   { key: "events.stats", invoke: (c) => c.events.stats() },
+
+  // --- 1.1: the six resources that had a legacy half and no v1 one ---
+  //
+  // Both dialects stay reachable, so the v1 methods carry a `V1` suffix rather
+  // than taking the plain name. The two answer the same question with different
+  // envelopes, field cases and error bodies, and a call site that mixes them up
+  // reads a `data` that is not there.
+  // contacts (v1)
+  { key: "contacts.listV1", invoke: (c) => c.contacts.listV1() },
+  { key: "contacts.listAllV1", invoke: (c) => c.contacts.listAllV1().next() },
+  { key: "contacts.createV1", invoke: (c) => c.contacts.createV1({ email: "user@example.com" }) },
+  { key: "contacts.getV1", invoke: (c) => c.contacts.getV1(ID) },
+  { key: "contacts.updateV1", invoke: (c) => c.contacts.updateV1(ID, {}) },
+  { key: "contacts.deleteV1", invoke: (c) => c.contacts.deleteV1(ID) },
+  { key: "contacts.topicPreferences", invoke: (c) => c.contacts.topicPreferences(ID) },
+  // lists (v1)
+  { key: "lists.listV1", invoke: (c) => c.lists.listV1() },
+  { key: "lists.listAllV1", invoke: (c) => c.lists.listAllV1().next() },
+  { key: "lists.createV1", invoke: (c) => c.lists.createV1({ name: "Weekly" }) },
+  { key: "lists.getV1", invoke: (c) => c.lists.getV1(ID) },
+  { key: "lists.updateV1", invoke: (c) => c.lists.updateV1(ID, {}) },
+  { key: "lists.deleteV1", invoke: (c) => c.lists.deleteV1(ID) },
+  { key: "lists.startValidationRun", invoke: (c) => c.lists.startValidationRun(ID) },
+  // templates (v1)
+  { key: "templates.listV1", invoke: (c) => c.templates.listV1() },
+  { key: "templates.listAllV1", invoke: (c) => c.templates.listAllV1().next() },
+  {
+    key: "templates.createV1",
+    invoke: (c) => c.templates.createV1({ name: "n", subject: "s", body: "b", from: "sender@example.com" }),
+  },
+  { key: "templates.getV1", invoke: (c) => c.templates.getV1(ID) },
+  { key: "templates.updateV1", invoke: (c) => c.templates.updateV1(ID, {}) },
+  { key: "templates.deleteV1", invoke: (c) => c.templates.deleteV1(ID) },
+  // domains (v1, plus the one legacy write that was never wrapped)
+  { key: "domains.listV1", invoke: (c) => c.domains.listV1() },
+  { key: "domains.listAllV1", invoke: (c) => c.domains.listAllV1().next() },
+  { key: "domains.createV1", invoke: (c) => c.domains.createV1({ domain: "mail.example.com" }) },
+  { key: "domains.getV1", invoke: (c) => c.domains.getV1(ID) },
+  { key: "domains.verifyV1", invoke: (c) => c.domains.verifyV1(ID) },
+  { key: "domains.deleteV1", invoke: (c) => c.domains.deleteV1(ID) },
+  { key: "domains.assignStream", invoke: (c) => c.domains.assignStream(ID, {}) },
+  // webhooks (v1)
+  { key: "webhooks.listV1", invoke: (c) => c.webhooks.listV1() },
+  { key: "webhooks.listAllV1", invoke: (c) => c.webhooks.listAllV1().next() },
+  {
+    key: "webhooks.createV1",
+    invoke: (c) => c.webhooks.createV1({ url: "https://example.com/hook", event_types: ["email.delivered"] }),
+  },
+  { key: "webhooks.getV1", invoke: (c) => c.webhooks.getV1(ID) },
+  { key: "webhooks.updateV1", invoke: (c) => c.webhooks.updateV1(ID, {}) },
+  { key: "webhooks.deleteV1", invoke: (c) => c.webhooks.deleteV1(ID) },
+  { key: "webhooks.rotateSecretV1", invoke: (c) => c.webhooks.rotateSecretV1(ID) },
+  // suppressions (v1) — the path parameter is an address, not an id
+  { key: "suppression.listV1", invoke: (c) => c.suppression.listV1() },
+  { key: "suppression.listAllV1", invoke: (c) => c.suppression.listAllV1().next() },
+  { key: "suppression.createV1", invoke: (c) => c.suppression.createV1({ email: "user@example.com" }) },
+  { key: "suppression.getV1", invoke: (c) => c.suppression.getV1(EMAIL) },
+  { key: "suppression.deleteV1", invoke: (c) => c.suppression.deleteV1(EMAIL) },
+
+  // --- 1.1: resources that are new in their entirety ---
+  // topics — the consent vocabulary a project mails against
+  { key: "topics.list", invoke: (c) => c.topics.list() },
+  { key: "topics.listAll", invoke: (c) => c.topics.listAll().next() },
+  { key: "topics.create", invoke: (c) => c.topics.create({ key: "product-news", name: "Product news" }) },
+  { key: "topics.get", invoke: (c) => c.topics.get(ID) },
+  { key: "topics.update", invoke: (c) => c.topics.update(ID, {}) },
+  {
+    key: "topics.setSubscription",
+    invoke: (c) => c.topics.setSubscription(ID, { contact_id: ID, subscribed: true }),
+  },
+  // snippets — legacy dialect, gated by the template scopes
+  { key: "snippets.create", invoke: (c) => c.snippets.create({ name: "footer", body: "<p>bye</p>" }) },
+  { key: "snippets.list", invoke: (c) => c.snippets.list() },
+  { key: "snippets.get", invoke: (c) => c.snippets.get(ID) },
+  { key: "snippets.update", invoke: (c) => c.snippets.update(ID, {}) },
+  { key: "snippets.delete", invoke: (c) => c.snippets.delete(ID) },
+  // validation — the one part of this SDK that spends money
+  { key: "validation.validateEmails", invoke: (c) => c.validation.validateEmails({ emails: ["user@example.com"] }) },
+  { key: "validation.getRun", invoke: (c) => c.validation.getRun(ID) },
+  { key: "validation.listResults", invoke: (c) => c.validation.listResults(ID) },
+  { key: "validation.listResultsAll", invoke: (c) => c.validation.listResultsAll(ID).next() },
+  // deliverability
+  { key: "deliverability.diagnose", invoke: (c) => c.deliverability.diagnose({ domain: "mail.example.com" }) },
+  { key: "deliverability.listDomainStats", invoke: (c) => c.deliverability.listDomainStats() },
+  { key: "deliverability.listDomainStatsAll", invoke: (c) => c.deliverability.listDomainStatsAll().next() },
+  { key: "deliverability.listDmarcReports", invoke: (c) => c.deliverability.listDmarcReports() },
+  { key: "deliverability.listDmarcReportsAll", invoke: (c) => c.deliverability.listDmarcReportsAll().next() },
+
+  // --- 1.1: operations added to resources that already existed ---
+  { key: "campaigns.listFailures", invoke: (c) => c.campaigns.listFailures(ID) },
+  { key: "campaigns.listFailuresAll", invoke: (c) => c.campaigns.listFailuresAll(ID).next() },
+  { key: "campaigns.retryFailed", invoke: (c) => c.campaigns.retryFailed(ID) },
+  { key: "workflows.getGraph", invoke: (c) => c.workflows.getGraph(ID) },
+  {
+    key: "workflows.replaceGraph",
+    invoke: (c) =>
+      c.workflows.replaceGraph(ID, {
+        steps: [
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            name: "Signed up",
+            position: { x: 0, y: 0 },
+            type: "TRIGGER",
+            config: { eventName: "user.signup" },
+          },
+        ],
+        transitions: [],
+      }),
+  },
+  { key: "workflows.clone", invoke: (c) => c.workflows.clone(ID, {}) },
+  { key: "workflows.pause", invoke: (c) => c.workflows.pause(ID) },
+  { key: "workflows.resume", invoke: (c) => c.workflows.resume(ID) },
+  {
+    key: "mailboxes.sendMessage",
+    invoke: (c) => c.mailboxes.sendMessage(ID, { to: ["user@example.com"], subject: "s", body: "b" }),
+  },
+  { key: "mailboxes.draftMessage", invoke: (c) => c.mailboxes.draftMessage(ID, { mode: "draft" }) },
 ];
 
 const RESOURCE_NAMES = [
@@ -256,6 +379,10 @@ const RESOURCE_NAMES = [
   "analytics",
   "usage",
   "projects",
+  "topics",
+  "validation",
+  "deliverability",
+  "snippets",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -472,6 +599,12 @@ describe("OpenAPI contract", () => {
   test("every cursor-paginated v1 list method has a companion auto-pagination generator", () => {
     // The v1 list envelope is `{ data, has_more, next_cursor }`; any operation
     // answering with it should be walkable without the caller managing cursors.
+    //
+    // ONE envelope, as of the 1.1 contract. Topics and validation results used to
+    // answer `{ data, cursor, has_more }` and take `cursor`, which meant the shared
+    // page-walker sent a parameter they ignored and read a field they never returned.
+    // Detection is still by SHAPE rather than by an endpoint list, so a resource that
+    // reintroduces the second dialect is caught rather than assumed away.
     const cursorListOps = new Set<string>();
     for (const [path, methods] of Object.entries(spec.paths)) {
       if (!path.startsWith("/api/v1")) continue;
@@ -488,7 +621,10 @@ describe("OpenAPI contract", () => {
     const missing = [...cursorListOps]
       .filter((op) => {
         const listMethods = [...sdkOps.entries()].filter(([, emitted]) => emitted === op).map(([key]) => key);
-        return !listMethods.some((key) => discovered.has(`${key}All`));
+        // `list` -> `listAll`, and `listV1` -> `listAllV1`: on the suffixed pair the
+        // word `All` goes with the verb, not after the dialect marker, because
+        // `listV1All` reads as a third thing rather than as the walk of `listV1`.
+        return !listMethods.some((key) => discovered.has(`${key}All`) || discovered.has(key.replace(/V1$/, "AllV1")));
       })
       .sort();
     expect(missing).toEqual([]);

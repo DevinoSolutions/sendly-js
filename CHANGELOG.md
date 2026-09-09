@@ -3,6 +3,325 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 1.1.0 — 2026-09-05
+
+Four new resources, the `/api/v1` half of six that only had a legacy one, and a
+set of renames the platform made on the wire. Most of this release is additive,
+but the renames are breaking, so it is a major-in-spirit minor: 1.1 talks to an
+API that 1.0 did not.
+
+> **The platform deploy this release waited on has shipped** — monorepo commit
+> `57826bad`, deployed 2026-09-06 — so 1.1 is releasable. The wire now speaks
+> `emailCategory`, `payload` on the v1 event write, and `mailFromDomainStatus`,
+> which is what these types send. Anyone still running the pre-`57826bad`
+> platform should stay on 1.0: an SDK sending `emailCategory` at an API that
+> still expects `type` is answered `422 validation_error` on every template and
+> campaign write.
+>
+> The vendored `openapi.json` is that released contract byte for byte, taken
+> from the monorepo at `57826bad` rather than synced from the deployed API —
+> see `scripts/sync-spec.mjs` for why production is never the source.
+
+### Breaking
+
+- **`Template.type` and `Campaign.type` are now `emailCategory`** on the legacy
+  dialect and `email_category` on v1. It affects `templates.create`,
+  `templates.update`, the `emailCategory` filter on `templates.list`, and
+  `campaigns.create`. Rename the key in the body; the values are unchanged
+  except that the enum member **`HEADLESS` is now `SELF_MANAGED_UNSUBSCRIBE`** —
+  the old name said how the mail was built, the new one says what the recipient
+  gets, which is the fact a caller is choosing between.
+
+  Nothing is accepted under both names, deliberately: an alias would let a
+  half-migrated codebase keep compiling while the two spellings drifted apart.
+
+- **`events.record`'s payload field is now `payload`, not `data`.** Only the v1
+  write moved. **`events.track` is unaffected** and still takes `data`, because
+  it is the legacy `POST /api/track` and its body is a different schema that was
+  not part of this rename. The SDK reports what each endpoint actually accepts
+  rather than smoothing the two together — a shared name here would be a lie
+  about one of them.
+
+- **`Domain.mailFromStatus` is now `mailFromDomainStatus`** (and
+  `mail_from_domain_status` on the v1 document). It sits beside `mailFromDomain`
+  and is the status _of that domain_, which the old name did not say.
+
+- **`emails.get` returns a different body — read this one.** It used to hand back
+  the whole database row plus an `events` array that was the **wrong relation**:
+  the custom analytics events a caller records with `events.record`, not the
+  delivery history the operation has always promised. A caller polling it for
+  delivery state was reading somebody else's data and, if their project recorded
+  no custom events, an empty array that looked like "nothing has happened yet".
+
+  It now returns an explicit field list, `events` as the delivery timeline
+  (`EmailEvent[]`, oldest first), and `to` filled from the joined contact — a
+  field the spec had always declared and the response had never carried.
+
+  Fields that used to leak out of it and no longer do: `bodyHash`, `dedupKey`,
+  `idempotencyKey`, `linkMap`, `sesMessageId`, `sesInboundMessageId`, `body` and
+  `headers`. Four of those are ledger keys for deduplication and idempotency and
+  the rest are internal routing state or the rendered message; none was ever
+  documented. What to change: read `events.list` if you wanted custom events, and
+  keep your own copy of the body if you were reading it back out of here.
+
+- **`emails.list` and `emails.cancelSchedule` narrowed the same way.** All three
+  handlers on that surface were returning the whole database row and each had got
+  there separately; they share one field list now. The list was the widest of
+  them, since it leaked a page of rows at a time, and `cancelSchedule` returned
+  the `dedupKey` in the same response that released it. The same eight fields
+  named above are gone from both, and both now carry `to`.
+
+  `emails.cancelSchedule` resolves `EmailResponse`, which is what the contract has
+  always published for it — the SDK had typed it as an empty envelope since 1.0,
+  so this is the type catching up to the document AND the route catching up to the
+  type.
+
+- **`sentAt`, `deliveredAt` and `bouncedAt` are now declared on `Email`.** They
+  were reaching callers only because of the whole-row leak above and were in no
+  published schema, so the honest options were to declare them or drop them.
+  Declared: they are ordinary delivery facts and callers read them. They are
+  nullable, and null means the transition has not happened.
+
+- **`EmailGetResponse` is gone, split in two.** It named the operation rather
+  than the shape, and was then reused by an operation that is not a GET. There
+  are now `EmailResponse` (a single email) and `EmailDetailResponse` (an email
+  plus its delivery events), and **`emails.get` resolves `EmailDetailResponse`**.
+  A caller who imported the old alias picks the one that matches what they read.
+
+- **Engagement left the delivery status enum.** `OPENED`, `CLICKED` and
+  `COMPLAINED` are no longer delivery states on the platform, so they are no
+  longer members of the status type behind `email.status` or the `status` filter
+  on `emails.list`. The remaining members are `PENDING`, `SENDING`, `SENT`,
+  `DELIVERED`, `RECEIVED`, `BOUNCED`, `FAILED`, `REJECTED`, `RENDERING_FAILURE`,
+  `DELIVERY_DELAY` and `CANCELLED`.
+
+  Read engagement from `openedAt` / `clickedAt` / `complainedAt` and the `opens`
+  / `clicks` counters instead. The two were one enum, which meant a message that
+  had been opened stopped reporting that it had been delivered — a status can
+  only hold one value, and delivery and engagement are not alternatives.
+
+- **The double-opt-in confirmation route moved** from `/api/lists/confirm` to
+  `/api/lists/confirm-subscription`. `lists.subscribe` documents that URL because
+  Sendly does not send the confirmation email — your application does — so a
+  caller who builds it by hand must change the path. The `confirmToken` in the
+  response is unchanged.
+
+- **`Domain.name` is now `Domain.domain`**, and the record no longer carries a
+  ready-made `dkim` array of `{type, name, value}` records. What SES actually
+  hands back is a list of tokens, so that is what is published:
+  **`dkimTokens`**, the strings to publish as CNAME records. The old shape
+  implied Sendly knew the full record set; it knew the tokens and was
+  assembling the rest.
+
+- **`DomainVerificationStatus` reports one status per DNS record type.** `dkim`
+  and `mxRecords` are gone; `dkimStatus`, `spfStatus` and `dmarcStatus` take
+  their place, and `domain`, `status` and `mailFromDomain` are now required.
+  `status` is SES's own raw DKIM state (`Success`, `Pending`) and the three
+  `*Status` fields are this platform's DNS check — both are published because
+  they can disagree, and a single collapsed verdict hid which record was
+  actually failing.
+
+- **The legacy suppression list answers a bare body.** `GET /api/suppression`
+  returns `{ items, nextCursor }` with no `{ success, data }` envelope, where it
+  previously published `{ success, data, hasMore, cursor }`. `suppression.list`
+  hands the body back untouched, so read `page.items` and `page.nextCursor`.
+  `nextCursor` is `null` on the last page and is never omitted.
+
+- **`webhooks.create` nests the endpoint beside the secret.** `data` is now
+  `{ webhook, secret }` rather than the webhook's fields spread alongside
+  `secret`. `created.data.secret` is unchanged; the endpoint's id moved to
+  `created.data.webhook.id`. Spreading a resource and a one-time credential into
+  one object made it impossible to hand the record onward without carrying the
+  secret with it.
+
+- **`Webhook.lastFour` is gone.** A webhook record now states that it never
+  carries a secret, and a four-character fragment of one is still a fragment of
+  one. Nothing identified an endpoint by it — `id` and `url` do that.
+
+### Added
+
+- **The `/api/v1` half of six resources that had only a legacy one.** Both
+  dialects stay reachable, so the versioned methods carry a `V1` suffix:
+  - `contacts` — `listV1`, `listAllV1`, `createV1`, `getV1`, `updateV1`,
+    `deleteV1`, and `topicPreferences`.
+  - `lists` — `listV1`, `listAllV1`, `createV1`, `getV1`, `updateV1`,
+    `deleteV1`, and `startValidationRun`.
+  - `templates` — `listV1`, `listAllV1`, `createV1`, `getV1`, `updateV1`,
+    `deleteV1`.
+  - `domains` — `listV1`, `listAllV1`, `createV1`, `getV1`, `verifyV1`,
+    `deleteV1`, plus the legacy `assignStream`.
+  - `webhooks` — `listV1`, `listAllV1`, `createV1`, `getV1`, `updateV1`,
+    `deleteV1`, `rotateSecretV1`.
+  - `suppression` — `listV1`, `listAllV1`, `createV1`, `getV1`, `deleteV1`.
+
+  The suffix is not decoration. The two halves answer the same question with
+  different envelopes (`{ success, data }` versus the bare body), different field
+  cases (camelCase versus snake_case) and different error bodies (the legacy
+  envelope versus RFC 9457), so a call site that mixes them up reads a `data`
+  that is not there and fails at runtime rather than at the type check. Naming
+  them apart is what makes that impossible.
+
+  One difference inside suppression is worth knowing before you swap: the v1 path
+  parameter is an **address**, and v1 answers `404 resource_not_found` for an
+  address that is not suppressed, where the legacy `suppression.get` answers
+  `200 { suppressed: false }`. Both are definite; only one of them throws.
+
+- **`sendly.topics`** — `list`, `listAll`, `create`, `get`, `update`,
+  `setSubscription`. The consent vocabulary a project mails against: a contact
+  subscribes to a topic rather than to a campaign, so switching one off silences
+  a whole audience. Two things a caller needs:
+  - **Subscribing somebody through the API does not bypass confirmation.**
+    `setSubscription({ subscribed: true })` parks the contact at `pending` and
+    answers a `confirmation_url` that **your** application delivers, from your
+    own verified domain; nothing is mailed on the topic until someone opens it.
+    There is no parameter to skip that, because a subscription an API caller
+    asserts is not evidence the mailbox holder agreed.
+  - **A topic is archived, never deleted.** There is no `delete` method because
+    there is no delete route: a topic is where people's answers are recorded, so
+    deleting it would delete the choices they made against it.
+    `update(id, { archived: true })` retires it and keeps them.
+
+- **`sendly.snippets`** — `create`, `list`, `get`, `update`, `delete`. Reusable
+  body fragments a template includes with `{{> name}}`, on the legacy dialect,
+  gated by the same `templates:*` scopes as the templates that include them —
+  a snippet is part of a template body rather than a resource with an audience of
+  its own. Deleting one does not break its templates: an absent snippet renders
+  as an empty string, like an absent variable.
+
+- **`sendly.validation`** — `validateEmails`, `getRun`, `listResults`,
+  `listResultsAll`. **Billed per address checked**: every entry in
+  `validateEmails({ emails })` costs money, so looping it over a contact list is
+  looping over your invoice. Validate a whole list with
+  `lists.startValidationRun`, a background job, and poll it with `getRun`.
+
+  A verdict of `unknown` is deliberately a distinct value from `undeliverable`:
+  it means DNS did not answer in time, so the address was **not checked**. That
+  separation exists so a DNS timeout is never grounds for deleting a contact.
+
+- **`sendly.deliverability`** — `diagnose`, `listDomainStats`,
+  `listDomainStatsAll`, `listDmarcReports`, `listDmarcReportsAll`.
+  `listDomainStats` is per **recipient** domain (`gmail.com`, `outlook.com`) —
+  the domains you send **to** — which is the axis `diagnose` cannot report: its
+  project-wide rates hide one provider refusing nearly everything while the rest
+  of your mail is healthy. DMARC reports arrive only for a policy domain the
+  project has registered, and receivers send them on their own schedule, so **an
+  empty list is correct rather than broken**.
+
+- **`campaigns.listFailures`, `campaigns.listFailuresAll` and
+  `campaigns.retryFailed`.** `stats` says how many sends failed; only these say
+  who, and `reason` comes from a fixed vocabulary rather than the underlying
+  error text so it is stable enough to branch on. `retryFailed` re-drives **only**
+  the recipients whose send failed — nobody who already received the campaign is
+  mailed again, because each ledger row is claimed before it is touched and a row
+  whose email exists already is re-queued rather than re-sent. Uniquely among v1
+  lists, `listFailures` also carries `total`: `retryFailed` acts on that number,
+  and `has_more` alone cannot tell you whether 3 or 30,000 sends failed.
+
+- **`workflows.getGraph`, `workflows.replaceGraph`, `workflows.clone`,
+  `workflows.pause` and `workflows.resume`.**
+  - `replaceGraph` is a `PUT` because a graph is replaced whole: nodes _plus_ the
+    edges between them, so a partial edit to a step list has no meaning without
+    the transitions that reference it. An id you omit deletes that step and its
+    run history; it is refused with `409 conflict` while executions are running.
+  - `clone` always creates the copy **disabled**, whatever the original was — a
+    clone exists to be reviewed, and one that started live would match the same
+    trigger events as its original from the moment it appeared.
+  - `pause` cancels every `RUNNING`/`WAITING` execution and reports how many in
+    `cancelled_executions`. `resume` re-opens the workflow to new runs and does
+    **not** restore the cancelled ones (`cancelled_executions` is always 0
+    there). That asymmetry is the point of having both: `update({ enabled:
+false })` stops new runs and leaves every in-flight contact walking the
+    graph, `pause` stops the sends already in flight, and nothing puts them back.
+
+- **`mailboxes.sendMessage` and `mailboxes.draftMessage`.** The mailbox resource
+  is no longer read-only.
+  - `sendMessage` **really sends**, as that mailbox's own address, over its own
+    domain, and the recipient can reply. There is no `from` field on purpose: a
+    route that sends under a customer's identity must not take that identity as
+    an argument. `body` is plain text and HTML is refused, so text becomes markup
+    in exactly one place. Needs `mailboxes:send`.
+  - `draftMessage` asks Sendly's assistant to **write** text and hands it back.
+    It stores nothing and sends nothing — the response reports `sent: false`, and
+    no argument changes that — so it needs only `mailboxes:read`. A client that
+    may draft is not thereby a client that may mail your customers.
+
+- **Auto-pagination for every new cursor list.** The `*All` companions now number
+  seventeen: the six from 0.3.0 plus `campaigns.listFailuresAll`,
+  `contacts.listAllV1`, `deliverability.listDmarcReportsAll`,
+  `deliverability.listDomainStatsAll`, `domains.listAllV1`, `lists.listAllV1`,
+  `suppression.listAllV1`, `templates.listAllV1`, `topics.listAll`,
+  `validation.listResultsAll` and `webhooks.listAllV1`.
+
+- **`intake_configured` on the DMARC report list**, and it is the field that
+  makes an empty page readable. `deliverability.listDmarcReports` answering
+  `data: []` used to mean either "no receiver has reported a failure" or "this
+  deployment has no report intake mailbox, so nothing can ever arrive", and the
+  two were indistinguishable. `intake_configured: false` is the second one.
+  Read it before telling anyone the domains are clean.
+
+- **`Suppression.scope`** — `PROJECT` or `GLOBAL`. Every record this API creates
+  or returns today is `PROJECT`; `GLOBAL` is a platform-wide block recorded
+  outside your project, which is why `suppression.getV1` can answer `200` for an
+  address you never suppressed yourself.
+
+- **`Template.currentVersion`** — a counter incremented by an update that changes
+  the rendered content, and left alone by one that only renames. A campaign
+  records the version it sent, so this is how a caller tells "the template
+  changed since" from "the template was retitled".
+
+- **`Webhook.domains`** — the sending domains an endpoint is scoped to, empty
+  meaning every domain on the project. It was already enforced; it is now
+  readable, so a caller can see why an endpoint is quiet.
+
+- **`Webhook.previousSecretExpiresAt`** on the record itself, not only on the
+  rotation response. While a rotation is in flight it says when the OLD secret
+  stops being accepted, and it is `null` outside one — so a verifier can tell
+  from a plain read whether it is inside a dual-signature window.
+
+- **Every `{id}` path parameter declares `format: uuid`,** and the seven
+  operations that had no `404` published now publish one. `GET
+/api/v1/contacts/{id}/topics`, `POST /api/v1/lists/{id}/validation-runs`,
+  `GET` and `PATCH /api/v1/topics/{id}`, `POST /api/v1/topics/{id}/subscriptions`,
+  `GET /api/v1/validation-runs/{id}` and its `/results` all answered
+  `404 resource_not_found` already; the contract now says so, which is what the
+  generated types and the error-handling examples are read from.
+
+### Fixed
+
+- **README: `emails.list` was destructured wrongly.** The example read
+  `page.data.items` and `page.data.cursor`; the response is
+  `{ success, data: Email[], nextCursor }`, so it is `page.data` and
+  `page.nextCursor`. Copying the old example did not compile.
+- **README: `webhooks.create` was destructured wrongly.** The legacy create
+  resolves the envelope, so the secret is at `created.data.secret`, not
+  `const { webhook, secret } = ...`. That destructuring is correct for
+  `webhooks.createV1`, which is where the example now lives.
+- **README: the mailbox resource was described as read-only** in three places.
+  It is not, since `sendMessage` and `draftMessage`; what stays out of reach is
+  the mailbox _lifecycle_, which is a different claim.
+
+### Notes
+
+- **Pagination is uniform again.** Every v1 list takes `after` and answers
+  `next_cursor`. `topics.list` and `validation.listResults` were the two
+  exceptions through 1.0 — they took `cursor` and answered `cursor` — and the
+  platform collapsed that to one dialect for this release, so both now route
+  through `paginateCursor` like every other collection. **This is breaking for a
+  caller driving those two by hand**: pass `after` instead of `cursor`, and read
+  `next_cursor` instead of `cursor`. Anyone using `topics.listAll` or
+  `validation.listResultsAll` is unaffected.
+- **`NOT_SDK_CALLABLE` is unchanged.** Creating and deleting a mailbox, creating
+  and revoking an app password, the four API-key operations, and creating a
+  project still resolve the acting user from a session and answer `401` to any
+  API key. The two new mailbox methods are the opposite case — they publish
+  `ApiKeyAuth` outright.
+- **Nothing added here takes an `idempotencyKey`.** The set of writes that accept
+  one is the same as in 1.0: `emails.send`, `emails.sendLegacy`, `emails.batch`,
+  `contacts.create`, `contacts.upsert`, `contacts.bulkCreate`,
+  `campaigns.create` and `campaigns.send`. `campaigns.retryFailed` is guarded
+  instead by a `409 conflict` on a retry already running, which is a better fit:
+  the thing to prevent is two concurrent walks, not a replayed request.
+
 ## 1.0.0 — 2026-09-02
 
 The default send moves to the versioned API. Everything else in this release is
