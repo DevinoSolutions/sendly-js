@@ -33,7 +33,10 @@ export class DomainsResource {
    * `eu-west-1`). On the very first domain for a project this also locks the
    * project's region; subsequent calls must match.
    *
-   * The response includes DNS records to set.
+   * The response carries `dkimTokens` — the SES DKIM tokens to publish as
+   * CNAME records before the domain can verify — alongside `dkimStatus`,
+   * `spfStatus` and `dmarcStatus`, each the result of the last DNS check for
+   * that record type.
    */
   async create(body: AddDomainRequest): Promise<DomainRecord> {
     const envelope = await this.client.request<{ success: true; data: DomainRecord }>({
@@ -61,7 +64,14 @@ export class DomainsResource {
     return this.client.unwrap(envelope);
   }
 
-  /** Trigger SES verification for a domain. */
+  /**
+   * Trigger SES verification for a domain.
+   *
+   * `status` is SES's own raw DKIM verification state (`Success`, `Pending`),
+   * while `dkimStatus`, `spfStatus` and `dmarcStatus` are this platform's own
+   * DNS check per record type. `tokens` carries the DKIM tokens SES has still
+   * to report and is absent once verification has resolved.
+   */
   async verify(id: string): Promise<DomainVerificationStatus> {
     const envelope = await this.client.request<{ success: true; data: DomainVerificationStatus }>({
       method: "POST",

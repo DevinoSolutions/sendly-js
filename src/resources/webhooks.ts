@@ -40,6 +40,10 @@ export class WebhooksResource {
    * Create a new outbound webhook subscription. The response includes the
    * signing secret — store it now, it is only returned in full at creation
    * and rotation time.
+   *
+   * `data` holds the two separately: `data.webhook` is the endpoint and
+   * `data.secret` is the plaintext. The endpoint's own fields are NOT spread
+   * alongside the secret, so the id is `data.webhook.id`.
    */
   async create(body: CreateWebhookRequest): Promise<WebhookCreateResponse> {
     return this.client.request<WebhookCreateResponse>({

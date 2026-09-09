@@ -54,7 +54,14 @@ export class TemplatesResource {
     return this.client.unwrap(envelope);
   }
 
-  /** Patch an existing template. */
+  /**
+   * Patch an existing template.
+   *
+   * An update that changes the rendered content increments `currentVersion`;
+   * one that only renames leaves it alone. A campaign records the version it
+   * sent, so comparing the two is how a caller tells "the template changed
+   * since" from "the template was renamed".
+   */
   async update(id: string, body: UpdateTemplateRequest): Promise<TemplateRecord> {
     const envelope = await this.client.request<{ success: true; data: TemplateRecord }>({
       method: "PATCH",

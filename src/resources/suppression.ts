@@ -36,7 +36,14 @@ export class SuppressionResource {
     return this.client.unwrap(envelope);
   }
 
-  /** List suppressions with optional reason filter + cursor pagination. */
+  /**
+   * List suppressions with optional reason filter + cursor pagination.
+   *
+   * Alone among the legacy reads, this route answers no `{ success, data }`
+   * envelope: the page IS the body, `{ items, nextCursor }`, so nothing is
+   * unwrapped. Each record carries `scope` — `PROJECT` for every record this
+   * API creates or returns today.
+   */
   async list(query?: ListSuppressionsQuery): Promise<SuppressionListResponse> {
     return this.client.request<SuppressionListResponse>({
       method: "GET",
