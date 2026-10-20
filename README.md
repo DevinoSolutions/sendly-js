@@ -1,6 +1,17 @@
 # sendly-sdk
 
-Official TypeScript SDK for the [Sendly](https://sendly.now) REST API.
+```bash
+npm i sendly-sdk
+```
+
+Official TypeScript SDK for the [Sendly](https://sendly.now) **email** platform
+(`sendly.now`, API at `api.sendly.now`). The npm package is `sendly-sdk`; this
+repository is `DevinoSolutions/sendly-js`.
+
+> **Not the SMS product.** This is not the SDK for sendly.live, the unrelated SMS
+> service (`@sendly/node`, `@sendly/cli`, `@sendly/mcp`). The same goes for the
+> look-alike packages `sendly`, `@sendlyapi/node` and `@sendlyapp/sdk`. If you
+> are integrating email through sendly.now, `sendly-sdk` is the package.
 
 Type-safe email, contact, list, topic, domain, template, snippet, webhook and
 suppression operations; mailbox reads plus the two composition calls a key may
@@ -661,6 +672,90 @@ by rotating rather than recovered. The outgoing secret is not cut off at once â€
 it keeps verifying until `previous_secret_expires_at`, and every delivery inside
 that window carries **both** signatures, so a verifier can be redeployed without
 dropping an event.
+
+### Verifying webhooks
+
+Every delivery carries two independent signatures over the **raw request body**.
+`verifySignature` and `constructEvent` check the first; the second is for
+verifiers that follow [Standard Webhooks](https://www.standardwebhooks.com) or
+that need zero-downtime rotation. Full guide, including a Python verifier:
+[docs.sendly.now/guides/webhooks](https://docs.sendly.now/guides/webhooks).
+
+```ts
+import { constructEvent } from "sendly-sdk";
+
+// Express: pass the raw bytes, never the parsed body.
+app.post("/webhooks/sendly", express.raw({ type: "application/json" }), (req, res) => {
+  const event = constructEvent(
+    req.body,
+    req.headers["x-sendly-signature"] as string,
+    req.headers["x-sendly-timestamp"] as string,
+    process.env.SENDLY_WEBHOOK_SECRET!,
+  ); // throws "Invalid webhook signature" on a bad signature or a stale timestamp
+  res.sendStatus(200);
+});
+```
+
+**`X-Sendly-Signature` (what the SDK verifies)**
+
+```text
+signed_payload = X-Sendly-Timestamp + "." + raw_body
+signature      = lowercase_hex( HMAC_SHA256( key = secret, message = signed_payload ) )
+```
+
+- `X-Sendly-Timestamp` is Unix time in **milliseconds**, a decimal string, used as sent.
+- The header value is the bare 64-character hex digest, with no `sha256=` prefix.
+- The key is the secret string as stored, UTF-8 encoded. A `whsec_...` secret is
+  used whole, prefix included; it is **not** base64-decoded for this header.
+- Compare in constant time. The SDK rejects a timestamp more than **5 minutes**
+  from the verifier's clock (`toleranceMs`, default `DEFAULT_TOLERANCE_MS`),
+  which stops a captured delivery being replayed later. Every retry is re-signed
+  with a fresh timestamp, so a late retry is not rejected for age.
+
+**`webhook-signature` (Standard Webhooks)**
+
+```text
+signed_payload = webhook-id + "." + webhook-timestamp + "." + raw_body      (timestamp in seconds)
+signature      = "v1," + base64( HMAC_SHA256( key, signed_payload ) )
+```
+
+`key` is the base64-decoded remainder of a `whsec_` secret (or the raw UTF-8
+bytes of an older unprefixed secret). The header can hold several
+space-separated `v1,...` signatures; accept the request if any one matches.
+
+**Rotation.** After `rotateSecret`, the previous secret keeps verifying for 24
+hours and only one previous secret is live. During that window
+`webhook-signature` carries a signature for the new secret and one for the old,
+so verify it against every secret you hold for zero downtime.
+`X-Sendly-Signature` is signed with the **new secret only**, so a verifier that
+checks just that header (as `verifySignature` does) must have the new secret as
+soon as you rotate; rejected deliveries are retried with backoff.
+
+**Test vector.** Check an implementation in any language without a live send:
+
+| Input                | Value                                                                        |
+| -------------------- | ---------------------------------------------------------------------------- |
+| Secret               | `whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYX`                                     |
+| `X-Sendly-Timestamp` | `1700000000000`                                                              |
+| `webhook-id`         | `msg_2c9f8e1a4b7d4c3e`                                                       |
+| `webhook-timestamp`  | `1700000000`                                                                 |
+| Raw body             | `{"event":"email.sent","data":{"emailId":"e1"},"timestamp":"1700000000000"}` |
+
+| Expected header      | Value                                                              |
+| -------------------- | ------------------------------------------------------------------ |
+| `X-Sendly-Signature` | `e8f3ca5c77d88269b09281a87b5fc48618b3be252093374345312315a92be620` |
+| `webhook-signature`  | `v1,KXrjybsdQ1Rrr93ZXptngyvnG2kWwlMzUKH7cmozDTM=`                  |
+
+The timestamp is from 2023, so pass `{ toleranceMs: Infinity }` to
+`verifySignature` (or pin the clock) when running it. The SDK pins this exact
+vector in `src/__tests__/webhook-signature-vector.test.ts`.
+
+**Event names.** `eventTypes` accepts exactly: `email.sent`, `email.delivered`,
+`email.opened`, `email.clicked`, `email.bounced`, `email.complained`,
+`email.failed`, `contact.created`, `contact.unsubscribed` and
+`contacts.bulk_created`. The workflow trigger names (`email.delivery`,
+`email.bounce`, and so on) are a different list; a webhook subscription rejects
+them.
 
 ### Add to the suppression list
 
