@@ -7,12 +7,24 @@ import type { components, paths } from "./types.generated";
 
 // ---------- Codegen corrections ----------
 //
-// The generated types are stricter than the API actually is in one place.
-// The correction is applied only to the alias below, never by editing
-// `types.generated.ts` (which `pnpm build:types` overwrites).
+// The generated types are stricter than the API actually is: openapi-typescript
+// emits a request property that carries a spec `default` as REQUIRED, because it
+// reads the default as a guarantee about the value's presence. The server fills
+// the default in, so the caller must not have to. The correction is applied only
+// to the aliases below, never by editing `types.generated.ts` (which
+// `pnpm build:types` overwrites); `src/__tests__/types.test.ts` pins each one.
 
 /** Make `K` optional on `T`, leaving every other member as generated. */
 type PartialKeys<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+/**
+ * A send body whose attachments may omit `disposition` (the server defaults it
+ * to `attachment`). `T` is the generated body, so every other member —
+ * including the rest of each attachment — stays exactly as generated.
+ */
+type WithDefaultedDisposition<T extends { attachments?: { disposition: unknown }[] }> = Omit<T, "attachments"> & {
+  attachments?: PartialKeys<NonNullable<T["attachments"]>[number], "disposition">[];
+};
 
 // ---------- Generic envelopes ----------
 
@@ -23,11 +35,15 @@ export type IdResponse = components["schemas"]["IdResponse"];
 
 // ---------- Emails ----------
 
-export type SendEmailRequest = components["schemas"]["SendEmail"];
+/** `attachments[].disposition` defaults to `attachment` server-side, so it is optional here. */
+export type SendEmailRequest = WithDefaultedDisposition<components["schemas"]["SendEmail"]>;
 export type SendEmailData = components["schemas"]["SendEmailData"];
 export type SendEmailResponse = components["schemas"]["SendEmailResponse"];
 
-export type BatchSendRequest = components["schemas"]["BatchSendBody"];
+/** Each entry is a {@link SendEmailRequest}: `attachments[].disposition` is optional. */
+export type BatchSendRequest = Omit<components["schemas"]["BatchSendBody"], "emails"> & {
+  emails: SendEmailRequest[];
+};
 export type BatchSendResponse = components["schemas"]["BatchSendResponse"];
 export type BatchEntryResult = components["schemas"]["BatchEntryResult"];
 
@@ -61,9 +77,13 @@ export type ListEmailsQuery = NonNullable<paths["/api/emails"]["get"]["parameter
 
 export type ContactRecord = components["schemas"]["Contact"];
 export type ContactListResponse = components["schemas"]["ContactListResponse"];
-export type CreateContactRequest = components["schemas"]["CreateContact"];
+/** `subscribed` defaults to `true` server-side, so it is optional here. */
+export type CreateContactRequest = PartialKeys<components["schemas"]["CreateContact"], "subscribed">;
 export type UpdateContactRequest = components["schemas"]["UpdateContactBody"];
-export type BulkCreateContactsRequest = components["schemas"]["ContactBulkCreateBody"];
+/** Each contact's `subscribed` defaults to `true` server-side, so it is optional here. */
+export type BulkCreateContactsRequest = Omit<components["schemas"]["ContactBulkCreateBody"], "contacts"> & {
+  contacts: CreateContactRequest[];
+};
 export type BulkDeleteContactsRequest = components["schemas"]["ContactBulkDeleteBody"];
 
 export type ListContactsQuery = NonNullable<paths["/api/contacts"]["get"]["parameters"]["query"]>;
@@ -108,7 +128,8 @@ export type DraftMailboxMessageRequest = components["schemas"]["DraftMailboxMess
 
 export type TemplateRecord = components["schemas"]["Template"];
 export type TemplateListResponse = components["schemas"]["TemplateListResponse"];
-export type CreateTemplateRequest = components["schemas"]["CreateTemplate"];
+/** `emailCategory` defaults to `MARKETING` server-side, so it is optional here. */
+export type CreateTemplateRequest = PartialKeys<components["schemas"]["CreateTemplate"], "emailCategory">;
 export type UpdateTemplateRequest = components["schemas"]["UpdateTemplate"];
 
 export type ListTemplatesQuery = NonNullable<paths["/api/templates"]["get"]["parameters"]["query"]>;
@@ -144,7 +165,8 @@ export type ListSnippetsQuery = NonNullable<paths["/api/snippets"]["get"]["param
 export type SuppressionRecord = components["schemas"]["Suppression"];
 export type SuppressionListResponse = components["schemas"]["SuppressionListResponse"];
 export type SuppressionCheckResponse = components["schemas"]["SuppressionCheckResponse"];
-export type AddSuppressionRequest = components["schemas"]["AddSuppression"];
+/** `reason` defaults to `MANUAL` server-side, so it is optional here. */
+export type AddSuppressionRequest = PartialKeys<components["schemas"]["AddSuppression"], "reason">;
 
 export type ListSuppressionsQuery = NonNullable<paths["/api/suppression"]["get"]["parameters"]["query"]>;
 
@@ -259,7 +281,17 @@ export type ProjectV1 = components["schemas"]["ProjectV1"];
 // The versioned send. Distinct from the legacy `SendEmailRequest` above, which
 // posts to `/api/emails` and answers with row ids and no delivery status.
 
-export type SendEmailV1Request = components["schemas"]["SendEmailV1"];
+/**
+ * `attachments[].disposition` defaults to `attachment` server-side, so it is
+ * optional here.
+ *
+ * The body is closed: `emails.send` refuses any key outside this type with a
+ * `SendlyValidationError` naming the likely intent (`html` -> `body`,
+ * `replyTo` -> `reply`). TypeScript does not check excess properties on a
+ * payload built elsewhere and passed as a variable, which is why the client
+ * checks it at runtime.
+ */
+export type SendEmailV1Request = WithDefaultedDisposition<components["schemas"]["SendEmailV1"]>;
 export type EmailV1 = components["schemas"]["EmailV1"];
 export type SendTestEmailV1Request = components["schemas"]["SendTestEmailV1"];
 export type EmailTestV1 = components["schemas"]["EmailTestV1"];

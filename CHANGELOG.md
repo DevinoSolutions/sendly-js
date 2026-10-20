@@ -3,6 +3,42 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased (next: 1.2.0)
+
+### Breaking
+
+- **`emails.send` refuses a body with a key the send schema does not define**
+  ([#9](https://github.com/DevinoSolutions/sendly-js/issues/9)). The endpoint
+  ignores unknown keys and answers `202`, so a payload shaped for another
+  provider — `html`, `replyTo` — used to be delivered as an **empty email**.
+  It now rejects, before any request is made, with a `SendlyValidationError`
+  (`errorCode: "unknown_field"`, one `fieldErrors` entry per key, `statusCode: 0`)
+  that names the field to use: `unknown field "html"; Sendly's HTML content
+field is "body"`, `unknown field "replyTo"; Sendly's reply-to field is
+"reply"`. Also hinted: `htmlBody`/`html_body` → `body`, `reply_to` → `reply`,
+  `templateId`/`template_id` → `template`, a wrong-case `CC`/`Bcc`/`Subject` →
+  the lower-case name, and `text`/`textBody`/`text_body` (Sendly has no separate
+  plain-text field). Any other unknown key lists the accepted fields. A caller
+  that was passing extra keys must stop; nothing else about `send` changes.
+  `sendLegacy` and `batch` are unchanged.
+
+  The accepted key list is derived from the generated `SendEmailV1` type: a
+  regeneration that adds, renames or removes a property fails the type check.
+
+### Fixed
+
+- **A request property whose spec carries a `default` is optional again**
+  ([#8](https://github.com/DevinoSolutions/sendly-js/issues/8)). The generator
+  emits those as required; the server fills them in. So
+  `attachments: [{ filename, content, contentType }]` now compiles without
+  `disposition`. Corrected, through the curated alias layer:
+  `SendEmailV1Request`, `SendEmailRequest` and `BatchSendRequest`
+  (`attachments[].disposition`, default `attachment`), `CreateContactRequest` and
+  `BulkCreateContactsRequest` (`subscribed`, default `true`),
+  `CreateTemplateRequest` (`emailCategory`, default `MARKETING`) and
+  `AddSuppressionRequest` (`reason`, default `MANUAL`). Types only: no runtime
+  or wire change, and every previously valid call still compiles.
+
 ## 1.1.0 — 2026-09-05
 
 Four new resources, the `/api/v1` half of six that only had a legacy one, and a
