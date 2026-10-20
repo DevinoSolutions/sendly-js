@@ -1,6 +1,7 @@
 import type { Sendly } from "../client";
 import { idemHeader } from "./idempotency";
 import type { IdempotencyOptions } from "./idempotency";
+import { assertKnownSendKeys } from "./send-payload";
 import type {
   BatchSendRequest,
   BatchSendResponse,
@@ -32,11 +33,19 @@ export class EmailsResource {
    * delivery state — poll `emails.get(id)` for the events behind it. Takes a
    * single recipient; `cc`/`bcc` copy others.
    *
+   * The body is checked before anything is sent: a key outside the send schema
+   * rejects with a `SendlyValidationError` (`errorCode: "unknown_field"`, one
+   * `fieldErrors` entry per key) that names the field to use instead — `html` is
+   * `body`, `replyTo` is `reply`. The endpoint itself ignores unknown keys, so
+   * without this check a payload shaped for another provider is delivered as an
+   * empty email. A caller that was passing extra keys must stop.
+   *
    * Before 1.0 this posted to the legacy `POST /api/emails`, which answered
    * with row ids and no delivery status and fanned an array `to` out to several
    * recipients. That behaviour is {@link sendLegacy}, unchanged.
    */
   async send(body: SendEmailV1Request, opts?: IdempotencyOptions): Promise<EmailV1> {
+    assertKnownSendKeys(body);
     return this.client.request<EmailV1>({
       method: "POST",
       path: "/api/v1/emails",
