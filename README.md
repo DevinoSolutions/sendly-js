@@ -686,13 +686,18 @@ import { constructEvent } from "sendly-sdk";
 
 // Express: pass the raw bytes, never the parsed body.
 app.post("/webhooks/sendly", express.raw({ type: "application/json" }), (req, res) => {
-  const event = constructEvent(
-    req.body,
-    req.headers["x-sendly-signature"] as string,
-    req.headers["x-sendly-timestamp"] as string,
-    process.env.SENDLY_WEBHOOK_SECRET!,
-  ); // throws "Invalid webhook signature" on a bad signature or a stale timestamp
-  res.sendStatus(200);
+  try {
+    const event = constructEvent(
+      req.body,
+      req.headers["x-sendly-signature"] as string,
+      req.headers["x-sendly-timestamp"] as string,
+      process.env.SENDLY_WEBHOOK_SECRET!,
+    ); // throws "Invalid webhook signature" on a bad signature or a stale timestamp
+    res.sendStatus(200);
+  } catch {
+    // A 5xx is retried; a 4xx never is. Answer 5xx on a failed check.
+    res.sendStatus(500);
+  }
 });
 ```
 
@@ -723,13 +728,15 @@ signature      = "v1," + base64( HMAC_SHA256( key, signed_payload ) )
 bytes of an older unprefixed secret). The header can hold several
 space-separated `v1,...` signatures; accept the request if any one matches.
 
-**Rotation.** After `rotateSecret`, the previous secret keeps verifying for 24
+**Rotation.** After `rotateSecretV1`, the previous secret keeps verifying for 24
 hours and only one previous secret is live. During that window
 `webhook-signature` carries a signature for the new secret and one for the old,
 so verify it against every secret you hold for zero downtime.
 `X-Sendly-Signature` is signed with the **new secret only**, so a verifier that
 checks just that header (as `verifySignature` does) must have the new secret as
-soon as you rotate; rejected deliveries are retried with backoff.
+soon as you rotate. When verification fails, answer with a **5xx** so the delivery is
+retried; a **4xx is never retried**, counts toward the 20-failure auto-disable, and
+can only be recovered by replaying it (`POST /api/webhooks/{id}/replay-failed`).
 
 **Test vector.** Check an implementation in any language without a live send:
 
