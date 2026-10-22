@@ -63,7 +63,29 @@ const spec = JSON.parse(readFileSync(SPEC_PATH, "utf8")) as OpenApiSpec;
  * NOT YET — a genuine gap. Empty: every key-callable operation is now mapped to
  * a resource method. Retained as the seam for future spec additions.
  */
-export const NOT_YET_IMPLEMENTED: readonly string[] = [];
+export const NOT_YET_IMPLEMENTED: readonly string[] = [
+  // Reading and answering a mailbox's mail.
+  "GET /api/mailboxes/{id}/conversations",
+  "GET /api/mailboxes/{id}/conversations/{conversationId}",
+  "POST /api/mailboxes/{id}/conversations/{conversationId}/reply",
+  "GET /api/mailboxes/{id}/attachments/{attachmentId}",
+
+  // A sending domain's sender logo (the inbox avatar) and its readiness checklist.
+  "GET /api/v1/domains/{id}/logo",
+  "PUT /api/v1/domains/{id}/logo",
+  "DELETE /api/v1/domains/{id}/logo",
+  "GET /api/v1/domains/{id}/logo/readiness",
+];
+
+/**
+ * Other providers' wire formats, served so that a Resend, SendGrid, Postmark,
+ * Mailgun or Plunk client can switch to Sendly by changing its base URL. They
+ * are called by THAT provider's SDK, in that provider's shape, so a method here
+ * would be a second, foreign-shaped `emails.send`. Matched by path rather than
+ * listed, so a new dialect needs no edit, and the suite checks the SDK
+ * implements none of them.
+ */
+const isCompatDialect = (op: string): boolean => op.split(" ")[1]?.startsWith("/api/compat/") ?? false;
 
 /**
  * NEVER, by construction — the credential this SDK uses cannot call these.
@@ -96,7 +118,9 @@ export const NOT_SDK_CALLABLE: readonly string[] = [
   "DELETE /api/projects/{id}/api-keys/{keyId}",
   "POST /api/projects/{id}/api-keys/{keyId}/rotate",
 
-  // A project is created FOR a user; there is nothing for a key to act as.
+  // A project is created FOR a user, and listed for one; there is nothing for a
+  // key to act as.
+  "GET /api/users/me/projects",
   "POST /api/users/me/projects",
 ];
 
@@ -484,8 +508,17 @@ describe("OpenAPI contract", () => {
   test("every spec operation is implemented by an SDK method or explicitly listed", () => {
     const implemented = new Set(sdkOps.values());
     const excused = new Set([...NOT_YET_IMPLEMENTED, ...NOT_SDK_CALLABLE]);
-    const uncovered = [...specOperations()].filter((op) => !implemented.has(op) && !excused.has(op)).sort();
+    const uncovered = [...specOperations()]
+      .filter((op) => !implemented.has(op) && !excused.has(op) && !isCompatDialect(op))
+      .sort();
     expect(uncovered).toEqual([]);
+  });
+
+  test("no SDK method targets another provider's compat dialect", () => {
+    const compat = [...specOperations()].filter((op) => isCompatDialect(op));
+    // The probe must see the dialects, or the assertion below is vacuous.
+    expect(compat.length).toBeGreaterThan(0);
+    expect([...sdkOps.values()].filter((op) => isCompatDialect(op)).sort()).toEqual([]);
   });
 
   test("every SDK method targets a path+verb that exists in the spec", () => {
@@ -530,6 +563,9 @@ describe("OpenAPI contract", () => {
     const refusesKeyButUnlisted = [...specOperations()]
       .filter((op) => !keyCallable(op))
       .filter((op) => !NOT_SDK_CALLABLE.includes(op))
+      // A dialect carries its provider's own credential (a Postmark server token,
+      // Mailgun basic auth); it is excused above, by path, not by this list.
+      .filter((op) => !isCompatDialect(op))
       // `/api/verify/*` is open — no security requirement at all — which is not
       // the same fact as "refuses an API key". Exclude it by that property
       // rather than by name, so a new open route needs no edit here.

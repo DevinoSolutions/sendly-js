@@ -159,6 +159,20 @@ describe("emails.send refuses keys outside the send schema (#9)", () => {
     });
   });
 
+  test("listUnsubscribe, the sender's own one-click endpoint, is forwarded as given", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(202, RECEIPT));
+    const payload: SendEmailV1Request = {
+      to: "test+user@example.com",
+      subject: "hi",
+      listUnsubscribe: "https://notify.example.com/unsubscribe?token=abc123",
+    };
+
+    await client.emails.send(payload);
+
+    expect(getCallBody(fetchMock)).toEqual(payload);
+  });
+
   test("only unknown keys are refused client-side; value validation stays the server's", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(202, RECEIPT));
