@@ -124,6 +124,22 @@ export type ComposeMailboxMessageRequest = components["schemas"]["ComposeMailbox
  */
 export type DraftMailboxMessageRequest = components["schemas"]["DraftMailboxMessage"];
 
+/** One thread in a mailbox: the correspondent, the subject, its status and its last activity. */
+export type MailboxConversation = components["schemas"]["MailboxConversation"];
+/**
+ * One message in a thread, inbound or outbound. Bodies are written by the
+ * sender and are untrusted: never render `htmlBody` unsanitised.
+ */
+export type MailboxMessage = components["schemas"]["MailboxMessage"];
+/** Body for answering a thread: plain text in `body`, or a structured `document`. */
+export type MailboxConversationReplyRequest = components["schemas"]["MailboxConversationReplyBody"];
+export type ListMailboxConversationsQuery = NonNullable<
+  paths["/api/mailboxes/{id}/conversations"]["get"]["parameters"]["query"]
+>;
+/** One page of a mailbox's threads; pass `nextCursor` back as `cursor` until it is null. */
+export type MailboxConversationPage =
+  paths["/api/mailboxes/{id}/conversations"]["get"]["responses"][200]["content"]["application/json"]["data"];
+
 // ---------- Templates ----------
 
 export type TemplateRecord = components["schemas"]["Template"];
@@ -345,6 +361,12 @@ export type DomainV1 = components["schemas"]["DomainV1"];
 export type DomainListV1 = components["schemas"]["DomainV1List"];
 export type DomainDeletedV1 = components["schemas"]["DomainV1Deleted"];
 export type CreateDomainV1Request = components["schemas"]["DomainV1Create"];
+/** The logo an identity serves to inboxes, its BIMI record, and a fresh DNS readiness reading. */
+export type DomainLogoV1 = components["schemas"]["DomainLogoV1"];
+/** Body for replacing an identity's logo: SVG source text, rebuilt into SVG Tiny PS. */
+export type UploadDomainLogoV1Request = components["schemas"]["DomainLogoV1Upload"];
+/** The per-step, per-inbox checklist for showing the logo as the inbox avatar. */
+export type DomainLogoReadinessV1 = components["schemas"]["DomainLogoReadinessV1"];
 
 export type ListDomainsV1Query = NonNullable<paths["/api/v1/domains"]["get"]["parameters"]["query"]>;
 

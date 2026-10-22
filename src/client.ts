@@ -40,6 +40,16 @@ export interface SendlyClientOptions {
   defaultHeaders?: Record<string, string>;
 }
 
+/** A file the API answered with, as {@link Sendly.requestBytes} resolves it. */
+export interface SendlyFile {
+  /** The body, byte for byte. */
+  data: ArrayBuffer;
+  /** As the server declared it. For a mailbox attachment that is the SENDER's claim: do not trust it. */
+  contentType: string | null;
+  /** `attachment; filename="…"` or `inline; …`, verbatim. */
+  contentDisposition: string | null;
+}
+
 export interface RequestOptions {
   /** Path relative to baseUrl, must start with `/`. */
   path: string;
@@ -168,38 +178,7 @@ export class Sendly {
    * status, in either dialect.
    */
   async request<T = unknown>(options: RequestOptions): Promise<T> {
-    const url = this.buildUrl(options.path, options.query);
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.apiKey}`,
-      Accept: "application/json",
-      "User-Agent": `sendly-node/${SDK_VERSION}`,
-      ...this.defaultHeaders,
-      ...options.headers,
-    };
-
-    let body: string | undefined;
-    if (options.body !== undefined) {
-      headers["Content-Type"] = "application/json";
-      body = JSON.stringify(options.body);
-    }
-
-    const init: RequestInit = {
-      method: options.method,
-      headers,
-      body,
-    };
-
-    if (this.timeout > 0) {
-      init.signal = AbortSignal.timeout(this.timeout);
-    }
-
-    let response: Response;
-    try {
-      response = await this.fetchImpl(url, init);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new SendlyConnectionError(`Sendly request failed: ${message}`, error);
-    }
+    const response = await this.send(options);
 
     // 204 No Content (DELETE endpoints)
     if (response.status === 204 || options.noContent) {
@@ -240,6 +219,62 @@ export class Sendly {
     }
 
     return parsed as T;
+  }
+
+  /**
+   * Like {@link request}, for an operation whose success body is a file rather
+   * than JSON: resolves the raw bytes with the response's own `Content-Type`
+   * and `Content-Disposition`. A failure is still a JSON error document and is
+   * thrown as the same {@link SendlyError} subclasses.
+   *
+   * Reading the body as text, as {@link request} does, would corrupt any byte
+   * that is not valid UTF-8, which is most of an image or a PDF.
+   */
+  async requestBytes(options: Omit<RequestOptions, "noContent">): Promise<SendlyFile> {
+    const response = await this.send({ ...options, headers: { Accept: "*/*", ...options.headers } });
+    if (!response.ok) {
+      await this.throwForError(response);
+    }
+    return {
+      data: await response.arrayBuffer(),
+      contentType: response.headers?.get("content-type") ?? null,
+      contentDisposition: response.headers?.get("content-disposition") ?? null,
+    };
+  }
+
+  /** Issue the request; errors and parsing are the caller's. */
+  private async send(options: RequestOptions): Promise<Response> {
+    const url = this.buildUrl(options.path, options.query);
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.apiKey}`,
+      Accept: "application/json",
+      "User-Agent": `sendly-node/${SDK_VERSION}`,
+      ...this.defaultHeaders,
+      ...options.headers,
+    };
+
+    let body: string | undefined;
+    if (options.body !== undefined) {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(options.body);
+    }
+
+    const init: RequestInit = {
+      method: options.method,
+      headers,
+      body,
+    };
+
+    if (this.timeout > 0) {
+      init.signal = AbortSignal.timeout(this.timeout);
+    }
+
+    try {
+      return await this.fetchImpl(url, init);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SendlyConnectionError(`Sendly request failed: ${message}`, error);
+    }
   }
 
   /**

@@ -27,6 +27,15 @@ field is "body"`, `unknown field "replyTo"; Sendly's reply-to field is
 
 ### Added
 
+- **Mailbox mail.** `mailboxes.listConversations` / `listAllConversations`,
+  `getConversation`, `replyToConversation` and `downloadAttachment`, under the
+  opt-in `mailbox-conversations:read` / `:reply` scopes, which no existing key
+  carries.
+- **The sender logo (BIMI).** `domains.getLogoV1`, `uploadLogoV1`,
+  `deleteLogoV1` and `getLogoReadinessV1`.
+- **`client.requestBytes`** for an operation that answers a file. It resolves
+  `{ data: ArrayBuffer, contentType, contentDisposition }` and throws the same
+  typed errors. `request` reads the body as text, which corrupts any binary file.
 - **`emails.send` takes `listUnsubscribe`**, the https URL of your own one-click
   unsubscribe endpoint. A transactional send carries no unsubscribe of Sendly's,
   because Sendly cannot know what the reader would be opting out of; with this

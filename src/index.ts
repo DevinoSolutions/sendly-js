@@ -11,7 +11,7 @@
  */
 
 export { Sendly, DEFAULT_BASE_URL, SDK_VERSION } from "./client";
-export type { SendlyClientOptions, RequestOptions } from "./client";
+export type { SendlyClientOptions, RequestOptions, SendlyFile } from "./client";
 
 export { EmailsResource } from "./resources/emails";
 export type { IdempotencyOptions } from "./resources/idempotency";
@@ -25,6 +25,7 @@ export { EventsResource } from "./resources/events";
 export { VerifyResource } from "./resources/verify";
 export { ListsResource } from "./resources/lists";
 export { MailboxesResource } from "./resources/mailboxes";
+export type { MailboxConversationReply } from "./resources/mailboxes";
 export { SnippetsResource } from "./resources/snippets";
 
 // /api/v1 resources — bare responses, snake_case fields, RFC 9457 errors.
