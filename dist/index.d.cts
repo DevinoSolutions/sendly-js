@@ -20534,6 +20534,18 @@ type ComposeMailboxMessageRequest = components["schemas"]["ComposeMailboxMessage
  * sending needs `mailboxes:send`.
  */
 type DraftMailboxMessageRequest = components["schemas"]["DraftMailboxMessage"];
+/** One thread in a mailbox: the correspondent, the subject, its status and its last activity. */
+type MailboxConversation = components["schemas"]["MailboxConversation"];
+/**
+ * One message in a thread, inbound or outbound. Bodies are written by the
+ * sender and are untrusted: never render `htmlBody` unsanitised.
+ */
+type MailboxMessage = components["schemas"]["MailboxMessage"];
+/** Body for answering a thread: plain text in `body`, or a structured `document`. */
+type MailboxConversationReplyRequest = components["schemas"]["MailboxConversationReplyBody"];
+type ListMailboxConversationsQuery = NonNullable<paths["/api/mailboxes/{id}/conversations"]["get"]["parameters"]["query"]>;
+/** One page of a mailbox's threads; pass `nextCursor` back as `cursor` until it is null. */
+type MailboxConversationPage = paths["/api/mailboxes/{id}/conversations"]["get"]["responses"][200]["content"]["application/json"]["data"];
 type TemplateRecord = components["schemas"]["Template"];
 type TemplateListResponse = components["schemas"]["TemplateListResponse"];
 /** `emailCategory` defaults to `MARKETING` server-side, so it is optional here. */
@@ -20663,6 +20675,12 @@ type DomainV1 = components["schemas"]["DomainV1"];
 type DomainListV1 = components["schemas"]["DomainV1List"];
 type DomainDeletedV1 = components["schemas"]["DomainV1Deleted"];
 type CreateDomainV1Request = components["schemas"]["DomainV1Create"];
+/** The logo an identity serves to inboxes, its BIMI record, and a fresh DNS readiness reading. */
+type DomainLogoV1 = components["schemas"]["DomainLogoV1"];
+/** Body for replacing an identity's logo: SVG source text, rebuilt into SVG Tiny PS. */
+type UploadDomainLogoV1Request = components["schemas"]["DomainLogoV1Upload"];
+/** The per-step, per-inbox checklist for showing the logo as the inbox avatar. */
+type DomainLogoReadinessV1 = components["schemas"]["DomainLogoReadinessV1"];
 type ListDomainsV1Query = NonNullable<paths["/api/v1/domains"]["get"]["parameters"]["query"]>;
 type WebhookV1 = components["schemas"]["WebhookV1"];
 type WebhookListV1 = components["schemas"]["WebhookV1List"];
@@ -21106,6 +21124,41 @@ declare class DomainsResource {
      * so re-adding later mints records that must be published again.
      */
     deleteV1(id: string): Promise<DomainDeletedV1>;
+    /**
+     * The logo this identity serves to inboxes (BIMI), the `default._bimi` TXT
+     * record that makes them fetch it (`bimi_record`), and a fresh DNS reading of
+     * whether they will show it today. The URL never changes, so the record is
+     * published once. Until a logo is uploaded it serves a default (the domain's
+     * initial), and it serves nothing until the identity verifies.
+     *
+     * Providers decide whether to display a logo, so DNS readiness is not a
+     * promise of display; Gmail also needs a VMC or CMC certificate, which Sendly
+     * neither issues nor checks. {@link getLogoReadinessV1} is the full checklist.
+     */
+    getLogoV1(id: string): Promise<DomainLogoV1>;
+    /**
+     * Replace the logo with an SVG. It is rebuilt into SVG Tiny PS, the profile
+     * BIMI requires: it must be square, draw with shapes rather than `<text>`,
+     * reference nothing outside itself, and come to at most 32 KB once rebuilt.
+     * A file that cannot be rebuilt answers `422 validation_error` with a
+     * `detail` naming what to change, and the previous logo stays in place.
+     */
+    uploadLogoV1(id: string, body: UploadDomainLogoV1Request): Promise<DomainLogoV1>;
+    /**
+     * Remove the uploaded logo, so the URL serves the default again. Resolves the
+     * logo now served; removing one that was never uploaded is not an error. The
+     * DNS record does not change.
+     */
+    deleteLogoV1(id: string): Promise<DomainLogoV1>;
+    /**
+     * How ready the identity is to show its logo as the inbox avatar: each step
+     * (DMARC at enforcement on the host and its organizational domain, the BIMI
+     * record, the logo file, the mark certificate) as `met`, `missing`, `unknown`
+     * or `not_applicable` with a plain-English `reason`, and one checklist per
+     * inbox (Gmail, Yahoo, Apple Mail, Fastmail). For the certificate only "the
+     * URL answers with a PEM file" is checked; its chain is not validated.
+     */
+    getLogoReadinessV1(id: string): Promise<DomainLogoReadinessV1>;
 }
 
 declare class EmailsResource {
@@ -21311,6 +21364,8 @@ declare class ListsResource {
     startValidationRun(id: string): Promise<EmailValidationRunV1>;
 }
 
+/** What {@link MailboxesResource.replyToConversation} resolves: the reply was handed to the mail server. */
+type MailboxConversationReply = paths["/api/mailboxes/{id}/conversations/{conversationId}/reply"]["post"]["responses"][200]["content"]["application/json"]["data"];
 /** What {@link MailboxesResource.sendMessage} resolves once the message is submitted. */
 type MailboxMessageSubmitted = paths["/api/mailboxes/{id}/messages"]["post"]["responses"][201]["content"]["application/json"]["data"];
 /** What {@link MailboxesResource.draftMessage} resolves — suggested text, and `sent: false`. */
@@ -21345,8 +21400,8 @@ declare class MailboxesResource {
      * they are still returned here: a project with a run of failed provisions can
      * therefore list more than 10.
      *
-     * This lists the mailboxes themselves, never their contents: received
-     * messages are not part of the public API.
+     * This lists the mailboxes themselves, never their contents: the mail is
+     * {@link listConversations}, under a scope of its own.
      */
     list(): Promise<MailboxRecord[]>;
     /**
@@ -21403,6 +21458,44 @@ declare class MailboxesResource {
      * at 120 requests an hour per project; `502` means the model was unreachable.
      */
     draftMessage(id: string, body: DraftMailboxMessageRequest): Promise<MailboxMessageDraft>;
+    /**
+     * One page of a mailbox's threads, newest activity first, from the Inbox
+     * view (default) or the Spam view. Page by passing `nextCursor` back as
+     * `cursor` until it is null; {@link listAllConversations} does that for you.
+     * A mailbox in another project answers `404`.
+     */
+    listConversations(id: string, query?: ListMailboxConversationsQuery): Promise<MailboxConversationPage>;
+    /** Iterate every thread in a mailbox across pages, one conversation at a time. */
+    listAllConversations(id: string, query?: ListMailboxConversationsQuery): AsyncGenerator<MailboxConversation, void, undefined>;
+    /**
+     * Every message in one thread, oldest first, inbound and outbound together.
+     * Not paginated, and reading marks nothing as read.
+     *
+     * Bodies are written by whoever sent them: treat `htmlBody` as hostile HTML.
+     * A conversation that is not in this mailbox resolves an empty list rather
+     * than throwing; a mailbox outside the key's project answers `404`.
+     */
+    getConversation(id: string, conversationId: string): Promise<MailboxMessage[]>;
+    /**
+     * SENDS a reply, from the mailbox's own address, inside the same thread, to
+     * the person who last wrote in. You name neither the recipient nor the
+     * sender: this only ever answers someone who wrote first, which is why it has
+     * its own scope (`mailbox-conversations:reply`) and is not {@link sendMessage}.
+     *
+     * Pass plain text in `body` or a structured `document`; Sendly renders the
+     * HTML and a matching text part. Refusals worth handling by name:
+     * `422 UNPROCESSABLE` (no inbound message to answer, or the mailbox is not
+     * provisioned), `422 SEND_REFUSED` (the recipient is suppressed or the project
+     * may not send), `429 SENDING_LIMIT_REACHED`.
+     */
+    replyToConversation(id: string, conversationId: string, body: MailboxConversationReplyRequest): Promise<MailboxConversationReply>;
+    /**
+     * The bytes of one attachment, the `url` a message lists, fetched from the
+     * mail server on demand. The file and its `contentType` were chosen by the
+     * sender: treat both as untrusted, and never serve the bytes back to a
+     * browser under your own origin without a fixed type.
+     */
+    downloadAttachment(id: string, attachmentId: string): Promise<SendlyFile>;
 }
 
 /**
@@ -22026,6 +22119,15 @@ interface SendlyClientOptions {
     /** Extra headers merged into every request (e.g. tracing). */
     defaultHeaders?: Record<string, string>;
 }
+/** A file the API answered with, as {@link Sendly.requestBytes} resolves it. */
+interface SendlyFile {
+    /** The body, byte for byte. */
+    data: ArrayBuffer;
+    /** As the server declared it. For a mailbox attachment that is the SENDER's claim: do not trust it. */
+    contentType: string | null;
+    /** `attachment; filename="…"` or `inline; …`, verbatim. */
+    contentDisposition: string | null;
+}
 interface RequestOptions {
     /** Path relative to baseUrl, must start with `/`. */
     path: string;
@@ -22110,6 +22212,18 @@ declare class Sendly {
      * status, in either dialect.
      */
     request<T = unknown>(options: RequestOptions): Promise<T>;
+    /**
+     * Like {@link request}, for an operation whose success body is a file rather
+     * than JSON: resolves the raw bytes with the response's own `Content-Type`
+     * and `Content-Disposition`. A failure is still a JSON error document and is
+     * thrown as the same {@link SendlyError} subclasses.
+     *
+     * Reading the body as text, as {@link request} does, would corrupt any byte
+     * that is not valid UTF-8, which is most of an image or a PDF.
+     */
+    requestBytes(options: Omit<RequestOptions, "noContent">): Promise<SendlyFile>;
+    /** Issue the request; errors and parsing are the caller's. */
+    private send;
     /**
      * Resources receive the parsed envelope; they call this to unwrap the
      * `data` field when present, or pass through otherwise. Centralizing the
@@ -22320,4 +22434,4 @@ declare function verifySignature(payload: string | Buffer, signature: string, ti
  */
 declare function constructEvent<T = Record<string, unknown>>(payload: string | Buffer, signature: string, timestamp: string, secret: string, options?: VerifySignatureOptions): T;
 
-export { type AddDomainRequest, type AddSuppressionRequest, type AnalyticsCampaignStatsV1, type AnalyticsCampaignsV1Query, AnalyticsResource, type AnalyticsTimeseriesV1, type AnalyticsTimeseriesV1Query, type AnalyticsTopCampaignsV1, type AnalyticsWindowV1, type AppPasswordRecord, type AssignDomainStreamRequest, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type CampaignDeletedV1, type CampaignFailureListV1, type CampaignFailureV1, type CampaignListV1, type CampaignRetryFailedV1, type CampaignStatsV1, type CampaignV1, CampaignsResource, type CloneWorkflowV1Request, type ComposeMailboxMessageRequest, type ContactDeletedV1, type ContactListResponse, type ContactListV1, type ContactRecord, type ContactTopicPreferencesV1, type ContactV1, ContactsResource, type CreateCampaignV1Request, type CreateContactRequest, type CreateContactV1Request, type CreateDomainV1Request, type CreateListV1Request, type CreateSegmentV1Request, type CreateSnippetRequest, type CreateSuppressionV1Request, type CreateTemplateRequest, type CreateTemplateV1Request, type CreateTopicV1Request, type CreateWebhookRequest, type CreateWebhookV1Request, type CreateWorkflowV1Request, type CursorPage, type CursorPageQuery, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DeliverabilityDiagnosisV1, type DeliverabilityFindingSeverityV1, type DeliverabilityFindingV1, type DeliverabilityIdentityV1, type DeliverabilityRecentDeliveryV1, DeliverabilityResource, type DeliverabilitySuppressionV1, type DiagnoseDeliverabilityV1Query, type DmarcReportListV1, type DmarcReportV1, type DomainDeletedV1, type DomainListResponse, type DomainListV1, type DomainRecord, type DomainSetupSession, type DomainV1, type DomainVerificationStatus, DomainsResource, type DraftMailboxMessageRequest, type EmailDetailResponse, type EmailEvent, type EmailListResponse, type EmailRecord, type EmailResponse, type EmailTestV1, type EmailV1, type EmailValidationBatchV1, type EmailValidationResultListV1, type EmailValidationResultV1, type EmailValidationRunV1, type EmailValidationV1, type EmailValidationVerdictV1, type EmailWithEvents, EmailsResource, type ErrorEnvelope, type EventListV1, type EventNamesV1, type EventStatsV1, type EventStatsV1Query, type EventV1, EventsResource, type IdResponse, type IdempotencyOptions, type ListCampaignFailuresV1Query, type ListCampaignsV1Query, type ListContactsQuery, type ListContactsV1Query, type ListDeletedV1, type ListDmarcReportsV1Query, type ListDomainsV1Query, type ListEmailsQuery, type ListEventsV1Query, type ListListV1, type ListListsV1Query, type ListRecipientDomainStatsV1Query, type ListSegmentContactsV1Query, type ListSegmentsV1Query, type ListSnippetsQuery, type ListSubscribeData, type ListSubscribeRequest, type ListSubscribeResponse, type ListSuppressionsQuery, type ListSuppressionsV1Query, type ListTemplatesQuery, type ListTemplatesV1Query, type ListTopCampaignsV1Query, type ListTopicsV1Query, type ListUnsubscribeData, type ListUnsubscribeRequest, type ListUnsubscribeResponse, type ListV1, type ListValidationResultsV1Query, type ListWebhookCallsQuery, type ListWebhooksV1Query, type ListWorkflowExecutionsV1Query, type ListWorkflowsV1Query, ListsResource, type MailboxDetail, type MailboxRecord, MailboxesResource, type Problem, type ProblemDocument, type ProblemFieldError, type ProjectV1, ProjectsResource, type RecipientDomainStatsListV1, type RecipientDomainStatsV1, type RecordEventV1Request, type ReplaceWorkflowGraphV1Request, type RequestOptions, SDK_VERSION, type SegmentContactListV1, type SegmentContactV1, type SegmentDeletedV1, type SegmentListV1, type SegmentV1, SegmentsResource, type SendCampaignV1Request, type SendEmailData, type SendEmailRequest, type SendEmailResponse, type SendEmailV1Request, type SendTestEmailV1Request, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type SetTopicSubscriptionV1Request, type SnippetListResponse, type SnippetRecord, SnippetsResource, type StartWorkflowExecutionV1Request, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionDeletedV1, type SuppressionListResponse, type SuppressionListV1, type SuppressionRecord, SuppressionResource, type SuppressionV1, type TemplateDeletedV1, type TemplateListResponse, type TemplateListV1, type TemplateRecord, type TemplateV1, TemplatesResource, type TopicListV1, type TopicSubscriptionStatusV1, type TopicSubscriptionV1, type TopicV1, TopicsResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateCampaignV1Request, type UpdateContactRequest, type UpdateContactV1Request, type UpdateListV1Request, type UpdateSegmentV1Request, type UpdateSnippetRequest, type UpdateTemplateRequest, type UpdateTemplateV1Request, type UpdateTopicV1Request, type UpdateWebhookRequest, type UpdateWebhookV1Request, type UpdateWorkflowV1Request, UsageResource, type UsageV1, type ValidateEmailsV1Request, ValidationResource, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookCreatedV1, type WebhookDeletedV1, type WebhookGetResponse, type WebhookListResponse, type WebhookListV1, type WebhookRecord, type WebhookRotateSecretResponse, type WebhookSecretRotatedV1, type WebhookV1, WebhooksResource, type WorkflowDeletedV1, type WorkflowExecutionListV1, type WorkflowExecutionV1, type WorkflowGraphV1, type WorkflowListV1, type WorkflowStateChangeV1, type WorkflowStatsV1, type WorkflowStatsV1Query, type WorkflowV1, WorkflowsResource, asProblemDocument, type components, constructEvent, type operations, paginateCursor, type paths, verifySignature };
+export { type AddDomainRequest, type AddSuppressionRequest, type AnalyticsCampaignStatsV1, type AnalyticsCampaignsV1Query, AnalyticsResource, type AnalyticsTimeseriesV1, type AnalyticsTimeseriesV1Query, type AnalyticsTopCampaignsV1, type AnalyticsWindowV1, type AppPasswordRecord, type AssignDomainStreamRequest, type BatchEntryResult, type BatchSendRequest, type BatchSendResponse, type BulkCreateContactsRequest, type BulkDeleteContactsRequest, type CampaignDeletedV1, type CampaignFailureListV1, type CampaignFailureV1, type CampaignListV1, type CampaignRetryFailedV1, type CampaignStatsV1, type CampaignV1, CampaignsResource, type CloneWorkflowV1Request, type ComposeMailboxMessageRequest, type ContactDeletedV1, type ContactListResponse, type ContactListV1, type ContactRecord, type ContactTopicPreferencesV1, type ContactV1, ContactsResource, type CreateCampaignV1Request, type CreateContactRequest, type CreateContactV1Request, type CreateDomainV1Request, type CreateListV1Request, type CreateSegmentV1Request, type CreateSnippetRequest, type CreateSuppressionV1Request, type CreateTemplateRequest, type CreateTemplateV1Request, type CreateTopicV1Request, type CreateWebhookRequest, type CreateWebhookV1Request, type CreateWorkflowV1Request, type CursorPage, type CursorPageQuery, DEFAULT_BASE_URL, DEFAULT_TOLERANCE_MS, type DeliverabilityDiagnosisV1, type DeliverabilityFindingSeverityV1, type DeliverabilityFindingV1, type DeliverabilityIdentityV1, type DeliverabilityRecentDeliveryV1, DeliverabilityResource, type DeliverabilitySuppressionV1, type DiagnoseDeliverabilityV1Query, type DmarcReportListV1, type DmarcReportV1, type DomainDeletedV1, type DomainListResponse, type DomainListV1, type DomainLogoReadinessV1, type DomainLogoV1, type DomainRecord, type DomainSetupSession, type DomainV1, type DomainVerificationStatus, DomainsResource, type DraftMailboxMessageRequest, type EmailDetailResponse, type EmailEvent, type EmailListResponse, type EmailRecord, type EmailResponse, type EmailTestV1, type EmailV1, type EmailValidationBatchV1, type EmailValidationResultListV1, type EmailValidationResultV1, type EmailValidationRunV1, type EmailValidationV1, type EmailValidationVerdictV1, type EmailWithEvents, EmailsResource, type ErrorEnvelope, type EventListV1, type EventNamesV1, type EventStatsV1, type EventStatsV1Query, type EventV1, EventsResource, type IdResponse, type IdempotencyOptions, type ListCampaignFailuresV1Query, type ListCampaignsV1Query, type ListContactsQuery, type ListContactsV1Query, type ListDeletedV1, type ListDmarcReportsV1Query, type ListDomainsV1Query, type ListEmailsQuery, type ListEventsV1Query, type ListListV1, type ListListsV1Query, type ListMailboxConversationsQuery, type ListRecipientDomainStatsV1Query, type ListSegmentContactsV1Query, type ListSegmentsV1Query, type ListSnippetsQuery, type ListSubscribeData, type ListSubscribeRequest, type ListSubscribeResponse, type ListSuppressionsQuery, type ListSuppressionsV1Query, type ListTemplatesQuery, type ListTemplatesV1Query, type ListTopCampaignsV1Query, type ListTopicsV1Query, type ListUnsubscribeData, type ListUnsubscribeRequest, type ListUnsubscribeResponse, type ListV1, type ListValidationResultsV1Query, type ListWebhookCallsQuery, type ListWebhooksV1Query, type ListWorkflowExecutionsV1Query, type ListWorkflowsV1Query, ListsResource, type MailboxConversation, type MailboxConversationPage, type MailboxConversationReply, type MailboxConversationReplyRequest, type MailboxDetail, type MailboxMessage, type MailboxRecord, MailboxesResource, type Problem, type ProblemDocument, type ProblemFieldError, type ProjectV1, ProjectsResource, type RecipientDomainStatsListV1, type RecipientDomainStatsV1, type RecordEventV1Request, type ReplaceWorkflowGraphV1Request, type RequestOptions, SDK_VERSION, type SegmentContactListV1, type SegmentContactV1, type SegmentDeletedV1, type SegmentListV1, type SegmentV1, SegmentsResource, type SendCampaignV1Request, type SendEmailData, type SendEmailRequest, type SendEmailResponse, type SendEmailV1Request, type SendTestEmailV1Request, Sendly, SendlyAuthenticationError, type SendlyClientOptions, SendlyConflictError, SendlyConnectionError, SendlyError, type SendlyFile, SendlyNotFoundError, SendlyPermissionError, SendlyRateLimitError, SendlyServerError, SendlyValidationError, type SetTopicSubscriptionV1Request, type SnippetListResponse, type SnippetRecord, SnippetsResource, type StartWorkflowExecutionV1Request, type SuccessEmpty, type SuppressionCheckResponse, type SuppressionDeletedV1, type SuppressionListResponse, type SuppressionListV1, type SuppressionRecord, SuppressionResource, type SuppressionV1, type TemplateDeletedV1, type TemplateListResponse, type TemplateListV1, type TemplateRecord, type TemplateV1, TemplatesResource, type TopicListV1, type TopicSubscriptionStatusV1, type TopicSubscriptionV1, type TopicV1, TopicsResource, type TrackEventData, type TrackEventRequest, type TrackEventResponse, type UpdateCampaignV1Request, type UpdateContactRequest, type UpdateContactV1Request, type UpdateListV1Request, type UpdateSegmentV1Request, type UpdateSnippetRequest, type UpdateTemplateRequest, type UpdateTemplateV1Request, type UpdateTopicV1Request, type UpdateWebhookRequest, type UpdateWebhookV1Request, type UpdateWorkflowV1Request, type UploadDomainLogoV1Request, UsageResource, type UsageV1, type ValidateEmailsV1Request, ValidationResource, type VerifyEmailData, type VerifyEmailRequest, type VerifyEmailResponse, VerifyResource, type VerifySignatureOptions, type WebhookCall, type WebhookCallsListResponse, type WebhookCreateResponse, type WebhookCreatedV1, type WebhookDeletedV1, type WebhookGetResponse, type WebhookListResponse, type WebhookListV1, type WebhookRecord, type WebhookRotateSecretResponse, type WebhookSecretRotatedV1, type WebhookV1, WebhooksResource, type WorkflowDeletedV1, type WorkflowExecutionListV1, type WorkflowExecutionV1, type WorkflowGraphV1, type WorkflowListV1, type WorkflowStateChangeV1, type WorkflowStatsV1, type WorkflowStatsV1Query, type WorkflowV1, WorkflowsResource, asProblemDocument, type components, constructEvent, type operations, paginateCursor, type paths, verifySignature };

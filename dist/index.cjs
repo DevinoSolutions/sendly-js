@@ -700,6 +700,62 @@ var DomainsResource = class {
       path: `/api/v1/domains/${encodeURIComponent(id)}`
     });
   }
+  /**
+   * The logo this identity serves to inboxes (BIMI), the `default._bimi` TXT
+   * record that makes them fetch it (`bimi_record`), and a fresh DNS reading of
+   * whether they will show it today. The URL never changes, so the record is
+   * published once. Until a logo is uploaded it serves a default (the domain's
+   * initial), and it serves nothing until the identity verifies.
+   *
+   * Providers decide whether to display a logo, so DNS readiness is not a
+   * promise of display; Gmail also needs a VMC or CMC certificate, which Sendly
+   * neither issues nor checks. {@link getLogoReadinessV1} is the full checklist.
+   */
+  async getLogoV1(id) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo`
+    });
+  }
+  /**
+   * Replace the logo with an SVG. It is rebuilt into SVG Tiny PS, the profile
+   * BIMI requires: it must be square, draw with shapes rather than `<text>`,
+   * reference nothing outside itself, and come to at most 32 KB once rebuilt.
+   * A file that cannot be rebuilt answers `422 validation_error` with a
+   * `detail` naming what to change, and the previous logo stays in place.
+   */
+  async uploadLogoV1(id, body) {
+    return this.client.request({
+      method: "PUT",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo`,
+      body
+    });
+  }
+  /**
+   * Remove the uploaded logo, so the URL serves the default again. Resolves the
+   * logo now served; removing one that was never uploaded is not an error. The
+   * DNS record does not change.
+   */
+  async deleteLogoV1(id) {
+    return this.client.request({
+      method: "DELETE",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo`
+    });
+  }
+  /**
+   * How ready the identity is to show its logo as the inbox avatar: each step
+   * (DMARC at enforcement on the host and its organizational domain, the BIMI
+   * record, the logo file, the mark certificate) as `met`, `missing`, `unknown`
+   * or `not_applicable` with a plain-English `reason`, and one checklist per
+   * inbox (Gmail, Yahoo, Apple Mail, Fastmail). For the certificate only "the
+   * URL answers with a PEM file" is checked; its chain is not validated.
+   */
+  async getLogoReadinessV1(id) {
+    return this.client.request({
+      method: "GET",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo/readiness`
+    });
+  }
 };
 
 // src/errors.ts
@@ -1219,8 +1275,8 @@ var MailboxesResource = class {
    * they are still returned here: a project with a run of failed provisions can
    * therefore list more than 10.
    *
-   * This lists the mailboxes themselves, never their contents: received
-   * messages are not part of the public API.
+   * This lists the mailboxes themselves, never their contents: the mail is
+   * {@link listConversations}, under a scope of its own.
    */
   async list() {
     const envelope = await this.client.request({
@@ -1308,6 +1364,84 @@ var MailboxesResource = class {
       body
     });
     return this.client.unwrap(envelope);
+  }
+  /*
+   * THE MAIL ITSELF. The four methods below read and answer correspondence from
+   * people outside your project, so they need `mailbox-conversations:read` (and
+   * `mailbox-conversations:reply` to answer). Those scopes are opt-in only: a key
+   * carries one only if it was ticked by name when the key was created, and
+   * neither the legacy full-access key nor the "Full access" preset has it. An
+   * existing key answers `403` here until you mint one that does.
+   */
+  /**
+   * One page of a mailbox's threads, newest activity first, from the Inbox
+   * view (default) or the Spam view. Page by passing `nextCursor` back as
+   * `cursor` until it is null; {@link listAllConversations} does that for you.
+   * A mailbox in another project answers `404`.
+   */
+  async listConversations(id, query) {
+    const envelope = await this.client.request({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations`,
+      query
+    });
+    return this.client.unwrap(envelope);
+  }
+  /** Iterate every thread in a mailbox across pages, one conversation at a time. */
+  async *listAllConversations(id, query) {
+    let cursor = query?.cursor;
+    do {
+      const page = await this.listConversations(id, { ...query, cursor });
+      yield* page.items;
+      cursor = page.nextCursor ?? void 0;
+    } while (cursor);
+  }
+  /**
+   * Every message in one thread, oldest first, inbound and outbound together.
+   * Not paginated, and reading marks nothing as read.
+   *
+   * Bodies are written by whoever sent them: treat `htmlBody` as hostile HTML.
+   * A conversation that is not in this mailbox resolves an empty list rather
+   * than throwing; a mailbox outside the key's project answers `404`.
+   */
+  async getConversation(id, conversationId) {
+    const envelope = await this.client.request({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}`
+    });
+    return this.client.unwrap(envelope);
+  }
+  /**
+   * SENDS a reply, from the mailbox's own address, inside the same thread, to
+   * the person who last wrote in. You name neither the recipient nor the
+   * sender: this only ever answers someone who wrote first, which is why it has
+   * its own scope (`mailbox-conversations:reply`) and is not {@link sendMessage}.
+   *
+   * Pass plain text in `body` or a structured `document`; Sendly renders the
+   * HTML and a matching text part. Refusals worth handling by name:
+   * `422 UNPROCESSABLE` (no inbound message to answer, or the mailbox is not
+   * provisioned), `422 SEND_REFUSED` (the recipient is suppressed or the project
+   * may not send), `429 SENDING_LIMIT_REACHED`.
+   */
+  async replyToConversation(id, conversationId, body) {
+    const envelope = await this.client.request({
+      method: "POST",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/reply`,
+      body
+    });
+    return this.client.unwrap(envelope);
+  }
+  /**
+   * The bytes of one attachment, the `url` a message lists, fetched from the
+   * mail server on demand. The file and its `contentType` were chosen by the
+   * sender: treat both as untrusted, and never serve the bytes back to a
+   * browser under your own origin without a fixed type.
+   */
+  async downloadAttachment(id, attachmentId) {
+    return this.client.requestBytes({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`
+    });
   }
 };
 
@@ -2359,34 +2493,7 @@ var Sendly = class {
    * status, in either dialect.
    */
   async request(options) {
-    const url = this.buildUrl(options.path, options.query);
-    const headers = {
-      Authorization: `Bearer ${this.apiKey}`,
-      Accept: "application/json",
-      "User-Agent": `sendly-node/${SDK_VERSION}`,
-      ...this.defaultHeaders,
-      ...options.headers
-    };
-    let body;
-    if (options.body !== void 0) {
-      headers["Content-Type"] = "application/json";
-      body = JSON.stringify(options.body);
-    }
-    const init = {
-      method: options.method,
-      headers,
-      body
-    };
-    if (this.timeout > 0) {
-      init.signal = AbortSignal.timeout(this.timeout);
-    }
-    let response;
-    try {
-      response = await this.fetchImpl(url, init);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new SendlyConnectionError(`Sendly request failed: ${message}`, error);
-    }
+    const response = await this.send(options);
     if (response.status === 204 || options.noContent) {
       if (!response.ok) {
         await this.throwForError(response);
@@ -2418,6 +2525,56 @@ var Sendly = class {
       throw errorFromResponse(response.status, errorCode, errorMessage, parsed, contentType);
     }
     return parsed;
+  }
+  /**
+   * Like {@link request}, for an operation whose success body is a file rather
+   * than JSON: resolves the raw bytes with the response's own `Content-Type`
+   * and `Content-Disposition`. A failure is still a JSON error document and is
+   * thrown as the same {@link SendlyError} subclasses.
+   *
+   * Reading the body as text, as {@link request} does, would corrupt any byte
+   * that is not valid UTF-8, which is most of an image or a PDF.
+   */
+  async requestBytes(options) {
+    const response = await this.send({ ...options, headers: { Accept: "*/*", ...options.headers } });
+    if (!response.ok) {
+      await this.throwForError(response);
+    }
+    return {
+      data: await response.arrayBuffer(),
+      contentType: response.headers?.get("content-type") ?? null,
+      contentDisposition: response.headers?.get("content-disposition") ?? null
+    };
+  }
+  /** Issue the request; errors and parsing are the caller's. */
+  async send(options) {
+    const url = this.buildUrl(options.path, options.query);
+    const headers = {
+      Authorization: `Bearer ${this.apiKey}`,
+      Accept: "application/json",
+      "User-Agent": `sendly-node/${SDK_VERSION}`,
+      ...this.defaultHeaders,
+      ...options.headers
+    };
+    let body;
+    if (options.body !== void 0) {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(options.body);
+    }
+    const init = {
+      method: options.method,
+      headers,
+      body
+    };
+    if (this.timeout > 0) {
+      init.signal = AbortSignal.timeout(this.timeout);
+    }
+    try {
+      return await this.fetchImpl(url, init);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SendlyConnectionError(`Sendly request failed: ${message}`, error);
+    }
   }
   /**
    * Resources receive the parsed envelope; they call this to unwrap the
