@@ -640,6 +640,186 @@ var DomainsResource = class {
   }
 };
 
+// src/errors.ts
+function isProblemFieldError(value) {
+  if (!value || typeof value !== "object") return false;
+  const entry = value;
+  return typeof entry.pointer === "string" && typeof entry.code === "string" && typeof entry.message === "string";
+}
+function asProblemDocument(body, contentType) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return void 0;
+  const candidate = body;
+  if (typeof candidate.code !== "string") return void 0;
+  const declared = typeof contentType === "string" && contentType.toLowerCase().includes("application/problem+json");
+  const shaped = typeof candidate.type === "string" && typeof candidate.title === "string";
+  if (!declared && !shaped) return void 0;
+  const errors = Array.isArray(candidate.errors) ? candidate.errors.filter(isProblemFieldError) : void 0;
+  return {
+    type: typeof candidate.type === "string" ? candidate.type : "about:blank",
+    title: typeof candidate.title === "string" ? candidate.title : "",
+    status: typeof candidate.status === "number" ? candidate.status : 0,
+    detail: typeof candidate.detail === "string" ? candidate.detail : void 0,
+    instance: typeof candidate.instance === "string" ? candidate.instance : void 0,
+    code: candidate.code,
+    request_id: typeof candidate.request_id === "string" ? candidate.request_id : void 0,
+    errors: errors && errors.length > 0 ? errors : void 0
+  };
+}
+var SendlyError = class extends Error {
+  statusCode;
+  errorCode;
+  body;
+  /**
+   * Correlation id from an RFC 9457 problem document's `request_id` (`/api/v1`
+   * errors only). Quote it in support requests. Undefined on legacy `/api/*`
+   * errors and transport failures.
+   */
+  requestId;
+  /**
+   * Field-level failures from an RFC 9457 problem document's `errors` array —
+   * populated on `422 validation_error` responses from `/api/v1`. Undefined
+   * everywhere else.
+   */
+  fieldErrors;
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(message);
+    this.name = "SendlyError";
+    this.statusCode = statusCode;
+    this.errorCode = errorCode;
+    this.body = body;
+    const doc = problem ?? asProblemDocument(body);
+    this.requestId = doc?.request_id;
+    this.fieldErrors = doc?.errors;
+  }
+};
+var SendlyValidationError = class extends SendlyError {
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
+    this.name = "SendlyValidationError";
+  }
+};
+var SendlyAuthenticationError = class extends SendlyError {
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
+    this.name = "SendlyAuthenticationError";
+  }
+};
+var SendlyPermissionError = class extends SendlyError {
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
+    this.name = "SendlyPermissionError";
+  }
+};
+var SendlyNotFoundError = class extends SendlyError {
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
+    this.name = "SendlyNotFoundError";
+  }
+};
+var SendlyConflictError = class extends SendlyError {
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
+    this.name = "SendlyConflictError";
+  }
+};
+var SendlyRateLimitError = class extends SendlyError {
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
+    this.name = "SendlyRateLimitError";
+  }
+};
+var SendlyServerError = class extends SendlyError {
+  constructor(statusCode, errorCode, message, body, problem) {
+    super(statusCode, errorCode, message, body, problem);
+    this.name = "SendlyServerError";
+  }
+};
+var SendlyConnectionError = class extends SendlyError {
+  constructor(message, body) {
+    super(0, "connection_error", message, body);
+    this.name = "SendlyConnectionError";
+  }
+};
+function errorFromResponse(statusCode, errorCode, message, body, contentType) {
+  const problem = asProblemDocument(body, contentType);
+  const code = problem?.code ?? errorCode;
+  const text = problem ? problem.detail ?? (problem.title || message) : message;
+  if (statusCode === 400 || statusCode === 422) return new SendlyValidationError(statusCode, code, text, body, problem);
+  if (statusCode === 401) return new SendlyAuthenticationError(statusCode, code, text, body, problem);
+  if (statusCode === 403) return new SendlyPermissionError(statusCode, code, text, body, problem);
+  if (statusCode === 404) return new SendlyNotFoundError(statusCode, code, text, body, problem);
+  if (statusCode === 409) return new SendlyConflictError(statusCode, code, text, body, problem);
+  if (statusCode === 429) return new SendlyRateLimitError(statusCode, code, text, body, problem);
+  if (statusCode >= 500) return new SendlyServerError(statusCode, code, text, body, problem);
+  return new SendlyError(statusCode, code, text, body, problem);
+}
+
+// src/resources/send-payload.ts
+var SEND_EMAIL_V1_KEYS = [
+  "attachments",
+  "bcc",
+  "body",
+  "cc",
+  "data",
+  "from",
+  "headers",
+  "listUnsubscribe",
+  "name",
+  "reply",
+  "subject",
+  "subscribed",
+  "tags",
+  "template",
+  "to"
+];
+var KNOWN_KEYS = new Set(SEND_EMAIL_V1_KEYS);
+var SEND_KEY_HINTS = {
+  html: { use: "body", reason: "Sendly's HTML content field" },
+  htmlBody: { use: "body", reason: "Sendly's HTML content field" },
+  html_body: { use: "body", reason: "Sendly's HTML content field" },
+  replyTo: { use: "reply", reason: "Sendly's reply-to field" },
+  reply_to: { use: "reply", reason: "Sendly's reply-to field" },
+  templateId: { use: "template", reason: "Sendly's template field" },
+  template_id: { use: "template", reason: "Sendly's template field" }
+};
+var NO_COUNTERPART = {
+  text: 'Sendly has no separate plain-text field; the message content goes in "body"',
+  textBody: 'Sendly has no separate plain-text field; the message content goes in "body"',
+  text_body: 'Sendly has no separate plain-text field; the message content goes in "body"'
+};
+function hasOwn(map, key) {
+  return Object.prototype.hasOwnProperty.call(map, key);
+}
+function describeUnknownKey(key) {
+  const folded = key.toLowerCase();
+  const sameKeyOtherCase = SEND_EMAIL_V1_KEYS.find((known) => known.toLowerCase() === folded);
+  if (sameKeyOtherCase)
+    return `unknown field "${key}"; did you mean "${sameKeyOtherCase}"? Field names are case-sensitive`;
+  if (hasOwn(SEND_KEY_HINTS, key)) {
+    const hint = SEND_KEY_HINTS[key];
+    return `unknown field "${key}"; ${hint.reason} is "${hint.use}"`;
+  }
+  if (hasOwn(NO_COUNTERPART, key)) return `unknown field "${key}"; ${NO_COUNTERPART[key]}`;
+  return `unknown field "${key}"; accepted fields are ${SEND_EMAIL_V1_KEYS.map((known) => `"${known}"`).join(", ")}`;
+}
+function assertKnownSendKeys(body) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return;
+  const unknown = Object.keys(body).filter((key) => !KNOWN_KEYS.has(key));
+  if (unknown.length === 0) return;
+  const errors = unknown.map((key) => ({
+    pointer: `/${key.replaceAll("~", "~0").replaceAll("/", "~1")}`,
+    code: "unknown_field",
+    message: describeUnknownKey(key)
+  }));
+  throw new SendlyValidationError(0, "unknown_field", errors.map((error) => error.message).join("; "), void 0, {
+    type: "about:blank",
+    title: "Unknown field",
+    status: 0,
+    code: "unknown_field",
+    errors
+  });
+}
+
 // src/resources/emails.ts
 var EmailsResource = class {
   constructor(client) {
@@ -654,11 +834,19 @@ var EmailsResource = class {
    * delivery state — poll `emails.get(id)` for the events behind it. Takes a
    * single recipient; `cc`/`bcc` copy others.
    *
+   * The body is checked before anything is sent: a key outside the send schema
+   * rejects with a `SendlyValidationError` (`errorCode: "unknown_field"`, one
+   * `fieldErrors` entry per key) that names the field to use instead — `html` is
+   * `body`, `replyTo` is `reply`. The endpoint itself ignores unknown keys, so
+   * without this check a payload shaped for another provider is delivered as an
+   * empty email. A caller that was passing extra keys must stop.
+   *
    * Before 1.0 this posted to the legacy `POST /api/emails`, which answered
    * with row ids and no delivery status and fanned an array `to` out to several
    * recipients. That behaviour is {@link sendLegacy}, unchanged.
    */
   async send(body, opts) {
+    assertKnownSendKeys(body);
     return this.client.request({
       method: "POST",
       path: "/api/v1/emails",
@@ -2020,120 +2208,6 @@ var WorkflowsResource = class {
     });
   }
 };
-
-// src/errors.ts
-function isProblemFieldError(value) {
-  if (!value || typeof value !== "object") return false;
-  const entry = value;
-  return typeof entry.pointer === "string" && typeof entry.code === "string" && typeof entry.message === "string";
-}
-function asProblemDocument(body, contentType) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) return void 0;
-  const candidate = body;
-  if (typeof candidate.code !== "string") return void 0;
-  const declared = typeof contentType === "string" && contentType.toLowerCase().includes("application/problem+json");
-  const shaped = typeof candidate.type === "string" && typeof candidate.title === "string";
-  if (!declared && !shaped) return void 0;
-  const errors = Array.isArray(candidate.errors) ? candidate.errors.filter(isProblemFieldError) : void 0;
-  return {
-    type: typeof candidate.type === "string" ? candidate.type : "about:blank",
-    title: typeof candidate.title === "string" ? candidate.title : "",
-    status: typeof candidate.status === "number" ? candidate.status : 0,
-    detail: typeof candidate.detail === "string" ? candidate.detail : void 0,
-    instance: typeof candidate.instance === "string" ? candidate.instance : void 0,
-    code: candidate.code,
-    request_id: typeof candidate.request_id === "string" ? candidate.request_id : void 0,
-    errors: errors && errors.length > 0 ? errors : void 0
-  };
-}
-var SendlyError = class extends Error {
-  statusCode;
-  errorCode;
-  body;
-  /**
-   * Correlation id from an RFC 9457 problem document's `request_id` (`/api/v1`
-   * errors only). Quote it in support requests. Undefined on legacy `/api/*`
-   * errors and transport failures.
-   */
-  requestId;
-  /**
-   * Field-level failures from an RFC 9457 problem document's `errors` array —
-   * populated on `422 validation_error` responses from `/api/v1`. Undefined
-   * everywhere else.
-   */
-  fieldErrors;
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(message);
-    this.name = "SendlyError";
-    this.statusCode = statusCode;
-    this.errorCode = errorCode;
-    this.body = body;
-    const doc = problem ?? asProblemDocument(body);
-    this.requestId = doc?.request_id;
-    this.fieldErrors = doc?.errors;
-  }
-};
-var SendlyValidationError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(statusCode, errorCode, message, body, problem);
-    this.name = "SendlyValidationError";
-  }
-};
-var SendlyAuthenticationError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(statusCode, errorCode, message, body, problem);
-    this.name = "SendlyAuthenticationError";
-  }
-};
-var SendlyPermissionError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(statusCode, errorCode, message, body, problem);
-    this.name = "SendlyPermissionError";
-  }
-};
-var SendlyNotFoundError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(statusCode, errorCode, message, body, problem);
-    this.name = "SendlyNotFoundError";
-  }
-};
-var SendlyConflictError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(statusCode, errorCode, message, body, problem);
-    this.name = "SendlyConflictError";
-  }
-};
-var SendlyRateLimitError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(statusCode, errorCode, message, body, problem);
-    this.name = "SendlyRateLimitError";
-  }
-};
-var SendlyServerError = class extends SendlyError {
-  constructor(statusCode, errorCode, message, body, problem) {
-    super(statusCode, errorCode, message, body, problem);
-    this.name = "SendlyServerError";
-  }
-};
-var SendlyConnectionError = class extends SendlyError {
-  constructor(message, body) {
-    super(0, "connection_error", message, body);
-    this.name = "SendlyConnectionError";
-  }
-};
-function errorFromResponse(statusCode, errorCode, message, body, contentType) {
-  const problem = asProblemDocument(body, contentType);
-  const code = problem?.code ?? errorCode;
-  const text = problem ? problem.detail ?? (problem.title || message) : message;
-  if (statusCode === 400 || statusCode === 422) return new SendlyValidationError(statusCode, code, text, body, problem);
-  if (statusCode === 401) return new SendlyAuthenticationError(statusCode, code, text, body, problem);
-  if (statusCode === 403) return new SendlyPermissionError(statusCode, code, text, body, problem);
-  if (statusCode === 404) return new SendlyNotFoundError(statusCode, code, text, body, problem);
-  if (statusCode === 409) return new SendlyConflictError(statusCode, code, text, body, problem);
-  if (statusCode === 429) return new SendlyRateLimitError(statusCode, code, text, body, problem);
-  if (statusCode >= 500) return new SendlyServerError(statusCode, code, text, body, problem);
-  return new SendlyError(statusCode, code, text, body, problem);
-}
 
 // src/client.ts
 var SDK_VERSION = "1.1.0";

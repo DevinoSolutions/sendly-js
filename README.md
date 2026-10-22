@@ -258,6 +258,27 @@ console.log(
 );
 ```
 
+### Let the reader unsubscribe from the inbox
+
+A transactional send carries no unsubscribe of Sendly's. If you run the opt-out
+yourself (notification mail is the usual case), name your endpoint and Sendly
+adds the RFC 8058 one-click headers, so Gmail, Apple Mail and Outlook show their
+own unsubscribe button:
+
+```ts
+await sendly.emails.send({
+  from: "notifications@your-domain.com",
+  to: "user@example.com",
+  subject: "New comment on your post",
+  body: "<p>Someone replied.</p>",
+  listUnsubscribe: "https://your-app.com/unsubscribe?token=abc123", // https only
+});
+```
+
+The mail client POSTs `List-Unsubscribe=One-Click` to that URL with no cookies
+and no page in between, so the endpoint must unsubscribe the reader on that
+request alone, which usually means a per-recipient token in the URL.
+
 ### Read an email and its delivery history
 
 ```ts

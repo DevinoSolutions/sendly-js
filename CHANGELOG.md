@@ -25,6 +25,22 @@ field is "body"`, `unknown field "replyTo"; Sendly's reply-to field is
   The accepted key list is derived from the generated `SendEmailV1` type: a
   regeneration that adds, renames or removes a property fails the type check.
 
+### Added
+
+- **`emails.send` takes `listUnsubscribe`**, the https URL of your own one-click
+  unsubscribe endpoint. A transactional send carries no unsubscribe of Sendly's,
+  because Sendly cannot know what the reader would be opting out of; with this
+  field Sendly writes `List-Unsubscribe: <url>` and
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058) for you, so the
+  mail client shows its own unsubscribe button. The two headers stay reserved in
+  `headers`. The server refuses a value that is not https, is over 2048
+  characters, or contains whitespace, a comma or angle brackets (`422`).
+  Campaign and workflow sends ignore it and keep Sendly's own link.
+- **`openapi.json` re-synced** from the platform contract. The new mailbox
+  conversation and domain-logo operations are listed as not yet implemented, and
+  the provider compat dialects under `/api/compat/` are excluded by path: those
+  are for the other providers' own SDKs.
+
 ### Fixed
 
 - **A request property whose spec carries a `default` is optional again**
