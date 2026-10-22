@@ -409,6 +409,30 @@ it, returning it to carrying both. `streamDefault` demotes whichever identity
 currently holds the default for that stream, and `defaultFromAddress` has to be
 an address on this identity's own host.
 
+#### The sender logo (BIMI)
+
+Each identity serves a logo that BIMI-capable inboxes show beside its mail,
+once its DNS is ready:
+
+```ts
+const logo = await sendly.domains.getLogoV1(domain.id);
+// Publish this TXT record once; the URL never changes.
+console.log(logo.bimi_record);
+
+await sendly.domains.uploadLogoV1(domain.id, { svg: svgSource }); // square, shapes not <text>
+const readiness = await sendly.domains.getLogoReadinessV1(domain.id);
+for (const item of readiness.items) console.log(item.key, item.status, item.reason);
+```
+
+The upload is rebuilt into SVG Tiny PS, the profile BIMI requires. A file that
+cannot be rebuilt (text not converted to outlines, a raster image, a canvas that
+is not square, over 32 KB once cleaned) is a `422 validation_error` naming what
+to change, and the previous logo stays. `deleteLogoV1` goes back to the default
+(the domain's initial). Readiness checks DMARC at enforcement, the BIMI record,
+the logo file and the mark certificate, per inbox; providers still decide
+whether to show a logo, and Gmail and Apple Mail need a VMC or CMC certificate,
+which Sendly neither issues nor validates.
+
 ### Mailboxes: read, send, and draft
 
 Receiving mailboxes on the project's verified domains. The reads are reads; the
@@ -428,8 +452,8 @@ for (const pw of await sendly.mailboxes.listAppPasswords(mailbox.id)) {
 }
 ```
 
-This lists the mailboxes themselves, never their contents — received messages
-are not part of the public API. The mailbox **password** is never returned by
+`list` and `get` describe the mailboxes themselves, never their contents (the
+mail is below, under a scope of its own). The mailbox **password** is never returned by
 any of these reads; mailbox credentials are app passwords, created from the
 dashboard and shown once. `listAppPasswords` returns only the passwords that are
 still active — a revoked one drops out, so this is not an audit history.
@@ -475,6 +499,32 @@ is not thereby a client that may mail your customers. Everything you pass is
 treated strictly as data describing what to write, never as instructions to the
 model. Capped at 120 requests an hour per project; `502` means the model was
 unreachable.
+
+#### The mail itself: read, reply, download
+
+These read correspondence from people outside your project, so they need
+`mailbox-conversations:read`, and answering needs `mailbox-conversations:reply`.
+Both scopes are **opt-in only**: a key holds one only if it was ticked by name
+when the key was created, and neither the legacy full-access key nor the "Full
+access" preset carries it. An existing key gets `403` until you mint one that
+does.
+
+```ts
+for await (const thread of sendly.mailboxes.listAllConversations(mailbox.id, { status: "open" })) {
+  const messages = await sendly.mailboxes.getConversation(mailbox.id, thread.id); // oldest first
+  // ...
+}
+
+await sendly.mailboxes.replyToConversation(mailbox.id, threadId, { body: "Sorted, thanks." });
+
+const file = await sendly.mailboxes.downloadAttachment(mailbox.id, attachmentId);
+// file.data is an ArrayBuffer; file.contentType is the SENDER's claim.
+```
+
+A reply names neither the recipient nor the sender: it answers whoever last
+wrote in, from the mailbox's own address, in the same thread. Message bodies and
+attachments were written by the sender, so treat `htmlBody`, the bytes and their
+content type as untrusted. Reading marks nothing as read.
 
 ### Templates and snippets
 

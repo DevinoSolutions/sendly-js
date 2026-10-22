@@ -63,19 +63,7 @@ const spec = JSON.parse(readFileSync(SPEC_PATH, "utf8")) as OpenApiSpec;
  * NOT YET — a genuine gap. Empty: every key-callable operation is now mapped to
  * a resource method. Retained as the seam for future spec additions.
  */
-export const NOT_YET_IMPLEMENTED: readonly string[] = [
-  // Reading and answering a mailbox's mail.
-  "GET /api/mailboxes/{id}/conversations",
-  "GET /api/mailboxes/{id}/conversations/{conversationId}",
-  "POST /api/mailboxes/{id}/conversations/{conversationId}/reply",
-  "GET /api/mailboxes/{id}/attachments/{attachmentId}",
-
-  // A sending domain's sender logo (the inbox avatar) and its readiness checklist.
-  "GET /api/v1/domains/{id}/logo",
-  "PUT /api/v1/domains/{id}/logo",
-  "DELETE /api/v1/domains/{id}/logo",
-  "GET /api/v1/domains/{id}/logo/readiness",
-];
+export const NOT_YET_IMPLEMENTED: readonly string[] = [];
 
 /**
  * Other providers' wire formats, served so that a Resend, SendGrid, Postmark,
@@ -135,11 +123,19 @@ export const NOT_SDK_CALLABLE: readonly string[] = [
 const ID = "__ID__";
 const EMAIL = "__EMAIL__";
 const EXECUTION_ID = "__EXECUTION_ID__";
+const CONVERSATION_ID = "__CONVERSATION_ID__";
+const ATTACHMENT_ID = "__ATTACHMENT_ID__";
 
 interface ManifestEntry {
   /** "<resource>.<method>" */
   key: string;
   invoke: (client: Sendly) => Promise<unknown>;
+  /**
+   * The answer to the first request, when the shared fixture is not a shape the
+   * method can read on (a generator that walks a legacy `{ items, nextCursor }`
+   * page). Only the request it emits is captured either way.
+   */
+  response?: unknown;
 }
 
 const MANIFEST: readonly ManifestEntry[] = [
@@ -175,6 +171,18 @@ const MANIFEST: readonly ManifestEntry[] = [
   { key: "mailboxes.list", invoke: (c) => c.mailboxes.list() },
   { key: "mailboxes.get", invoke: (c) => c.mailboxes.get(ID) },
   { key: "mailboxes.listAppPasswords", invoke: (c) => c.mailboxes.listAppPasswords(ID) },
+  { key: "mailboxes.listConversations", invoke: (c) => c.mailboxes.listConversations(ID) },
+  {
+    key: "mailboxes.listAllConversations",
+    invoke: (c) => c.mailboxes.listAllConversations(ID).next(),
+    response: { success: true, data: { items: [], nextCursor: null } },
+  },
+  { key: "mailboxes.getConversation", invoke: (c) => c.mailboxes.getConversation(ID, CONVERSATION_ID) },
+  {
+    key: "mailboxes.replyToConversation",
+    invoke: (c) => c.mailboxes.replyToConversation(ID, CONVERSATION_ID, { body: "Thanks!" }),
+  },
+  { key: "mailboxes.downloadAttachment", invoke: (c) => c.mailboxes.downloadAttachment(ID, ATTACHMENT_ID) },
   // projects (v1)
   { key: "projects.get", invoke: (c) => c.projects.get() },
   // templates
@@ -307,6 +315,10 @@ const MANIFEST: readonly ManifestEntry[] = [
   { key: "domains.getV1", invoke: (c) => c.domains.getV1(ID) },
   { key: "domains.verifyV1", invoke: (c) => c.domains.verifyV1(ID) },
   { key: "domains.deleteV1", invoke: (c) => c.domains.deleteV1(ID) },
+  { key: "domains.getLogoV1", invoke: (c) => c.domains.getLogoV1(ID) },
+  { key: "domains.uploadLogoV1", invoke: (c) => c.domains.uploadLogoV1(ID, { svg: "<svg/>" }) },
+  { key: "domains.deleteLogoV1", invoke: (c) => c.domains.deleteLogoV1(ID) },
+  { key: "domains.getLogoReadinessV1", invoke: (c) => c.domains.getLogoReadinessV1(ID) },
   { key: "domains.assignStream", invoke: (c) => c.domains.assignStream(ID, {}) },
   // webhooks (v1)
   { key: "webhooks.listV1", invoke: (c) => c.webhooks.listV1() },
@@ -432,6 +444,8 @@ function normalizePath(url: string): string {
   const path = withoutBase.split("?")[0] ?? withoutBase;
   return path
     .replace(/__EXECUTION_ID__/g, "{execution_id}")
+    .replace(/__CONVERSATION_ID__/g, "{conversationId}")
+    .replace(/__ATTACHMENT_ID__/g, "{attachmentId}")
     .replace(/__ID__/g, "{id}")
     .replace(/__EMAIL__/g, "{email}");
 }
@@ -446,6 +460,7 @@ async function captureSdkOps(): Promise<Map<string, string>> {
   const methodToOp = new Map<string, string>();
   for (const entry of MANIFEST) {
     fetchMock.mockClear();
+    if (entry.response !== undefined) fetchMock.mockResolvedValueOnce(jsonResponse(200, entry.response));
     await entry.invoke(client);
     const call = fetchMock.mock.calls[0];
     if (!call) throw new Error(`contract manifest: ${entry.key} issued no HTTP request`);

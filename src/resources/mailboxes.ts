@@ -1,12 +1,21 @@
-import type { Sendly } from "../client";
+import type { Sendly, SendlyFile } from "../client";
 import type {
   AppPasswordRecord,
   ComposeMailboxMessageRequest,
   DraftMailboxMessageRequest,
+  ListMailboxConversationsQuery,
+  MailboxConversation,
+  MailboxConversationPage,
+  MailboxConversationReplyRequest,
   MailboxDetail,
+  MailboxMessage,
   MailboxRecord,
   paths,
 } from "../types";
+
+/** What {@link MailboxesResource.replyToConversation} resolves: the reply was handed to the mail server. */
+export type MailboxConversationReply =
+  paths["/api/mailboxes/{id}/conversations/{conversationId}/reply"]["post"]["responses"][200]["content"]["application/json"]["data"];
 
 /** What {@link MailboxesResource.sendMessage} resolves once the message is submitted. */
 export type MailboxMessageSubmitted =
@@ -46,8 +55,8 @@ export class MailboxesResource {
    * they are still returned here: a project with a run of failed provisions can
    * therefore list more than 10.
    *
-   * This lists the mailboxes themselves, never their contents: received
-   * messages are not part of the public API.
+   * This lists the mailboxes themselves, never their contents: the mail is
+   * {@link listConversations}, under a scope of its own.
    */
   async list(): Promise<MailboxRecord[]> {
     const envelope = await this.client.request<{ success: true; data: MailboxRecord[] }>({
@@ -139,5 +148,96 @@ export class MailboxesResource {
       body,
     });
     return this.client.unwrap(envelope);
+  }
+
+  /*
+   * THE MAIL ITSELF. The four methods below read and answer correspondence from
+   * people outside your project, so they need `mailbox-conversations:read` (and
+   * `mailbox-conversations:reply` to answer). Those scopes are opt-in only: a key
+   * carries one only if it was ticked by name when the key was created, and
+   * neither the legacy full-access key nor the "Full access" preset has it. An
+   * existing key answers `403` here until you mint one that does.
+   */
+
+  /**
+   * One page of a mailbox's threads, newest activity first, from the Inbox
+   * view (default) or the Spam view. Page by passing `nextCursor` back as
+   * `cursor` until it is null; {@link listAllConversations} does that for you.
+   * A mailbox in another project answers `404`.
+   */
+  async listConversations(id: string, query?: ListMailboxConversationsQuery): Promise<MailboxConversationPage> {
+    const envelope = await this.client.request<{ success: true; data: MailboxConversationPage }>({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations`,
+      query,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Iterate every thread in a mailbox across pages, one conversation at a time. */
+  async *listAllConversations(
+    id: string,
+    query?: ListMailboxConversationsQuery,
+  ): AsyncGenerator<MailboxConversation, void, undefined> {
+    let cursor = query?.cursor;
+    do {
+      const page = await this.listConversations(id, { ...query, cursor });
+      yield* page.items;
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+  }
+
+  /**
+   * Every message in one thread, oldest first, inbound and outbound together.
+   * Not paginated, and reading marks nothing as read.
+   *
+   * Bodies are written by whoever sent them: treat `htmlBody` as hostile HTML.
+   * A conversation that is not in this mailbox resolves an empty list rather
+   * than throwing; a mailbox outside the key's project answers `404`.
+   */
+  async getConversation(id: string, conversationId: string): Promise<MailboxMessage[]> {
+    const envelope = await this.client.request<{ success: true; data: MailboxMessage[] }>({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * SENDS a reply, from the mailbox's own address, inside the same thread, to
+   * the person who last wrote in. You name neither the recipient nor the
+   * sender: this only ever answers someone who wrote first, which is why it has
+   * its own scope (`mailbox-conversations:reply`) and is not {@link sendMessage}.
+   *
+   * Pass plain text in `body` or a structured `document`; Sendly renders the
+   * HTML and a matching text part. Refusals worth handling by name:
+   * `422 UNPROCESSABLE` (no inbound message to answer, or the mailbox is not
+   * provisioned), `422 SEND_REFUSED` (the recipient is suppressed or the project
+   * may not send), `429 SENDING_LIMIT_REACHED`.
+   */
+  async replyToConversation(
+    id: string,
+    conversationId: string,
+    body: MailboxConversationReplyRequest,
+  ): Promise<MailboxConversationReply> {
+    const envelope = await this.client.request<{ success: true; data: MailboxConversationReply }>({
+      method: "POST",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/reply`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * The bytes of one attachment, the `url` a message lists, fetched from the
+   * mail server on demand. The file and its `contentType` were chosen by the
+   * sender: treat both as untrusted, and never serve the bytes back to a
+   * browser under your own origin without a fixed type.
+   */
+  async downloadAttachment(id: string, attachmentId: string): Promise<SendlyFile> {
+    return this.client.requestBytes({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
+    });
   }
 }

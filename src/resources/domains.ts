@@ -7,11 +7,14 @@ import type {
   DomainDeletedV1,
   DomainListResponse,
   DomainListV1,
+  DomainLogoReadinessV1,
+  DomainLogoV1,
   DomainRecord,
   DomainSetupSession,
   DomainV1,
   DomainVerificationStatus,
   ListDomainsV1Query,
+  UploadDomainLogoV1Request,
 } from "../types";
 
 /**
@@ -223,6 +226,66 @@ export class DomainsResource {
     return this.client.request<DomainDeletedV1>({
       method: "DELETE",
       path: `/api/v1/domains/${encodeURIComponent(id)}`,
+    });
+  }
+
+  /**
+   * The logo this identity serves to inboxes (BIMI), the `default._bimi` TXT
+   * record that makes them fetch it (`bimi_record`), and a fresh DNS reading of
+   * whether they will show it today. The URL never changes, so the record is
+   * published once. Until a logo is uploaded it serves a default (the domain's
+   * initial), and it serves nothing until the identity verifies.
+   *
+   * Providers decide whether to display a logo, so DNS readiness is not a
+   * promise of display; Gmail also needs a VMC or CMC certificate, which Sendly
+   * neither issues nor checks. {@link getLogoReadinessV1} is the full checklist.
+   */
+  async getLogoV1(id: string): Promise<DomainLogoV1> {
+    return this.client.request<DomainLogoV1>({
+      method: "GET",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo`,
+    });
+  }
+
+  /**
+   * Replace the logo with an SVG. It is rebuilt into SVG Tiny PS, the profile
+   * BIMI requires: it must be square, draw with shapes rather than `<text>`,
+   * reference nothing outside itself, and come to at most 32 KB once rebuilt.
+   * A file that cannot be rebuilt answers `422 validation_error` with a
+   * `detail` naming what to change, and the previous logo stays in place.
+   */
+  async uploadLogoV1(id: string, body: UploadDomainLogoV1Request): Promise<DomainLogoV1> {
+    return this.client.request<DomainLogoV1>({
+      method: "PUT",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo`,
+      body,
+    });
+  }
+
+  /**
+   * Remove the uploaded logo, so the URL serves the default again. Resolves the
+   * logo now served; removing one that was never uploaded is not an error. The
+   * DNS record does not change.
+   */
+  async deleteLogoV1(id: string): Promise<DomainLogoV1> {
+    return this.client.request<DomainLogoV1>({
+      method: "DELETE",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo`,
+    });
+  }
+
+  /**
+   * How ready the identity is to show its logo as the inbox avatar: each step
+   * (DMARC at enforcement on the host and its organizational domain, the BIMI
+   * record, the logo file, the mark certificate) as `met`, `missing`, `unknown`
+   * or `not_applicable` with a plain-English `reason`, and one checklist per
+   * inbox (Gmail, Yahoo, Apple Mail, Fastmail). For the certificate only "the
+   * URL answers with a PEM file" is checked; its chain is not validated.
+   */
+  async getLogoReadinessV1(id: string): Promise<DomainLogoReadinessV1> {
+    return this.client.request<DomainLogoReadinessV1>({
+      method: "GET",
+      path: `/api/v1/domains/${encodeURIComponent(id)}/logo/readiness`,
     });
   }
 }

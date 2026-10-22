@@ -13,7 +13,23 @@ export function jsonResponse(status: number, body: unknown): Response {
     statusText: "",
     text: async () => text,
     json: async () => (typeof body === "string" ? JSON.parse(body) : body),
+    arrayBuffer: async () => new TextEncoder().encode(text).buffer,
     headers: new Headers({ "content-type": "application/json" }),
+  } as unknown as Response;
+}
+
+/** Build a successful file response: raw bytes with the headers a download carries. */
+export function fileResponse(bytes: Uint8Array, headers: Record<string, string>): Response {
+  // eslint-disable-next-line sendly/no-unknown-cast-laundering -- partial Response stub for test
+  return {
+    ok: true,
+    status: 200,
+    statusText: "",
+    text: async () => {
+      throw new Error("a file body must be read as bytes, never as text");
+    },
+    arrayBuffer: async () => bytes.slice().buffer,
+    headers: new Headers(headers),
   } as unknown as Response;
 }
 
