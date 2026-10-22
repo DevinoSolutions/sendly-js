@@ -3,7 +3,7 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## Unreleased (next: 1.2.0)
+## 1.2.0 — 2026-10-22
 
 ### Breaking
 
