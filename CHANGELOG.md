@@ -3,6 +3,13 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- **Requests from Cloudflare Workers (and browsers) failed with `Illegal invocation`** because
+  `fetch` was called with the client as receiver. It is now called detached.
+
 ## 1.2.0 — 2026-10-22
 
 ### Breaking

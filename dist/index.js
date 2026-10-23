@@ -2344,7 +2344,7 @@ var WorkflowsResource = class {
 };
 
 // src/client.ts
-var SDK_VERSION = "1.1.0";
+var SDK_VERSION = "1.2.0";
 var DEFAULT_BASE_URL = "https://api.sendly.now";
 var Sendly = class {
   emails;
@@ -2507,8 +2507,9 @@ var Sendly = class {
     if (this.timeout > 0) {
       init.signal = AbortSignal.timeout(this.timeout);
     }
+    const doFetch = this.fetchImpl;
     try {
-      return await this.fetchImpl(url, init);
+      return await doFetch(url, init);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new SendlyConnectionError(`Sendly request failed: ${message}`, error);
