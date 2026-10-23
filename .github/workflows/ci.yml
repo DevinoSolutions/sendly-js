@@ -72,3 +72,30 @@ jobs:
         env:
           SENDLY_OPENAPI_URL: ${{ vars.SENDLY_OPENAPI_URL }}
         continue-on-error: true
+
+  # T-7169: the built package, packed like a consumer receives it, run in workerd
+  # (Cloudflare Workers) and Vercel's Edge Runtime VM, then type-checked under
+  # strict / skipLibCheck: false on three TypeScript majors. Nothing here reaches the
+  # network: every fetch is answered in-process.
+  edge:
+    name: Edge runtimes & strict types
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: pnpm/action-setup@v6.0.8
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Cloudflare Workers, Vercel Edge and strict types
+        run: pnpm test:edge
