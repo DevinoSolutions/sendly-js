@@ -11,6 +11,9 @@ on:
     # drift step at the end of this file.
     - cron: "0 9 * * 1"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

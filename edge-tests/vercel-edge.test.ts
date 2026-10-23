@@ -14,8 +14,9 @@ interface Seen {
 let fixtureDir = "";
 
 /**
- * Bundle for an edge runtime the way Vercel's bundler sees it: browser platform, the
- * `edge-light` / `worker` export conditions, no Node built-ins.
+ * Bundle for an edge runtime the way Vercel's bundler sees it: browser platform, no
+ * Node built-ins. The package `exports` map has only `import` / `require`, so no `edge-light` or
+ * `worker` condition is involved.
  */
 function edgeBundle(options: { stubCrypto: boolean }): Promise<string> {
   const stub = join(fixtureDir, "crypto-stub.mjs");
@@ -27,7 +28,6 @@ function edgeBundle(options: { stubCrypto: boolean }): Promise<string> {
   return bundleConsumer(fixtureDir, `${SEND_CONSUMER}\nglobalThis.__run = () => run().then(JSON.stringify);`, {
     format: "iife",
     platform: "browser",
-    conditions: ["edge-light", "worker", "import"],
     alias: options.stubCrypto ? { crypto: stub } : {},
   });
 }
@@ -66,7 +66,7 @@ beforeAll(() => {
 afterAll(() => removeFixture(fixtureDir));
 
 describe("Vercel Edge Runtime (@edge-runtime/vm) running the packed sendly-sdk", () => {
-  test("emails.send works on the edge fetch with no dynamic code evaluation", async () => {
+  test("emails.send works on the edge fetch with no dynamic code evaluation (crypto stubbed, T-7260 gap)", async () => {
     const { result, seen, evalBlocked } = await runInEdgeVm(await edgeBundle({ stubCrypto: true }));
 
     expect(evalBlocked).toBe(true);
@@ -86,7 +86,7 @@ describe("Vercel Edge Runtime (@edge-runtime/vm) running the packed sendly-sdk",
     });
   });
 
-  // KNOWN GAP (T-7169): the entry point pulls in src/webhook-utils.ts, which imports Node's
+  // KNOWN GAP (T-7260): the entry point pulls in src/webhook-utils.ts, which imports Node's
   // crypto. Without the stub above, an edge bundler has nothing to resolve it to. When the
   // webhook helpers leave the module graph of `Sendly`, this goes red: delete it and the stub.
   test("KNOWN GAP: the unmodified package does not bundle for an edge runtime because of crypto", async () => {

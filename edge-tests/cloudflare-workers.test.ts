@@ -98,7 +98,7 @@ describe("Cloudflare Workers (workerd) running the packed sendly-sdk", () => {
     });
   });
 
-  // KNOWN GAP (T-7169): src/webhook-utils.ts imports node:crypto at module top level and the
+  // KNOWN GAP (T-7260): src/webhook-utils.ts imports node:crypto at module top level and the
   // entry point re-exports it, so merely importing `Sendly` needs Node crypto in the runtime.
   // This pins the gap with its exact cause; when the webhook helpers leave the module graph of
   // `Sendly`, it goes red: flip it to expect a receipt.

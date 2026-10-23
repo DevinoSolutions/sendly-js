@@ -82,7 +82,7 @@ describe("the shipped .d.ts under strict, skipLibCheck: false", () => {
     }
   }
 
-  // KNOWN GAP (T-7169): the webhook helpers are typed `string | Buffer`, so the .d.ts names a
+  // KNOWN GAP (T-7261): the webhook helpers are typed `string | Buffer`, so the .d.ts names a
   // Node global. A Workers or Edge project without @types/node cannot compile with
   // skipLibCheck: false. When `Buffer` leaves the public types this goes red: drop it.
   test("KNOWN GAP: without @types/node the declarations name Buffer", () => {
