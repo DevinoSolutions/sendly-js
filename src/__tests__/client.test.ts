@@ -130,4 +130,21 @@ describe("Sendly client", () => {
       expect(error).toBeInstanceOf(SendlyError);
     }
   });
+
+  test("calls fetch detached from the client (Cloudflare Workers throws Illegal invocation otherwise)", async () => {
+    let calledDetached: boolean | undefined;
+    const platformFetch = function (this: unknown): Promise<Response> {
+      calledDetached = this === undefined;
+      return Promise.resolve(jsonResponse(200, { success: true }));
+    };
+    const client = new Sendly({
+      apiKey: "sk_test_key",
+      baseUrl: "http://localhost",
+      fetch: platformFetch as typeof fetch,
+    });
+
+    await client.request({ method: "GET", path: "/api/domains" });
+
+    expect(calledDetached).toBe(true);
+  });
 });

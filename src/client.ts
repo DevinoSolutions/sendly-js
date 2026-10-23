@@ -269,8 +269,11 @@ export class Sendly {
       init.signal = AbortSignal.timeout(this.timeout);
     }
 
+    // Called detached on purpose: a platform fetch (Cloudflare Workers, browsers) throws
+    // "Illegal invocation" when `this` is the client instead of the global scope.
+    const doFetch = this.fetchImpl;
     try {
-      return await this.fetchImpl(url, init);
+      return await doFetch(url, init);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new SendlyConnectionError(`Sendly request failed: ${message}`, error);
