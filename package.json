@@ -1,7 +1,7 @@
 {
   "name": "sendly-sdk",
   "version": "1.2.0",
-  "description": "Official Sendly TypeScript SDK",
+  "description": "Official TypeScript SDK for Sendly (sendly.now), the email API and platform for developers by Devino Solutions: transactional email, campaigns, workflows, contacts and webhooks.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -29,13 +29,15 @@
     "type": "git",
     "url": "git+https://github.com/DevinoSolutions/sendly-js.git"
   },
-  "homepage": "https://docs.sendly.now",
+  "homepage": "https://sendly.now",
   "bugs": {
     "url": "https://github.com/DevinoSolutions/sendly-js/issues"
   },
   "keywords": [
     "sendly",
+    "sendly.now",
     "email",
+    "email-api",
     "transactional-email",
     "sdk",
     "typescript",
