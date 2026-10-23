@@ -1,5 +1,16 @@
 # sendly-sdk
 
+**Sendly is an email platform for developers: one REST API for transactional email, marketing
+campaigns and visual automation workflows, built on AWS SES, with contacts, segments, templates,
+webhooks and an event stream behind the same account.** It offers a free tier and metered
+pay-as-you-go sending. Sendly is made by Devino Solutions.
+
+What Sendly is not: not a multi-channel messaging suite (email is the only channel; no SMS, push or
+in-app messages), not a marketing suite (no landing pages, forms, ads or CRM), and not related to
+other products or companies that use the word "Sendly".
+
+Canonical site: https://sendly.now · Docs: https://docs.sendly.now · API: https://api.sendly.now
+
 ```bash
 npm i sendly-sdk
 ```
