@@ -1,6 +1,7 @@
 import type { Sendly } from "../client";
 import { idemHeader } from "./idempotency";
 import type { IdempotencyOptions } from "./idempotency";
+import { assertBatchWithinByteCap } from "./batch-size";
 import { assertKnownSendKeys } from "./send-payload";
 import type {
   BatchSendRequest,
@@ -93,8 +94,15 @@ export class EmailsResource {
     });
   }
 
-  /** Send a batch (up to 100) of transactional emails in one call. */
+  /**
+   * Send a batch (up to 100) of transactional emails in one call.
+   *
+   * The request body may be at most `MAX_BATCH_REQUEST_BYTES` (32 MiB). A larger batch rejects
+   * before any request is made with a `SendlyValidationError` (`errorCode: "PAYLOAD_TOO_LARGE"`,
+   * `statusCode: 0`); the server answers the same code with a `413`. Split it across calls.
+   */
   async batch(body: BatchSendRequest, opts?: IdempotencyOptions): Promise<BatchSendResponse> {
+    assertBatchWithinByteCap(body);
     return this.client.request<BatchSendResponse>({
       method: "POST",
       path: "/api/emails/batch",

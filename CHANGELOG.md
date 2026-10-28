@@ -5,6 +5,19 @@ All notable changes to `sendly-sdk` are documented here. This project follows
 
 ## Unreleased
 
+### Added
+
+- **`emails.batch` checks its size before sending.** The API now caps the batch body at 32 MiB
+  (`MAX_BATCH_REQUEST_BYTES`, exported) and answers a larger one `413 PAYLOAD_TOO_LARGE`. The SDK
+  refuses such a batch before any request is made, with a `SendlyValidationError`
+  (`errorCode: "PAYLOAD_TOO_LARGE"`, `statusCode: 0`) that names the size. Attachments are what
+  make a batch that large; split it across calls.
+
+### Changed
+
+- **A `413` response is a `SendlyValidationError`**, like `400` and `422`, so the server's own
+  `PAYLOAD_TOO_LARGE` and the SDK's pre-check are caught the same way. It was a bare `SendlyError`.
+
 ### Fixed
 
 - **Requests from Cloudflare Workers (and browsers) failed with `Illegal invocation`** because
