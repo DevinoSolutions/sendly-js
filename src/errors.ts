@@ -100,7 +100,10 @@ export class SendlyError extends Error {
   }
 }
 
-/** 400 or 422 — request body or query failed validation. */
+/**
+ * 400 or 422 — request body or query failed validation. Also 413 `PAYLOAD_TOO_LARGE`, a request
+ * body over the route's size cap (32 MiB on `emails.batch`).
+ */
 export class SendlyValidationError extends SendlyError {
   constructor(statusCode: number, errorCode: string, message: string, body?: unknown, problem?: ProblemDocument) {
     super(statusCode, errorCode, message, body, problem);
@@ -196,7 +199,8 @@ export function errorFromResponse(
   const code = problem?.code ?? errorCode;
   const text = problem ? (problem.detail ?? (problem.title || message)) : message;
 
-  if (statusCode === 400 || statusCode === 422) return new SendlyValidationError(statusCode, code, text, body, problem);
+  if (statusCode === 400 || statusCode === 413 || statusCode === 422)
+    return new SendlyValidationError(statusCode, code, text, body, problem);
   if (statusCode === 401) return new SendlyAuthenticationError(statusCode, code, text, body, problem);
   if (statusCode === 403) return new SendlyPermissionError(statusCode, code, text, body, problem);
   if (statusCode === 404) return new SendlyNotFoundError(statusCode, code, text, body, problem);

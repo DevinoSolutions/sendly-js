@@ -14,6 +14,7 @@ export { Sendly, DEFAULT_BASE_URL, SDK_VERSION } from "./client";
 export type { SendlyClientOptions, RequestOptions, SendlyFile } from "./client";
 
 export { EmailsResource } from "./resources/emails";
+export { MAX_BATCH_REQUEST_BYTES } from "./resources/batch-size";
 export type { IdempotencyOptions } from "./resources/idempotency";
 export { ContactsResource } from "./resources/contacts";
 export { DomainsResource } from "./resources/domains";
