@@ -1,6 +1,6 @@
 {
   "name": "sendly-sdk",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Official TypeScript SDK for Sendly (sendly.now), the email API and platform for developers by Devino Solutions: transactional email, campaigns, workflows, contacts and webhooks.",
   "license": "MIT",
   "type": "module",
