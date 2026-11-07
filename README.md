@@ -308,6 +308,23 @@ for (const event of email.events) {
 This is one of the few legacy reads the SDK hands back enveloped rather than
 unwrapped, so the email is under `.data`.
 
+A bounced or complained message says why. All of these are `string | null` and are
+`null` until the event happens (or when the receiving server did not say):
+
+```ts
+if (email.status === "BOUNCED") {
+  // `bounceType` is `Permanent` / `Transient` / `Undetermined`; the rest are the
+  // receiving server's own words. Show them to a person, do not parse them.
+  console.log(email.bounceType, email.bounceSubType, email.bounceStatusCode, email.bounceDiagnosticCode);
+}
+if (email.complainedAt !== null) console.log(email.complaintFeedbackType); // e.g. "abuse"
+```
+
+Each `events` entry carries the same four `bounce*` fields for the transition that
+recorded them. The `email.bounced` webhook body (`WebhookEmailBouncedData`) adds
+`bounceSubType`, `bounceStatusCode` and `bounceDiagnosticCode`, and `email.complained`
+(`WebhookEmailComplainedData`) adds `complaintFeedbackType`.
+
 ### List emails with filters and cursor pagination
 
 ```ts

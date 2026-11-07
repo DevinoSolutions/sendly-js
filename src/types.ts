@@ -57,6 +57,16 @@ export type EmailListResponse = components["schemas"]["EmailListResponse"];
  */
 export type EmailEvent = components["schemas"]["EmailEvent"];
 
+/**
+ * The `data` body of an `email.bounced` webhook delivery. `bounceSubType`,
+ * `bounceStatusCode` and `bounceDiagnosticCode` are the receiving server's own
+ * words; show them to a person, do not parse them.
+ */
+export type WebhookEmailBouncedData = components["schemas"]["WebhookEmailBouncedData"];
+
+/** The `data` body of an `email.complained` webhook delivery. */
+export type WebhookEmailComplainedData = components["schemas"]["WebhookEmailComplainedData"];
+
 /** An email together with its delivery history, oldest first. */
 export type EmailWithEvents = components["schemas"]["EmailWithEvents"];
 

@@ -3,6 +3,26 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 1.4.0 — 2026-11-07
+
+### Added
+
+- **Why a message bounced or was complained about.** `EmailRecord` (`emails.get`, `emails.list`)
+  gains `bounceType`, `bounceSubType`, `bounceStatusCode`, `bounceDiagnosticCode` and
+  `complaintFeedbackType`; each `EmailEvent` in its delivery history gains the four `bounce*`
+  fields. The `email.bounced` webhook body gains `bounceSubType`, `bounceStatusCode` and
+  `bounceDiagnosticCode`, and `email.complained` gains `complaintFeedbackType`. All are optional and
+  `string | null`, so existing code compiles unchanged. New type exports: `WebhookEmailBouncedData`,
+  `WebhookEmailComplainedData`.
+
+### Changed
+
+- **The vendored contract is re-synced** from the released one (`docs.sendly.now/openapi.json`),
+  which had grown from 106 to 198 paths since the last sync. The additions are account, dashboard
+  and member-management routes plus key-callable operations this SDK has no method for yet; the
+  contract suite lists them in `NOT_SDK_CALLABLE` / `NOT_YET_IMPLEMENTED` rather than shipping
+  them unreviewed. No existing method changed.
+
 ## 1.3.0 — 2026-11-04
 
 ### Added
