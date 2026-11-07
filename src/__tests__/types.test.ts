@@ -6,7 +6,11 @@ import type {
   CreateContactRequest,
   CreateTemplateRequest,
   SendEmailRequest,
+  EmailEvent,
+  EmailRecord,
   SendEmailV1Request,
+  WebhookEmailBouncedData,
+  WebhookEmailComplainedData,
 } from "../types";
 
 /**
@@ -70,5 +74,26 @@ describe("request types leave server-defaulted properties optional", () => {
     const suppression: AddSuppressionRequest = { email: "test+a@example.com" };
     expect(contact.subscribed).toBeUndefined();
     expect(suppression.reason).toBeUndefined();
+  });
+});
+
+describe("bounce and complaint detail fields", () => {
+  test("Email and EmailEvent carry the optional, nullable bounce detail", () => {
+    expectTypeOf<EmailRecord["bounceType"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailRecord["bounceSubType"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailRecord["bounceStatusCode"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailRecord["bounceDiagnosticCode"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailRecord["complaintFeedbackType"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailEvent["bounceType"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailEvent["bounceSubType"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailEvent["bounceStatusCode"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<EmailEvent["bounceDiagnosticCode"]>().toEqualTypeOf<string | null | undefined>();
+  });
+
+  test("the webhook bodies expose the new fields", () => {
+    expectTypeOf<WebhookEmailBouncedData["bounceSubType"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<WebhookEmailBouncedData["bounceStatusCode"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<WebhookEmailBouncedData["bounceDiagnosticCode"]>().toEqualTypeOf<string | null | undefined>();
+    expectTypeOf<WebhookEmailComplainedData["complaintFeedbackType"]>().toEqualTypeOf<string | null | undefined>();
   });
 });
