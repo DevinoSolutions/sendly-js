@@ -14,6 +14,8 @@ All notable changes to `sendly-sdk` are documented here. This project follows
   `bounceDiagnosticCode`, and `email.complained` gains `complaintFeedbackType`. All are optional and
   `string | null`, so existing code compiles unchanged. New type exports: `WebhookEmailBouncedData`,
   `WebhookEmailComplainedData`.
+- **Three other optional fields arrive with the re-sync:** `Email.hold`, `Problem.next` and
+  `CreateApiKeyBody.tiers`. All are optional, so existing code compiles unchanged.
 
 ### Changed
 

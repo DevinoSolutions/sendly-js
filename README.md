@@ -313,8 +313,9 @@ A bounced or complained message says why. All of these are `string | null` and a
 
 ```ts
 if (email.status === "BOUNCED") {
-  // `bounceType` is `Permanent` / `Transient` / `Undetermined`; the rest are the
-  // receiving server's own words. Show them to a person, do not parse them.
+  // `bounceType` is `Permanent` or `Undetermined` here (a `Transient` bounce is
+  // retried and never sets BOUNCED); the rest are the receiving server's own words.
+  // Show them to a person, do not parse them.
   console.log(email.bounceType, email.bounceSubType, email.bounceStatusCode, email.bounceDiagnosticCode);
 }
 if (email.complainedAt !== null) console.log(email.complaintFeedbackType); // e.g. "abuse"
