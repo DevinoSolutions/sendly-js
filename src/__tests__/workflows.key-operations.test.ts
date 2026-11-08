@@ -60,12 +60,12 @@ describe("workflows: steps and transitions (legacy /api/workflows)", () => {
     expect(result.id).toBe("st1");
   });
 
-  test("addTransition POSTs the condition branch and priority", async () => {
+  test("createTransition POSTs the condition branch and priority", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(envelope({ id: "tr1" }, 201));
     const body = { fromStepId: "st1", toStepId: "st2", condition: { branch: "yes" }, priority: 1 };
 
-    await client.workflows.addTransition("w1", body);
+    await client.workflows.createTransition("w1", body);
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/workflows/w1/transitions");
@@ -130,14 +130,14 @@ describe("workflows: conversion goals, executions and versions (legacy /api/work
     expect(result.cancelled).toBe(5);
   });
 
-  test("listVersions and revertToVersion", async () => {
+  test("listVersions and revertVersion", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValueOnce(envelope([{ version: 2 }, { version: 1 }]));
     expect(await client.workflows.listVersions("w1")).toEqual([{ version: 2 }, { version: 1 }]);
     expect(getCall(fetchMock, 0).url).toBe("http://localhost/api/workflows/w1/versions");
 
     fetchMock.mockResolvedValueOnce(envelope({ version: 1 }));
-    const reverted = await client.workflows.revertToVersion("w1", 1);
+    const reverted = await client.workflows.revertVersion("w1", 1);
     expect(getCall(fetchMock, 1).url).toBe("http://localhost/api/workflows/w1/versions/1/revert");
     expect(getCall(fetchMock, 1).init.method).toBe("POST");
     expect(reverted.version).toBe(1);

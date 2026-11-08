@@ -4,8 +4,6 @@ import type {
   AppPasswordRecord,
   ComposeMailboxMessageRequest,
   DraftMailboxMessageRequest,
-  InboxConversationPage,
-  ListInboxConversationsQuery,
   ListMailboxConversationsQuery,
   MailboxConversation,
   MailboxConversationPage,
@@ -247,35 +245,10 @@ export class MailboxesResource {
   }
 
   /*
-   * CONVERSATION MANAGEMENT. Reading a thread's contact and the project-wide inbox
-   * needs `mailbox-conversations:read`; changing or deleting a thread needs
-   * `mailboxes:write`.
+   * CONVERSATION MANAGEMENT (the project-wide inbox is `inbox`). Reading a thread's
+   * contact needs `mailbox-conversations:read`; changing or deleting a thread
+   * needs `mailboxes:write`.
    */
-
-  /**
-   * One page of conversations across EVERY mailbox in the project, newest first.
-   * `view` picks the inbox or spam, `status` narrows by state, and `q` searches
-   * subject and sender. Page by passing `nextCursor` back as `cursor` until it
-   * is null; {@link listAllInboxConversations} does that for you.
-   */
-  async listInboxConversations(query?: ListInboxConversationsQuery): Promise<InboxConversationPage> {
-    const envelope = await this.client.request<{ success: true; data: InboxConversationPage }>({
-      method: "GET",
-      path: "/api/inbox/conversations",
-      query,
-    });
-    return this.client.unwrap(envelope);
-  }
-
-  /** Iterate every conversation in the project's inbox across pages, one at a time. */
-  async *listAllInboxConversations(query?: ListInboxConversationsQuery): AsyncGenerator<ApiObject, void, undefined> {
-    let cursor = query?.cursor;
-    do {
-      const page = await this.listInboxConversations({ ...query, cursor });
-      yield* page.items;
-      cursor = page.nextCursor ?? undefined;
-    } while (cursor);
-  }
 
   /** The Sendly contact behind a conversation and their recent email and event timeline. */
   async getConversationContact(id: string, conversationId: string): Promise<ApiObject> {
@@ -308,11 +281,7 @@ export class MailboxesResource {
    * File a conversation as spam, or pass `spam: false` to move it back to the
    * inbox. Mail clients connected to the mailbox see the same move.
    */
-  async markConversationSpam(
-    id: string,
-    conversationId: string,
-    body: MarkConversationSpamRequest,
-  ): Promise<ApiObject> {
+  async setConversationSpam(id: string, conversationId: string, body: MarkConversationSpamRequest): Promise<ApiObject> {
     const envelope = await this.client.request<{ success: true; data: ApiObject }>({
       method: "POST",
       path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/spam`,

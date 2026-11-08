@@ -13,7 +13,6 @@ import type {
   TemplateV1,
   UpdateTemplateRequest,
   UpdateTemplateV1Request,
-  UploadedImage,
 } from "../types";
 
 /**
@@ -160,7 +159,7 @@ export class TemplatesResource {
   }
 
   /*
-   * TEMPLATE VERSIONS, copies and image hosting, on the legacy `/api/templates`
+   * TEMPLATE VERSIONS and copies, on the legacy `/api/templates`
    * routes (responses are `{ success, data }` envelopes the SDK unwraps).
    */
 
@@ -196,29 +195,11 @@ export class TemplatesResource {
    * content it had until now is kept as a version of its own, so a revert can
    * itself be reverted.
    */
-  async revertToVersion(id: string, version: number): Promise<TemplateRecord> {
+  async revertVersion(id: string, version: number): Promise<TemplateRecord> {
     const envelope = await this.client.request<{ success: true; data: TemplateRecord }>({
       method: "POST",
       path: `/api/templates/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(version))}/revert`,
     });
     return this.client.unwrap(envelope);
-  }
-
-  /**
-   * Host an image (JPEG, PNG, GIF or WebP, up to 10 MB) for use in emails and
-   * resolve its hosted `url`. The bytes are sent as multipart form data under the
-   * field the route reads, `image`, and the server checks the file's contents
-   * against its declared type. Pass a `File`/`Blob`; a bare `Blob` needs a
-   * `filename`, and its `type` must be the image's real MIME type.
-   * Answers `503` on a deployment without file storage.
-   */
-  async uploadImage(image: Blob, filename = "image"): Promise<UploadedImage> {
-    const form = new FormData();
-    form.append("image", image, filename);
-    return this.client.request<UploadedImage>({
-      method: "POST",
-      path: "/api/uploads/image",
-      form,
-    });
   }
 }

@@ -1,4 +1,4 @@
-import type { Sendly, SendlyFile } from "../client";
+import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import { idemHeader } from "./idempotency";
 import type { IdempotencyOptions } from "./idempotency";
@@ -10,6 +10,7 @@ import type {
   ContactFieldList,
   ContactFieldUsage,
   ContactFieldValues,
+  DownloadLink,
   ContactImportFile,
   ContactListResponse,
   ContactListV1,
@@ -263,13 +264,14 @@ export class ContactsResource {
   }
 
   /**
-   * Download this project's contacts as CSV, optionally narrowed by `search` (part
-   * of an address) and `subscribed`. Resolves the file's bytes with its
-   * `Content-Type` and `Content-Disposition`, because the route streams the CSV
-   * itself rather than answering JSON.
+   * Get a ONE-TIME LINK a person opens to download this project's contacts as
+   * CSV, optionally narrowed by `search` (part of an address) and `subscribed`.
+   * With an API key the route does not stream the file: it answers a handoff
+   * link (single-use, 15 minutes), so the SDK never downloads the CSV itself.
+   * Needs `contacts:read`.
    */
-  async exportCsv(query?: ExportContactsQuery): Promise<SendlyFile> {
-    return this.client.requestBytes({
+  async exportLink(query?: ExportContactsQuery): Promise<DownloadLink> {
+    return this.client.request<DownloadLink>({
       method: "GET",
       path: "/api/contacts/export",
       query,
@@ -280,8 +282,9 @@ export class ContactsResource {
    * Import contacts from a CSV, up to 5 MB, as a background job: the first row
    * is the header and must include an `email` column, and every other column
    * becomes a custom field. Pass a `File`/`Blob`, or the CSV text itself.
-   * Resolves once the import is queued, not once it has finished; the file is
-   * sent as multipart form data, which is the only body this route reads.
+   * Resolves once the import is queued, not once it has finished. The file is
+   * sent as multipart form data under `file`; the route also takes JSON
+   * (`{ csv, filename? }`), but the contract publishes no request body for either.
    * `400 IMPORT_LIMIT_EXCEEDED` means the file has more rows than the project's
    * trust tier allows.
    */
@@ -311,7 +314,7 @@ export class ContactsResource {
    * Delete up to 1000 contacts by id, as a background job. {@link bulkDelete}
    * is the older route that also takes addresses; this one takes ids only.
    */
-  async bulkDeleteByIds(body: BulkContactActionRequest): Promise<MessageAck> {
+  async queueBulkDelete(body: BulkContactActionRequest): Promise<MessageAck> {
     const envelope = await this.client.request<{ success: true; data: MessageAck }>({
       method: "POST",
       path: "/api/contacts/bulk-delete",
@@ -325,7 +328,7 @@ export class ContactsResource {
    * addresses from ever being mailed again (GDPR erasure), as a background job.
    * It cannot be undone.
    */
-  async bulkPurge(body: BulkContactActionRequest): Promise<MessageAck> {
+  async queueBulkPurge(body: BulkContactActionRequest): Promise<MessageAck> {
     const envelope = await this.client.request<{ success: true; data: MessageAck }>({
       method: "POST",
       path: "/api/contacts/bulk-purge",
@@ -335,7 +338,7 @@ export class ContactsResource {
   }
 
   /** Subscribe up to 1000 contacts at once, as a background job. */
-  async bulkSubscribe(body: BulkContactActionRequest): Promise<MessageAck> {
+  async queueBulkSubscribe(body: BulkContactActionRequest): Promise<MessageAck> {
     const envelope = await this.client.request<{ success: true; data: MessageAck }>({
       method: "POST",
       path: "/api/contacts/bulk-subscribe",
@@ -345,7 +348,7 @@ export class ContactsResource {
   }
 
   /** Unsubscribe up to 1000 contacts at once, as a background job. */
-  async bulkUnsubscribe(body: BulkContactActionRequest): Promise<MessageAck> {
+  async queueBulkUnsubscribe(body: BulkContactActionRequest): Promise<MessageAck> {
     const envelope = await this.client.request<{ success: true; data: MessageAck }>({
       method: "POST",
       path: "/api/contacts/bulk-unsubscribe",

@@ -555,6 +555,15 @@ export type ExportContactsQuery = {
   search?: string;
   subscribed?: boolean;
 };
+/** The one-time handoff link `contacts.exportLink` resolves. */
+export interface DownloadLink {
+  status: string;
+  /** Open this once, within `expires_in` seconds. */
+  url: string;
+  expires_in: number;
+  what: string;
+  instruction: string;
+}
 /** A CSV to import: a `Blob`/`File`, or the CSV text itself. */
 export type ContactImportFile = Blob | string;
 

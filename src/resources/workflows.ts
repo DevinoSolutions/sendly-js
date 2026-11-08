@@ -302,7 +302,7 @@ export class WorkflowsResource {
    * Connect two steps. From a CONDITION step, `condition` picks the branch
    * (`{ branch: "yes" }`), and a lower `priority` is followed first.
    */
-  async addTransition(id: string, body: AddWorkflowTransitionRequest): Promise<ApiObject> {
+  async createTransition(id: string, body: AddWorkflowTransitionRequest): Promise<ApiObject> {
     const envelope = await this.client.request<{ success: true; data: ApiObject }>({
       method: "POST",
       path: `/api/workflows/${encodeURIComponent(id)}/transitions`,
@@ -383,7 +383,7 @@ export class WorkflowsResource {
   }
 
   /** Restore a workflow's steps and transitions to an earlier version from {@link listVersions}. */
-  async revertToVersion(id: string, version: number): Promise<WorkflowVersionReverted> {
+  async revertVersion(id: string, version: number): Promise<WorkflowVersionReverted> {
     const envelope = await this.client.request<{ success: true; data: WorkflowVersionReverted }>({
       method: "POST",
       path: `/api/workflows/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(version))}/revert`,

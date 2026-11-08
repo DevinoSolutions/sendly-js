@@ -3,12 +3,12 @@ import { getCall, getCallBody, jsonResponse, makeClient } from "./helpers";
 
 const envelope = (data: unknown) => jsonResponse(200, { success: true, data });
 
-describe("mailboxes: project inbox", () => {
-  test("listInboxConversations maps the filters onto the query and resolves one page", async () => {
+describe("inbox: project-wide conversations", () => {
+  test("inbox.listConversations maps the filters onto the query and resolves one page", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(envelope({ items: [{ id: "cv1" }], nextCursor: "cv1" }));
 
-    const page = await client.mailboxes.listInboxConversations({
+    const page = await client.inbox.listConversations({
       view: "spam",
       status: "open",
       q: "refund",
@@ -22,14 +22,14 @@ describe("mailboxes: project inbox", () => {
     expect(page.nextCursor).toBe("cv1");
   });
 
-  test("listAllInboxConversations follows nextCursor as `cursor` until it is null", async () => {
+  test("inbox.listAllConversations follows nextCursor as `cursor` until it is null", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock
       .mockResolvedValueOnce(envelope({ items: [{ id: "cv1" }, { id: "cv2" }], nextCursor: "cv2" }))
       .mockResolvedValueOnce(envelope({ items: [{ id: "cv3" }], nextCursor: null }));
 
     const seen: unknown[] = [];
-    for await (const conversation of client.mailboxes.listAllInboxConversations({ limit: 2 })) seen.push(conversation);
+    for await (const conversation of client.inbox.listAllConversations({ limit: 2 })) seen.push(conversation);
 
     expect(seen).toEqual([{ id: "cv1" }, { id: "cv2" }, { id: "cv3" }]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -62,11 +62,11 @@ describe("mailboxes: conversation management", () => {
     expect(result.status).toBe("CLOSED");
   });
 
-  test("markConversationSpam POSTs the flag, in both directions", async () => {
+  test("setConversationSpam POSTs the flag, in both directions", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(envelope({ id: "cv1", spamFiled: false }));
 
-    await client.mailboxes.markConversationSpam("mb1", "cv1", { spam: false });
+    await client.mailboxes.setConversationSpam("mb1", "cv1", { spam: false });
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/mailboxes/mb1/conversations/cv1/spam");

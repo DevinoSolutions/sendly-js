@@ -4,14 +4,14 @@ import { SendlyPermissionError } from "../index";
 
 const envelope = (data: unknown) => jsonResponse(200, { success: true, data });
 
-describe("projects: audit log, security and setup state (legacy /api/projects)", () => {
-  test("getAuditLog maps action and cursor onto the query", async () => {
+describe("auditLog and project reads (legacy dialect)", () => {
+  test("auditLog.list maps action and cursor onto the query", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(
       envelope({ data: [{ action: "contact.purge" }], total: 1, cursor: "x", hasMore: true }),
     );
 
-    const result = await client.projects.getAuditLog({ action: "contact.", limit: 10, cursor: "y" });
+    const result = await client.auditLog.list({ action: "contact.", limit: 10, cursor: "y" });
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/audit-log?action=contact.&limit=10&cursor=y");
@@ -20,14 +20,14 @@ describe("projects: audit log, security and setup state (legacy /api/projects)",
     expect(result.total).toBe(1);
   });
 
-  test("listAllAuditLog walks the log on `cursor`", async () => {
+  test("auditLog.listAll walks the log on `cursor`", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock
       .mockResolvedValueOnce(envelope({ data: [{ id: 1 }], cursor: "n1", hasMore: true }))
       .mockResolvedValueOnce(envelope({ data: [{ id: 2 }], hasMore: false }));
 
     const seen: unknown[] = [];
-    for await (const entry of client.projects.listAllAuditLog()) seen.push(entry);
+    for await (const entry of client.auditLog.listAll()) seen.push(entry);
 
     expect(seen).toEqual([{ id: 1 }, { id: 2 }]);
     expect(getCall(fetchMock, 1).url).toBe("http://localhost/api/audit-log?cursor=n1");

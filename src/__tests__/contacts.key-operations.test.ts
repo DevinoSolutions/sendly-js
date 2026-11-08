@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { fileResponse, getCall, getCallBody, jsonResponse, makeClient, problemResponse, rejection } from "./helpers";
+import { getCall, getCallBody, jsonResponse, makeClient, problemResponse, rejection } from "./helpers";
 import { SendlyValidationError } from "../index";
 
 const envelope = (data: unknown) => jsonResponse(200, { success: true, data });
@@ -69,24 +69,23 @@ describe("contacts: custom fields", () => {
 });
 
 describe("contacts: export, import and lookup", () => {
-  test("exportCsv resolves the raw bytes and headers, with the filters on the query", async () => {
+  test("exportLink GETs the export route and resolves the one-time handoff link", async () => {
     const { client, fetchMock } = makeClient();
-    const csv = new TextEncoder().encode("email\nuser@example.com\n");
-    fetchMock.mockResolvedValue(
-      fileResponse(csv, {
-        "content-type": "text/csv; charset=utf-8",
-        "content-disposition": 'attachment; filename="contacts.csv"',
-      }),
-    );
+    const link = {
+      status: "action_required",
+      url: "https://app.sendly.now/go/abc",
+      expires_in: 900,
+      what: "Open this to download this project's contacts as CSV.",
+      instruction: "Open the link.",
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, link));
 
-    const file = await client.contacts.exportCsv({ search: "example", subscribed: false });
+    const result = await client.contacts.exportLink({ search: "example", subscribed: false });
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/contacts/export?search=example&subscribed=false");
     expect(init.method).toBe("GET");
-    expect(file.contentType).toBe("text/csv; charset=utf-8");
-    expect(file.contentDisposition).toBe('attachment; filename="contacts.csv"');
-    expect(new TextDecoder().decode(file.data)).toBe("email\nuser@example.com\n");
+    expect(result).toEqual(link);
   });
 
   test("importCsv sends the CSV as multipart form data under `file`, with no JSON content type", async () => {
@@ -142,10 +141,10 @@ describe("contacts: export, import and lookup", () => {
 
 describe("contacts: bulk actions and erasure", () => {
   test.each([
-    ["bulkDeleteByIds", "/api/contacts/bulk-delete"],
-    ["bulkPurge", "/api/contacts/bulk-purge"],
-    ["bulkSubscribe", "/api/contacts/bulk-subscribe"],
-    ["bulkUnsubscribe", "/api/contacts/bulk-unsubscribe"],
+    ["queueBulkDelete", "/api/contacts/bulk-delete"],
+    ["queueBulkPurge", "/api/contacts/bulk-purge"],
+    ["queueBulkSubscribe", "/api/contacts/bulk-subscribe"],
+    ["queueBulkUnsubscribe", "/api/contacts/bulk-unsubscribe"],
   ] as const)("%s POSTs contactIds to %s and resolves the 202 acknowledgement", async (method, path) => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(202, { success: true, data: { message: "queued" } }));

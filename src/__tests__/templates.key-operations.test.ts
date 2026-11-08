@@ -3,7 +3,7 @@ import { getCall, jsonResponse, makeClient } from "./helpers";
 
 const envelope = (data: unknown) => jsonResponse(200, { success: true, data });
 
-describe("templates: copies, usage, versions and image hosting (legacy /api/templates)", () => {
+describe("templates and uploads (legacy dialect)", () => {
   test("duplicate POSTs /duplicate and resolves the copy", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(201, { success: true, data: { id: "t2", name: "Welcome (copy)" } }));
@@ -29,18 +29,18 @@ describe("templates: copies, usage, versions and image hosting (legacy /api/temp
     expect(versions).toEqual([{ version: 2 }, { version: 1 }]);
   });
 
-  test("revertToVersion POSTs the version number in the path", async () => {
+  test("revertVersion POSTs the version number in the path", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(envelope({ id: "t1", name: "Welcome" }));
 
-    await client.templates.revertToVersion("t1", 3);
+    await client.templates.revertVersion("t1", 3);
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/templates/t1/versions/3/revert");
     expect(init.method).toBe("POST");
   });
 
-  test("uploadImage sends multipart form data under `image` and resolves the bare upload", async () => {
+  test("uploads.image sends multipart form data under `image` and resolves the bare upload", async () => {
     const { client, fetchMock } = makeClient();
     const uploaded = {
       url: "https://cdn.example/x.png",
@@ -51,7 +51,7 @@ describe("templates: copies, usage, versions and image hosting (legacy /api/temp
     };
     fetchMock.mockResolvedValue(jsonResponse(200, uploaded));
 
-    const result = await client.templates.uploadImage(new Blob(["abcd"], { type: "image/png" }), "logo.png");
+    const result = await client.uploads.image(new Blob(["abcd"], { type: "image/png" }), "logo.png");
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/uploads/image");

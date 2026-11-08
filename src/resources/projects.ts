@@ -1,6 +1,5 @@
 import type { Sendly } from "../client";
-import { paginateLegacyCursor } from "../pagination";
-import type { ApiObject, LegacyCursorPage, ListAuditLogQuery, ProjectV1 } from "../types";
+import type { ApiObject, ProjectV1 } from "../types";
 
 /**
  * The project the credential resolves to, on the versioned `/api/v1` surface.
@@ -27,26 +26,7 @@ export class ProjectsResource {
     });
   }
 
-  /*
-   * The legacy `/api/projects` routes below take the project id explicitly and
-   * check the caller's access to it, which an API key is only sometimes able to
-   * pass: read the error before assuming it is a bug in the call.
-   */
-
-  /** Who changed what in this project, newest first. `action` is a prefix such as `contact.`. */
-  async getAuditLog(query?: ListAuditLogQuery): Promise<LegacyCursorPage<ApiObject>> {
-    const envelope = await this.client.request<{ success: true; data: LegacyCursorPage<ApiObject> }>({
-      method: "GET",
-      path: "/api/audit-log",
-      query,
-    });
-    return this.client.unwrap(envelope);
-  }
-
-  /** Iterate the whole audit log across pages, one entry at a time. */
-  async *listAllAuditLog(query?: ListAuditLogQuery): AsyncGenerator<ApiObject, void, undefined> {
-    yield* paginateLegacyCursor<ApiObject>((cursor) => this.getAuditLog({ ...query, cursor }), query?.cursor);
-  }
+  // The two reads below take the project id explicitly (legacy `/api/projects` routes).
 
   /** A project's sending health and security status, including any suspension. */
   async getSecurity(id: string): Promise<ApiObject> {
