@@ -80,13 +80,13 @@ describe("activity: feed, count, stats and upcoming (legacy dialect)", () => {
 describe("analytics.topEvents", () => {
   test("GETs /api/analytics/top-events with the period and limit, unwrapped", async () => {
     const { client, fetchMock } = makeClient();
-    fetchMock.mockResolvedValue(envelope({ events: [] }));
+    fetchMock.mockResolvedValue(envelope([{ eventName: "signup", count: 3 }]));
 
     const result = await client.analytics.topEvents({ limit: 3, startDate: "2026-02-01" });
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/analytics/top-events?limit=3&startDate=2026-02-01");
     expect(init.method).toBe("GET");
-    expect(result).toEqual({ events: [] });
+    expect(result).toEqual([{ eventName: "signup", count: 3 }]);
   });
 });

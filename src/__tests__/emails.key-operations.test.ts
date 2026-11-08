@@ -13,7 +13,7 @@ describe("emails.reschedule (PATCH /api/emails/{id})", () => {
     expect(url).toBe("http://localhost/api/emails/em1");
     expect(init.method).toBe("PATCH");
     expect(getCallBody(fetchMock)).toEqual({ scheduledAt: "2026-12-01T09:00:00Z" });
-    expect(result.data.id).toBe("em1");
+    expect(result.id).toBe("em1");
   });
 
   test("scheduledAt: null is sent as an explicit null, which means send now", async () => {

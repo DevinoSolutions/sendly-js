@@ -53,8 +53,8 @@ export class AnalyticsResource {
   }
 
   /** The most frequent events in a period (`limit` up to 20, then `startDate`..`endDate`). */
-  async topEvents(query?: ListTopEventsQuery): Promise<ApiObject> {
-    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+  async topEvents(query?: ListTopEventsQuery): Promise<ApiObject[]> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject[] }>({
       method: "GET",
       path: "/api/analytics/top-events",
       query,

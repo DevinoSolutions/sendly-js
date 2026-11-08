@@ -186,7 +186,10 @@ export class MailboxesResource {
     do {
       const page = await this.listConversations(id, { ...query, cursor });
       yield* page.items;
-      cursor = page.nextCursor ?? undefined;
+      const next = page.nextCursor ?? undefined;
+      // A server that repeats the cursor it was given would otherwise loop forever.
+      if (next === cursor) return;
+      cursor = next;
     } while (cursor);
   }
 

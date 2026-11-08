@@ -616,6 +616,10 @@ export interface AddSegmentMembersRequest {
 export interface RemoveSegmentMembersRequest {
   emails: string[];
 }
+/** What `segments.addMembers` answers: the counts, or `queued` for more than 1000 addresses. */
+export type AddSegmentMembersResult = { added: number; created: number; notFound: string[] } | QueuedAck;
+/** What `segments.removeMembers` answers: the count, or `queued` for more than 1000 addresses. */
+export type RemoveSegmentMembersResult = { removed: number } | QueuedAck;
 export interface SegmentRefreshed {
   memberCount: number;
 }

@@ -287,6 +287,9 @@ export class Sendly {
       ...options.headers,
     };
 
+    if (options.form !== undefined && options.body !== undefined) {
+      throw new SendlyError(0, "invalid_options", "Sendly: pass either `body` or `form`, not both.");
+    }
     let body: string | FormData | undefined;
     if (options.form !== undefined) {
       body = options.form;

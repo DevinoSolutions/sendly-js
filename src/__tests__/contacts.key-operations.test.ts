@@ -181,4 +181,15 @@ describe("contacts: bulk actions and erasure", () => {
     expect(init.body).toBeUndefined();
     expect(result.id).toBe("c1");
   });
+
+  describe("request options", () => {
+    test("passing both body and form is refused before any request", async () => {
+      const { client, fetchMock } = makeClient();
+      const error = await rejection(
+        client.request({ method: "POST", path: "/api/x", body: { a: 1 }, form: new FormData() }),
+      );
+      expect(error.errorCode).toBe("invalid_options");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });

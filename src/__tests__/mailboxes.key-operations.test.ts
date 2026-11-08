@@ -85,4 +85,30 @@ describe("mailboxes: conversation management", () => {
     expect(init.method).toBe("DELETE");
     expect(result).toEqual({ id: "cv1" });
   });
+
+  describe("inbox.listAllConversations: repeated cursor", () => {
+    test("stops when the server hands back the cursor it was given", async () => {
+      const { client, fetchMock } = makeClient();
+      fetchMock.mockResolvedValue(envelope({ items: [{ id: "cv1" }], nextCursor: "same" }));
+
+      const seen: unknown[] = [];
+      for await (const conversation of client.inbox.listAllConversations({ cursor: "same" })) seen.push(conversation);
+
+      expect(seen).toEqual([{ id: "cv1" }]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    test("mailboxes.listAllConversations stops on a repeated cursor too", async () => {
+      const { client, fetchMock } = makeClient();
+      fetchMock.mockResolvedValue(envelope({ items: [{ id: "cv1" }], nextCursor: "same" }));
+
+      const seen: unknown[] = [];
+      for await (const conversation of client.mailboxes.listAllConversations("mb1", { cursor: "same" })) {
+        seen.push(conversation);
+      }
+
+      expect(seen).toHaveLength(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });

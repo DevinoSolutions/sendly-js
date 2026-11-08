@@ -2,7 +2,8 @@ import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import type {
   AddSegmentMembersRequest,
-  ApiObject,
+  AddSegmentMembersResult,
+  RemoveSegmentMembersResult,
   CreateSegmentV1Request,
   ListSegmentContactsV1Query,
   ListSegmentsV1Query,
@@ -113,8 +114,8 @@ export class SegmentsResource {
    * do not exist yet, with `subscribed` as their status. More than 1000
    * addresses are handled in the background and answer `{ status: "queued" }`.
    */
-  async addMembers(id: string, body: AddSegmentMembersRequest): Promise<ApiObject> {
-    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+  async addMembers(id: string, body: AddSegmentMembersRequest): Promise<AddSegmentMembersResult> {
+    const envelope = await this.client.request<{ success: true; data: AddSegmentMembersResult }>({
       method: "POST",
       path: `/api/segments/${encodeURIComponent(id)}/members`,
       body,
@@ -123,8 +124,8 @@ export class SegmentsResource {
   }
 
   /** Remove addresses from a static segment. The contacts stay in the project. */
-  async removeMembers(id: string, body: RemoveSegmentMembersRequest): Promise<ApiObject> {
-    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+  async removeMembers(id: string, body: RemoveSegmentMembersRequest): Promise<RemoveSegmentMembersResult> {
+    const envelope = await this.client.request<{ success: true; data: RemoveSegmentMembersResult }>({
       method: "DELETE",
       path: `/api/segments/${encodeURIComponent(id)}/members`,
       body,

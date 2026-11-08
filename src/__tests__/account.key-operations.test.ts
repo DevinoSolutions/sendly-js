@@ -46,7 +46,7 @@ describe("connections (/api/v1/connections)", () => {
     expect(result.connectedApps).toBeNull();
   });
 
-  test("createLink POSTs the provider and domain, and resolves the one-time links", async () => {
+  test("createLinks POSTs the provider and domain, and resolves the one-time links", async () => {
     const { client, fetchMock } = makeClient();
     const links = asFixture<ConnectLinksV1>({
       links: [
@@ -55,7 +55,7 @@ describe("connections (/api/v1/connections)", () => {
     });
     fetchMock.mockResolvedValue(jsonResponse(200, links));
 
-    const result = await client.connections.createLink({ provider: "dodomain", domainId: "d1" });
+    const result = await client.connections.createLinks({ provider: "dodomain", domainId: "d1" });
 
     const { url, init } = getCall(fetchMock);
     expect(url).toBe("http://localhost/api/v1/connections/links");
@@ -64,12 +64,23 @@ describe("connections (/api/v1/connections)", () => {
     expect(result.links[0]?.provider).toBe("dodomain");
   });
 
+  test("createLinks with no argument still sends an empty JSON object, which the route requires", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { links: [] }));
+
+    await client.connections.createLinks();
+
+    const { init } = getCall(fetchMock);
+    expect(init.body).toBe("{}");
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+  });
+
   test("a DoDomain link requested twice inside the cooldown is a typed rate-limit error", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(
       problemResponse(429, { type: "about:blank", title: "Too Many Requests", code: "DODOMAIN_SESSION_COOLDOWN" }),
     );
-    expect(await rejection(client.connections.createLink({ provider: "dodomain", domainId: "d1" }))).toBeInstanceOf(
+    expect(await rejection(client.connections.createLinks({ provider: "dodomain", domainId: "d1" }))).toBeInstanceOf(
       SendlyRateLimitError,
     );
   });

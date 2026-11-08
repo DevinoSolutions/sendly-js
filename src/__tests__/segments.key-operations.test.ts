@@ -23,6 +23,7 @@ describe("segments: static membership and recomputation (legacy /api/segments)",
       subscribed: false,
     });
     expect(result).toEqual({ added: 2 });
+    if ("added" in result) expect(result.added).toBe(2);
   });
 
   test("removeMembers sends its body on a DELETE", async () => {

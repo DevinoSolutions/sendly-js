@@ -569,7 +569,7 @@ const MANIFEST: readonly ManifestEntry[] = [
   { key: "billing.get", invoke: (c) => c.billing.get() },
   { key: "billing.listPlans", invoke: (c) => c.billing.listPlans() },
   { key: "connections.list", invoke: (c) => c.connections.list() },
-  { key: "connections.createLink", invoke: (c) => c.connections.createLink() },
+  { key: "connections.createLinks", invoke: (c) => c.connections.createLinks() },
   { key: "support.listTickets", invoke: (c) => c.support.listTickets() },
   { key: "support.createTicket", invoke: (c) => c.support.createTicket({ subject: "s", body: "b" }) },
 ];
