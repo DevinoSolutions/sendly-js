@@ -1,13 +1,19 @@
 import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import type {
+  AddSegmentMembersRequest,
+  AddSegmentMembersResult,
+  RemoveSegmentMembersResult,
   CreateSegmentV1Request,
   ListSegmentContactsV1Query,
   ListSegmentsV1Query,
+  QueuedAck,
+  RemoveSegmentMembersRequest,
   SegmentContactListV1,
   SegmentContactV1,
   SegmentDeletedV1,
   SegmentListV1,
+  SegmentRefreshed,
   SegmentV1,
   UpdateSegmentV1Request,
 } from "../types";
@@ -95,5 +101,53 @@ export class SegmentsResource {
     query?: ListSegmentContactsV1Query,
   ): AsyncGenerator<SegmentContactV1, void, undefined> {
     yield* paginateCursor<SegmentContactV1>((after) => this.listContacts(id, { ...query, after }), query?.after);
+  }
+
+  /*
+   * STATIC-SEGMENT MEMBERSHIP and recomputation, on the legacy `/api/segments`
+   * routes (bodies are camelCase and responses are `{ success, data }`
+   * envelopes the SDK unwraps).
+   */
+
+  /**
+   * Add addresses to a static segment. `createMissing` creates the contacts that
+   * do not exist yet, with `subscribed` as their status. More than 1000
+   * addresses are handled in the background and answer `{ status: "queued" }`.
+   */
+  async addMembers(id: string, body: AddSegmentMembersRequest): Promise<AddSegmentMembersResult> {
+    const envelope = await this.client.request<{ success: true; data: AddSegmentMembersResult }>({
+      method: "POST",
+      path: `/api/segments/${encodeURIComponent(id)}/members`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Remove addresses from a static segment. The contacts stay in the project. */
+  async removeMembers(id: string, body: RemoveSegmentMembersRequest): Promise<RemoveSegmentMembersResult> {
+    const envelope = await this.client.request<{ success: true; data: RemoveSegmentMembersResult }>({
+      method: "DELETE",
+      path: `/api/segments/${encodeURIComponent(id)}/members`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Recalculate which contacts match a dynamic segment's rules, as a background job. */
+  async compute(id: string): Promise<QueuedAck> {
+    const envelope = await this.client.request<{ success: true; data: QueuedAck }>({
+      method: "POST",
+      path: `/api/segments/${encodeURIComponent(id)}/compute`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Recount a segment's members now and resolve the new count. */
+  async refresh(id: string): Promise<SegmentRefreshed> {
+    const envelope = await this.client.request<{ success: true; data: SegmentRefreshed }>({
+      method: "POST",
+      path: `/api/segments/${encodeURIComponent(id)}/refresh`,
+    });
+    return this.client.unwrap(envelope);
   }
 }

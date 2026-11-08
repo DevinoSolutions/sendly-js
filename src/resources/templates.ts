@@ -1,6 +1,7 @@
 import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import type {
+  ApiObject,
   CreateTemplateRequest,
   CreateTemplateV1Request,
   ListTemplatesQuery,
@@ -155,5 +156,50 @@ export class TemplatesResource {
       method: "DELETE",
       path: `/api/v1/templates/${encodeURIComponent(id)}`,
     });
+  }
+
+  /*
+   * TEMPLATE VERSIONS and copies, on the legacy `/api/templates`
+   * routes (responses are `{ success, data }` envelopes the SDK unwraps).
+   */
+
+  /** Copy a template. The copy gets a new id and a name marked as a copy. */
+  async duplicate(id: string): Promise<TemplateRecord> {
+    const envelope = await this.client.request<{ success: true; data: TemplateRecord }>({
+      method: "POST",
+      path: `/api/templates/${encodeURIComponent(id)}/duplicate`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Which campaigns and workflows use a template. */
+  async getUsage(id: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/templates/${encodeURIComponent(id)}/usage`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** A template's saved versions, newest first. */
+  async listVersions(id: string): Promise<ApiObject[]> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject[] }>({
+      method: "GET",
+      path: `/api/templates/${encodeURIComponent(id)}/versions`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Restore a template to an earlier version from {@link listVersions}. The
+   * content it had until now is kept as a version of its own, so a revert can
+   * itself be reverted.
+   */
+  async revertVersion(id: string, version: number): Promise<TemplateRecord> {
+    const envelope = await this.client.request<{ success: true; data: TemplateRecord }>({
+      method: "POST",
+      path: `/api/templates/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(version))}/revert`,
+    });
+    return this.client.unwrap(envelope);
   }
 }

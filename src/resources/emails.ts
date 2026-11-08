@@ -8,13 +8,15 @@ import type {
   BatchSendResponse,
   EmailDetailResponse,
   EmailListResponse,
+  EmailRecord,
+  EmailResponse,
   EmailTestV1,
   EmailV1,
   ListEmailsQuery,
+  RescheduleEmailRequest,
   SendEmailData,
   SendEmailRequest,
   SendEmailV1Request,
-  EmailResponse,
   SendTestEmailV1Request,
 } from "../types";
 
@@ -148,5 +150,20 @@ export class EmailsResource {
       method: "DELETE",
       path: `/api/emails/${encodeURIComponent(id)}/schedule`,
     });
+  }
+
+  /**
+   * Move a still-PENDING scheduled email to a new send time, or pass
+   * `scheduledAt: null` to send it now. An email that has already left
+   * PENDING answers `409`, and so does one that changed while this request ran:
+   * fetch it again and retry. Use {@link cancelSchedule} to stop a scheduled one.
+   */
+  async reschedule(id: string, body: RescheduleEmailRequest): Promise<EmailRecord> {
+    const envelope = await this.client.request<EmailResponse>({
+      method: "PATCH",
+      path: `/api/emails/${encodeURIComponent(id)}`,
+      body,
+    });
+    return this.client.unwrap(envelope);
   }
 }

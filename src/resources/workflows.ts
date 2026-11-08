@@ -1,12 +1,20 @@
 import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import type {
+  AddWorkflowStepRequest,
+  AddWorkflowTransitionRequest,
+  ApiObject,
   CloneWorkflowV1Request,
+  CreateConversionGoalRequest,
   CreateWorkflowV1Request,
+  DeleteWorkflowStepOptions,
+  IdAck,
   ListWorkflowExecutionsV1Query,
+  ListWorkflowFieldsQuery,
   ListWorkflowsV1Query,
   ReplaceWorkflowGraphV1Request,
   StartWorkflowExecutionV1Request,
+  UpdateWorkflowStepRequest,
   UpdateWorkflowV1Request,
   WorkflowDeletedV1,
   WorkflowExecutionListV1,
@@ -17,6 +25,7 @@ import type {
   WorkflowStatsV1,
   WorkflowStatsV1Query,
   WorkflowV1,
+  WorkflowVersionReverted,
 } from "../types";
 
 /**
@@ -237,5 +246,148 @@ export class WorkflowsResource {
       method: "POST",
       path: `/api/v1/workflows/${encodeURIComponent(id)}/resume`,
     });
+  }
+
+  /*
+   * STEP-BY-STEP EDITING, conversion goals, versions and execution detail, on the
+   * legacy `/api/workflows` routes (camelCase bodies, `{ success, data }`
+   * envelopes the SDK unwraps). {@link replaceGraph} is the v1 way to change a
+   * whole graph at once; these change one piece of it.
+   */
+
+  /** The fields a workflow condition can test: contact fields, and an event's properties (`eventName`). */
+  async listFields(query?: ListWorkflowFieldsQuery): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: "/api/workflows/fields",
+      query,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Add a step. `autoConnect` links it after the current last step; SEND_EMAIL steps take a `templateId`. */
+  async addStep(id: string, body: AddWorkflowStepRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/workflows/${encodeURIComponent(id)}/steps`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Edit one step's name, settings, position or template (`templateId: null` detaches it). */
+  async updateStep(id: string, stepId: string, body: UpdateWorkflowStepRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "PATCH",
+      path: `/api/workflows/${encodeURIComponent(id)}/steps/${encodeURIComponent(stepId)}`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Remove a step. With `splice: true` its predecessors are reconnected to its
+   * successors; without it the step and its connections are simply dropped.
+   */
+  async deleteStep(id: string, stepId: string, options?: DeleteWorkflowStepOptions): Promise<IdAck> {
+    const envelope = await this.client.request<{ success: true; data: IdAck }>({
+      method: "DELETE",
+      path: `/api/workflows/${encodeURIComponent(id)}/steps/${encodeURIComponent(stepId)}`,
+      query: options?.splice ? { splice: "true" } : undefined,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Connect two steps. From a CONDITION step, `condition` picks the branch
+   * (`{ branch: "yes" }`), and a lower `priority` is followed first.
+   */
+  async createTransition(id: string, body: AddWorkflowTransitionRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/workflows/${encodeURIComponent(id)}/transitions`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Remove the connection between two steps. */
+  async deleteTransition(id: string, transitionId: string): Promise<IdAck> {
+    const envelope = await this.client.request<{ success: true; data: IdAck }>({
+      method: "DELETE",
+      path: `/api/workflows/${encodeURIComponent(id)}/transitions/${encodeURIComponent(transitionId)}`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** The conversion goals a workflow is measured against. */
+  async listConversionGoals(id: string): Promise<ApiObject[]> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject[] }>({
+      method: "GET",
+      path: `/api/workflows/${encodeURIComponent(id)}/conversion-goals`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Count a run as converted when the contact records `eventType` within
+   * `windowDays` (1 to 365) of entering the workflow.
+   */
+  async createConversionGoal(id: string, body: CreateConversionGoalRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/workflows/${encodeURIComponent(id)}/conversion-goals`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Remove a conversion goal from a workflow. */
+  async deleteConversionGoal(id: string, goalId: string): Promise<IdAck> {
+    const envelope = await this.client.request<{ success: true; data: IdAck }>({
+      method: "DELETE",
+      path: `/api/workflows/${encodeURIComponent(id)}/conversion-goals/${encodeURIComponent(goalId)}`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * One execution: the steps it ran, when, and how it ended. The workflow id is
+   * part of the path here, unlike {@link cancelExecution}, which addresses an
+   * execution by its own id on the v1 surface.
+   */
+  async getExecution(id: string, executionId: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/workflows/${encodeURIComponent(id)}/executions/${encodeURIComponent(executionId)}`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Stop EVERY running execution of a workflow at once. */
+  async cancelAllExecutions(id: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/workflows/${encodeURIComponent(id)}/executions/cancel-all`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** A workflow's saved versions. Every structural change saves one. */
+  async listVersions(id: string): Promise<ApiObject[]> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject[] }>({
+      method: "GET",
+      path: `/api/workflows/${encodeURIComponent(id)}/versions`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Restore a workflow's steps and transitions to an earlier version from {@link listVersions}. */
+  async revertVersion(id: string, version: number): Promise<WorkflowVersionReverted> {
+    const envelope = await this.client.request<{ success: true; data: WorkflowVersionReverted }>({
+      method: "POST",
+      path: `/api/workflows/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(version))}/revert`,
+    });
+    return this.client.unwrap(envelope);
   }
 }

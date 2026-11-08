@@ -5,7 +5,9 @@ import type {
   AnalyticsTimeseriesV1,
   AnalyticsTimeseriesV1Query,
   AnalyticsTopCampaignsV1,
+  ApiObject,
   ListTopCampaignsV1Query,
+  ListTopEventsQuery,
 } from "../types";
 
 /**
@@ -48,5 +50,15 @@ export class AnalyticsResource {
       path: "/api/v1/analytics/top-campaigns",
       query,
     });
+  }
+
+  /** The most frequent events in a period (`limit` up to 20, then `startDate`..`endDate`). */
+  async topEvents(query?: ListTopEventsQuery): Promise<ApiObject[]> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject[] }>({
+      method: "GET",
+      path: "/api/analytics/top-events",
+      query,
+    });
+    return this.client.unwrap(envelope);
   }
 }

@@ -61,80 +61,13 @@ const spec = JSON.parse(readFileSync(SPEC_PATH, "utf8")) as OpenApiSpec;
 
 /**
  * NOT YET — a genuine gap: key-callable operations the contract publishes that no
- * resource method wraps yet. Surfaced when the vendored spec was re-synced from the
- * released contract (docs.sendly.now/openapi.json), which had grown from 106 to 198
- * paths since the previous vendoring. Each needs a method (and a manifest entry)
- * before it leaves this list; the test below fails if one is implemented but left here.
+ * resource method wraps yet. Empty since T-15370, which wrapped the 67 that the
+ * re-sync from the released contract (docs.sendly.now/openapi.json) surfaced when the
+ * spec grew from 106 to 198 paths. A new gap is added here with its operation, needs a
+ * method (and a manifest entry) before it leaves; the test below fails if one is
+ * implemented but left here.
  */
-export const NOT_YET_IMPLEMENTED: readonly string[] = [
-  "DELETE /api/contacts/fields/{field}",
-  "DELETE /api/events/{eventName}",
-  "DELETE /api/mailboxes/{id}/conversations/{conversationId}",
-  "DELETE /api/segments/{id}/members",
-  "DELETE /api/workflows/{id}/conversion-goals/{goalId}",
-  "DELETE /api/workflows/{id}/steps/{stepId}",
-  "DELETE /api/workflows/{id}/transitions/{transitionId}",
-  "GET /api/activity",
-  "GET /api/activity/recent-count",
-  "GET /api/activity/stats",
-  "GET /api/activity/upcoming",
-  "GET /api/analytics/top-events",
-  "GET /api/audit-log",
-  "GET /api/contacts/export",
-  "GET /api/contacts/fields",
-  "GET /api/contacts/fields/{field}/usage",
-  "GET /api/contacts/fields/{field}/values",
-  "GET /api/domains/{id}/dodomain-check",
-  "GET /api/domains/{id}/warmup",
-  "GET /api/events/contact/{contactId}",
-  "GET /api/events/{eventName}/usage",
-  "GET /api/inbox/conversations",
-  "GET /api/lists/{id}/members",
-  "GET /api/mailboxes/{id}/conversations/{conversationId}/contact",
-  "GET /api/projects/{id}/security",
-  "GET /api/projects/{id}/setup-state",
-  "GET /api/templates/{id}/usage",
-  "GET /api/templates/{id}/versions",
-  "GET /api/v1/billing",
-  "GET /api/v1/billing/plans",
-  "GET /api/v1/connections",
-  "GET /api/v1/support/tickets",
-  "GET /api/workflows/fields",
-  "GET /api/workflows/{id}/conversion-goals",
-  "GET /api/workflows/{id}/executions/{executionId}",
-  "GET /api/workflows/{id}/versions",
-  "PATCH /api/emails/{id}",
-  "PATCH /api/mailboxes/{id}/conversations/{conversationId}/status",
-  "PATCH /api/workflows/{id}/steps/{stepId}",
-  "POST /api/campaigns/{id}/duplicate",
-  "POST /api/campaigns/{id}/test",
-  "POST /api/contacts/bulk-delete",
-  "POST /api/contacts/bulk-purge",
-  "POST /api/contacts/bulk-subscribe",
-  "POST /api/contacts/bulk-unsubscribe",
-  "POST /api/contacts/import",
-  "POST /api/contacts/lookup",
-  "POST /api/contacts/{id}/purge",
-  "POST /api/domains/{id}/dodomain-reverify",
-  "POST /api/domains/{id}/warmup",
-  "POST /api/mailboxes/{id}/conversations/{conversationId}/spam",
-  "POST /api/segments/{id}/compute",
-  "POST /api/segments/{id}/members",
-  "POST /api/segments/{id}/refresh",
-  "POST /api/templates/{id}/duplicate",
-  "POST /api/templates/{id}/versions/{version}/revert",
-  "POST /api/uploads/image",
-  "POST /api/v1/connections/links",
-  "POST /api/v1/support/tickets",
-  "POST /api/webhooks/{id}/calls/{callId}/retry",
-  "POST /api/webhooks/{id}/replay-failed",
-  "POST /api/webhooks/{id}/test",
-  "POST /api/workflows/{id}/conversion-goals",
-  "POST /api/workflows/{id}/executions/cancel-all",
-  "POST /api/workflows/{id}/steps",
-  "POST /api/workflows/{id}/transitions",
-  "POST /api/workflows/{id}/versions/{version}/revert",
-];
+export const NOT_YET_IMPLEMENTED: readonly string[] = [];
 
 /**
  * Other providers' wire formats, served so that a Resend, SendGrid, Postmark,
@@ -245,6 +178,17 @@ const EMAIL = "__EMAIL__";
 const EXECUTION_ID = "__EXECUTION_ID__";
 const CONVERSATION_ID = "__CONVERSATION_ID__";
 const ATTACHMENT_ID = "__ATTACHMENT_ID__";
+const FIELD = "__FIELD__";
+const EVENT_NAME = "__EVENT_NAME__";
+const CONTACT_ID = "__CONTACT_ID__";
+const STEP_ID = "__STEP_ID__";
+const TRANSITION_ID = "__TRANSITION_ID__";
+const GOAL_ID = "__GOAL_ID__";
+const CALL_ID = "__CALL_ID__";
+/** A workflow execution addressed under its workflow (`{executionId}`), unlike the v1 `{execution_id}`. */
+const RUN_ID = "__RUN_ID__";
+/** A saved version number; a number cannot carry a sentinel string, so it is a value no real version uses. */
+const VERSION = 4242;
 
 interface ManifestEntry {
   /** "<resource>.<method>" */
@@ -516,6 +460,118 @@ const MANIFEST: readonly ManifestEntry[] = [
     invoke: (c) => c.mailboxes.sendMessage(ID, { to: ["user@example.com"], subject: "s", body: "b" }),
   },
   { key: "mailboxes.draftMessage", invoke: (c) => c.mailboxes.draftMessage(ID, { mode: "draft" }) },
+  // --- T-15370: key-callable operations the contract published before the SDK wrapped them ---
+  // contacts
+  { key: "contacts.listFields", invoke: (c) => c.contacts.listFields() },
+  { key: "contacts.deleteField", invoke: (c) => c.contacts.deleteField(FIELD) },
+  { key: "contacts.getFieldUsage", invoke: (c) => c.contacts.getFieldUsage(FIELD) },
+  { key: "contacts.listFieldValues", invoke: (c) => c.contacts.listFieldValues(FIELD) },
+  { key: "contacts.exportLink", invoke: (c) => c.contacts.exportLink() },
+  { key: "contacts.importCsv", invoke: (c) => c.contacts.importCsv("email\na@example.com\n") },
+  { key: "contacts.lookup", invoke: (c) => c.contacts.lookup({ emails: ["user@example.com"] }) },
+  { key: "contacts.queueBulkDelete", invoke: (c) => c.contacts.queueBulkDelete({ contactIds: [ID] }) },
+  { key: "contacts.queueBulkPurge", invoke: (c) => c.contacts.queueBulkPurge({ contactIds: [ID] }) },
+  { key: "contacts.queueBulkSubscribe", invoke: (c) => c.contacts.queueBulkSubscribe({ contactIds: [ID] }) },
+  { key: "contacts.queueBulkUnsubscribe", invoke: (c) => c.contacts.queueBulkUnsubscribe({ contactIds: [ID] }) },
+  { key: "contacts.purge", invoke: (c) => c.contacts.purge(ID) },
+  // events
+  { key: "events.delete", invoke: (c) => c.events.delete(EVENT_NAME) },
+  { key: "events.getUsage", invoke: (c) => c.events.getUsage(EVENT_NAME) },
+  { key: "events.listForContact", invoke: (c) => c.events.listForContact(CONTACT_ID) },
+  // mailboxes
+  {
+    key: "inbox.listConversations",
+    invoke: (c) => c.inbox.listConversations(),
+    response: { success: true, data: { items: [], nextCursor: null } },
+  },
+  {
+    key: "inbox.listAllConversations",
+    invoke: (c) => c.inbox.listAllConversations().next(),
+    response: { success: true, data: { items: [], nextCursor: null } },
+  },
+  {
+    key: "mailboxes.getConversationContact",
+    invoke: (c) => c.mailboxes.getConversationContact(ID, CONVERSATION_ID),
+  },
+  {
+    key: "mailboxes.setConversationStatus",
+    invoke: (c) => c.mailboxes.setConversationStatus(ID, CONVERSATION_ID, { status: "CLOSED" }),
+  },
+  {
+    key: "mailboxes.setConversationSpam",
+    invoke: (c) => c.mailboxes.setConversationSpam(ID, CONVERSATION_ID, { spam: true }),
+  },
+  { key: "mailboxes.deleteConversation", invoke: (c) => c.mailboxes.deleteConversation(ID, CONVERSATION_ID) },
+  // segments
+  { key: "segments.addMembers", invoke: (c) => c.segments.addMembers(ID, { emails: ["user@example.com"] }) },
+  { key: "segments.removeMembers", invoke: (c) => c.segments.removeMembers(ID, { emails: ["user@example.com"] }) },
+  { key: "segments.compute", invoke: (c) => c.segments.compute(ID) },
+  { key: "segments.refresh", invoke: (c) => c.segments.refresh(ID) },
+  // lists
+  { key: "lists.listMembers", invoke: (c) => c.lists.listMembers(ID) },
+  { key: "lists.listAllMembers", invoke: (c) => c.lists.listAllMembers(ID).next() },
+  // analytics
+  { key: "activity.list", invoke: (c) => c.activity.list() },
+  { key: "activity.listAll", invoke: (c) => c.activity.listAll().next() },
+  { key: "activity.recentCount", invoke: (c) => c.activity.recentCount() },
+  { key: "activity.stats", invoke: (c) => c.activity.stats() },
+  { key: "activity.upcoming", invoke: (c) => c.activity.upcoming() },
+  { key: "analytics.topEvents", invoke: (c) => c.analytics.topEvents() },
+  // projects
+  { key: "auditLog.list", invoke: (c) => c.auditLog.list() },
+  { key: "auditLog.listAll", invoke: (c) => c.auditLog.listAll().next() },
+  { key: "projects.getSecurity", invoke: (c) => c.projects.getSecurity(ID) },
+  { key: "projects.getSetupState", invoke: (c) => c.projects.getSetupState(ID) },
+  // templates
+  { key: "templates.duplicate", invoke: (c) => c.templates.duplicate(ID) },
+  { key: "templates.getUsage", invoke: (c) => c.templates.getUsage(ID) },
+  { key: "templates.listVersions", invoke: (c) => c.templates.listVersions(ID) },
+  { key: "templates.revertVersion", invoke: (c) => c.templates.revertVersion(ID, VERSION) },
+  { key: "uploads.image", invoke: (c) => c.uploads.image(new Blob(["x"], { type: "image/png" })) },
+  // emails
+  { key: "emails.reschedule", invoke: (c) => c.emails.reschedule(ID, { scheduledAt: null }) },
+  // domains
+  { key: "domains.getConnectStatus", invoke: (c) => c.domains.getConnectStatus(ID) },
+  { key: "domains.reverifyConnection", invoke: (c) => c.domains.reverifyConnection(ID) },
+  { key: "domains.getWarmup", invoke: (c) => c.domains.getWarmup(ID) },
+  { key: "domains.manageWarmup", invoke: (c) => c.domains.manageWarmup(ID, { action: "restart" }) },
+  // webhooks
+  { key: "webhooks.test", invoke: (c) => c.webhooks.test(ID) },
+  { key: "webhooks.replayFailed", invoke: (c) => c.webhooks.replayFailed(ID) },
+  { key: "webhooks.retryCall", invoke: (c) => c.webhooks.retryCall(ID, CALL_ID) },
+  // campaigns
+  { key: "campaigns.duplicate", invoke: (c) => c.campaigns.duplicate(ID) },
+  { key: "campaigns.sendTest", invoke: (c) => c.campaigns.sendTest(ID, { email: "user@example.com" }) },
+  // workflows
+  { key: "workflows.listFields", invoke: (c) => c.workflows.listFields() },
+  {
+    key: "workflows.addStep",
+    invoke: (c) => c.workflows.addStep(ID, { type: "DELAY", name: "Wait", position: { x: 0, y: 0 }, config: {} }),
+  },
+  { key: "workflows.updateStep", invoke: (c) => c.workflows.updateStep(ID, STEP_ID, { name: "Renamed" }) },
+  { key: "workflows.deleteStep", invoke: (c) => c.workflows.deleteStep(ID, STEP_ID) },
+  {
+    key: "workflows.createTransition",
+    invoke: (c) => c.workflows.createTransition(ID, { fromStepId: STEP_ID, toStepId: STEP_ID }),
+  },
+  { key: "workflows.deleteTransition", invoke: (c) => c.workflows.deleteTransition(ID, TRANSITION_ID) },
+  { key: "workflows.listConversionGoals", invoke: (c) => c.workflows.listConversionGoals(ID) },
+  {
+    key: "workflows.createConversionGoal",
+    invoke: (c) => c.workflows.createConversionGoal(ID, { name: "Bought", eventType: "purchase" }),
+  },
+  { key: "workflows.deleteConversionGoal", invoke: (c) => c.workflows.deleteConversionGoal(ID, GOAL_ID) },
+  { key: "workflows.getExecution", invoke: (c) => c.workflows.getExecution(ID, RUN_ID) },
+  { key: "workflows.cancelAllExecutions", invoke: (c) => c.workflows.cancelAllExecutions(ID) },
+  { key: "workflows.listVersions", invoke: (c) => c.workflows.listVersions(ID) },
+  { key: "workflows.revertVersion", invoke: (c) => c.workflows.revertVersion(ID, VERSION) },
+  // billing, connections, support (/api/v1)
+  { key: "billing.get", invoke: (c) => c.billing.get() },
+  { key: "billing.listPlans", invoke: (c) => c.billing.listPlans() },
+  { key: "connections.list", invoke: (c) => c.connections.list() },
+  { key: "connections.createLinks", invoke: (c) => c.connections.createLinks() },
+  { key: "support.listTickets", invoke: (c) => c.support.listTickets() },
+  { key: "support.createTicket", invoke: (c) => c.support.createTicket({ subject: "s", body: "b" }) },
 ];
 
 const RESOURCE_NAMES = [
@@ -539,6 +595,13 @@ const RESOURCE_NAMES = [
   "validation",
   "deliverability",
   "snippets",
+  "activity",
+  "auditLog",
+  "inbox",
+  "uploads",
+  "billing",
+  "connections",
+  "support",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -566,6 +629,15 @@ function normalizePath(url: string): string {
     .replace(/__EXECUTION_ID__/g, "{execution_id}")
     .replace(/__CONVERSATION_ID__/g, "{conversationId}")
     .replace(/__ATTACHMENT_ID__/g, "{attachmentId}")
+    .replace(/__FIELD__/g, "{field}")
+    .replace(/__EVENT_NAME__/g, "{eventName}")
+    .replace(/__CONTACT_ID__/g, "{contactId}")
+    .replace(/__STEP_ID__/g, "{stepId}")
+    .replace(/__TRANSITION_ID__/g, "{transitionId}")
+    .replace(/__GOAL_ID__/g, "{goalId}")
+    .replace(/__CALL_ID__/g, "{callId}")
+    .replace(/__RUN_ID__/g, "{executionId}")
+    .replace(/\/4242\//g, "/{version}/")
     .replace(/__ID__/g, "{id}")
     .replace(/__EMAIL__/g, "{email}");
 }

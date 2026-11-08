@@ -39,8 +39,15 @@ export { ProjectsResource } from "./resources/projects";
 export { TopicsResource } from "./resources/topics";
 export { ValidationResource } from "./resources/validation";
 export { DeliverabilityResource } from "./resources/deliverability";
+export { ActivityResource } from "./resources/activity";
+export { AuditLogResource } from "./resources/audit-log";
+export { InboxResource } from "./resources/inbox";
+export { UploadsResource } from "./resources/uploads";
+export { BillingResource } from "./resources/billing";
+export { ConnectionsResource } from "./resources/connections";
+export { SupportResource } from "./resources/support";
 
-export { paginateCursor } from "./pagination";
+export { paginateCursor, paginateLegacyCursor } from "./pagination";
 export type { CursorPage, CursorPageQuery } from "./pagination";
 
 export {

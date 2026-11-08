@@ -1,5 +1,5 @@
 import type { Sendly } from "../client";
-import type { ProjectV1 } from "../types";
+import type { ApiObject, ProjectV1 } from "../types";
 
 /**
  * The project the credential resolves to, on the versioned `/api/v1` surface.
@@ -24,5 +24,25 @@ export class ProjectsResource {
       method: "GET",
       path: "/api/v1/projects",
     });
+  }
+
+  // The two reads below take the project id explicitly (legacy `/api/projects` routes).
+
+  /** A project's sending health and security status, including any suspension. */
+  async getSecurity(id: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/projects/${encodeURIComponent(id)}/security`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Which onboarding steps a project has finished: a verified domain, a first email, contacts. */
+  async getSetupState(id: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/projects/${encodeURIComponent(id)}/setup-state`,
+    });
+    return this.client.unwrap(envelope);
   }
 }

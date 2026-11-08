@@ -1,5 +1,6 @@
 import type { Sendly, SendlyFile } from "../client";
 import type {
+  ApiObject,
   AppPasswordRecord,
   ComposeMailboxMessageRequest,
   DraftMailboxMessageRequest,
@@ -10,7 +11,9 @@ import type {
   MailboxDetail,
   MailboxMessage,
   MailboxRecord,
+  MarkConversationSpamRequest,
   paths,
+  SetConversationStatusRequest,
 } from "../types";
 
 /** What {@link MailboxesResource.replyToConversation} resolves: the reply was handed to the mail server. */
@@ -183,7 +186,10 @@ export class MailboxesResource {
     do {
       const page = await this.listConversations(id, { ...query, cursor });
       yield* page.items;
-      cursor = page.nextCursor ?? undefined;
+      const next = page.nextCursor ?? undefined;
+      // A server that repeats the cursor it was given would otherwise loop forever.
+      if (next === cursor) return;
+      cursor = next;
     } while (cursor);
   }
 
@@ -239,5 +245,63 @@ export class MailboxesResource {
       method: "GET",
       path: `/api/mailboxes/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
     });
+  }
+
+  /*
+   * CONVERSATION MANAGEMENT (the project-wide inbox is `inbox`). Reading a thread's
+   * contact needs `mailbox-conversations:read`; changing or deleting a thread
+   * needs `mailboxes:write`.
+   */
+
+  /** The Sendly contact behind a conversation and their recent email and event timeline. */
+  async getConversationContact(id: string, conversationId: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/contact`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Open, snooze or close a conversation, and/or assign it to a project member
+   * (`assigneeId: null` unassigns). An `assigneeId` who is not a member of the
+   * project is refused with `422 INVALID_ASSIGNEE`.
+   */
+  async setConversationStatus(
+    id: string,
+    conversationId: string,
+    body: SetConversationStatusRequest,
+  ): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "PATCH",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/status`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * File a conversation as spam, or pass `spam: false` to move it back to the
+   * inbox. Mail clients connected to the mailbox see the same move.
+   */
+  async setConversationSpam(id: string, conversationId: string, body: MarkConversationSpamRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/spam`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * PERMANENTLY DELETE a conversation and its messages from the mailbox,
+   * mail server included. It cannot be undone.
+   */
+  async deleteConversation(id: string, conversationId: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "DELETE",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}`,
+    });
+    return this.client.unwrap(envelope);
   }
 }

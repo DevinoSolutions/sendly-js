@@ -2,6 +2,7 @@ import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import type {
   AddDomainRequest,
+  ApiObject,
   AssignDomainStreamRequest,
   CreateDomainV1Request,
   DomainDeletedV1,
@@ -10,10 +11,12 @@ import type {
   DomainLogoReadinessV1,
   DomainLogoV1,
   DomainRecord,
+  DomainReverifyAccepted,
   DomainSetupSession,
   DomainV1,
   DomainVerificationStatus,
   ListDomainsV1Query,
+  ManageDomainWarmupRequest,
   UploadDomainLogoV1Request,
 } from "../types";
 
@@ -287,5 +290,60 @@ export class DomainsResource {
       method: "GET",
       path: `/api/v1/domains/${encodeURIComponent(id)}/logo/readiness`,
     });
+  }
+
+  /*
+   * DODOMAIN one-click DNS setup and sending-reputation warm-up, on the legacy
+   * `/api/domains` routes.
+   */
+
+  /**
+   * Check whether a domain's DNS provider supports one-click setup through
+   * DoDomain, and which method it would use. `503 DODOMAIN_NOT_CONFIGURED` means
+   * the deployment has no guided DNS setup.
+   */
+  async getConnectStatus(id: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/domains/${encodeURIComponent(id)}/dodomain-check`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Ask DoDomain to re-check a domain's DNS. The re-check runs at DoDomain and
+   * its verdict arrives by webhook a few minutes later, so this resolves
+   * `{ status: "accepted" }` and nothing more. A second call inside the
+   * 60-second cooldown answers `429`.
+   */
+  async reverifyConnection(id: string): Promise<DomainReverifyAccepted> {
+    const envelope = await this.client.request<{ success: true; data: DomainReverifyAccepted }>({
+      method: "POST",
+      path: `/api/domains/${encodeURIComponent(id)}/dodomain-reverify`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Where a new domain is in its warm-up ramp and how much it has sent today. */
+  async getWarmup(id: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/domains/${encodeURIComponent(id)}/warmup`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * End a domain's warm-up early (`finish`) or start it again from day one
+   * (`restart`). Finishing early on a domain that has never sent risks its
+   * reputation: the ramp exists to protect it.
+   */
+  async manageWarmup(id: string, body: ManageDomainWarmupRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/domains/${encodeURIComponent(id)}/warmup`,
+      body,
+    });
+    return this.client.unwrap(envelope);
   }
 }
