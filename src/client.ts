@@ -1,5 +1,7 @@
 import { AnalyticsResource } from "./resources/analytics";
+import { BillingResource } from "./resources/billing";
 import { CampaignsResource } from "./resources/campaigns";
+import { ConnectionsResource } from "./resources/connections";
 import { ContactsResource } from "./resources/contacts";
 import { DeliverabilityResource } from "./resources/deliverability";
 import { DomainsResource } from "./resources/domains";
@@ -10,6 +12,7 @@ import { MailboxesResource } from "./resources/mailboxes";
 import { ProjectsResource } from "./resources/projects";
 import { SegmentsResource } from "./resources/segments";
 import { SnippetsResource } from "./resources/snippets";
+import { SupportResource } from "./resources/support";
 import { SuppressionResource } from "./resources/suppression";
 import { TemplatesResource } from "./resources/templates";
 import { TopicsResource } from "./resources/topics";
@@ -63,6 +66,12 @@ export interface RequestOptions {
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   /** Optional JSON body. Will be serialized + Content-Type set. */
   body?: unknown;
+  /**
+   * A multipart body, for the two uploads that take a file. Mutually exclusive
+   * with `body`. `Content-Type` is left to `fetch`, which has to add the
+   * multipart boundary itself.
+   */
+  form?: FormData;
   /**
    * Query string params. Keys with `undefined`, `null`, or empty-string values are skipped.
    * Typed loosely so resource-level interface types (e.g. `ListEmailsQuery`) flow through.
@@ -119,6 +128,12 @@ export class Sendly {
   readonly validation: ValidationResource;
   /** Why mail from your domains is or is not arriving. */
   readonly deliverability: DeliverabilityResource;
+  /** The project's plan, limits and usage. */
+  readonly billing: BillingResource;
+  /** Connected services: Slack, and the domains DoDomain manages. */
+  readonly connections: ConnectionsResource;
+  /** Sendly support tickets. */
+  readonly support: SupportResource;
 
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -165,6 +180,9 @@ export class Sendly {
     this.topics = new TopicsResource(this);
     this.validation = new ValidationResource(this);
     this.deliverability = new DeliverabilityResource(this);
+    this.billing = new BillingResource(this);
+    this.connections = new ConnectionsResource(this);
+    this.support = new SupportResource(this);
   }
 
   /**
@@ -253,8 +271,10 @@ export class Sendly {
       ...options.headers,
     };
 
-    let body: string | undefined;
-    if (options.body !== undefined) {
+    let body: string | FormData | undefined;
+    if (options.form !== undefined) {
+      body = options.form;
+    } else if (options.body !== undefined) {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(options.body);
     }

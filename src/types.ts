@@ -473,5 +473,277 @@ export type ReplaceWorkflowGraphV1Request = components["schemas"]["WorkflowGraph
 export type CloneWorkflowV1Request = components["schemas"]["WorkflowCloneV1"];
 export type WorkflowStateChangeV1 = components["schemas"]["WorkflowStateChangeV1"];
 
+// ---------- Key-callable operations the contract leaves loosely typed ----------
+//
+// The released contract publishes these operations with `{}` for a response, and
+// most without a request body or query parameters at all, so there is nothing
+// to generate from. The shapes below are what each route validates and answers
+// today; where a route returns a record the contract does not describe field by
+// field, it is {@link ApiObject} rather than a guess.
+
+/** A JSON object the contract does not describe field by field. */
+export type ApiObject = Record<string, unknown>;
+
+/** `{ message }` acknowledgement the bulk contact actions answer with (202). */
+export type MessageAck = { message: string };
+
+/** `{ status: "queued" }` acknowledgement of work handed to a background job. */
+export type QueuedAck = { status: "queued" };
+
+/** `{ id }` acknowledgement of a delete. */
+export type IdAck = { id: string };
+
+/** Legacy-dialect page `{ data, cursor, hasMore }`; pass `cursor` back until `hasMore` is false. */
+export interface LegacyCursorPage<T> {
+  data: T[];
+  /** The cursor for the next page. Absent on the last page. */
+  cursor?: string | null;
+  hasMore: boolean;
+  /** Counted on the first page only, when present at all. */
+  total?: number;
+}
+
+/** Query parameters shared by the legacy `limit` + `cursor` lists. */
+export type LegacyCursorQuery = {
+  limit?: number;
+  cursor?: string;
+};
+
+// -- Contacts
+
+export interface ContactFieldInfo {
+  /** Dotted path, e.g. `customFields.plan`. */
+  field: string;
+  type: "string" | "number" | "boolean" | "date";
+  /** Share of contacts that have the field set. */
+  coverage: number;
+}
+export interface ContactFieldList {
+  fields: ContactFieldInfo[];
+  count: number;
+}
+export interface ContactFieldUsage {
+  usedInSegments: { id: string; name: string }[];
+  usedInCampaigns: { id: string; name: string }[];
+  contactCount: number;
+  canDelete: boolean;
+}
+export interface ContactFieldValues {
+  field: string;
+  values: unknown[];
+  count: number;
+  limit: number;
+}
+export type ListContactFieldValuesQuery = {
+  /** Up to 200. Defaults to 100. */
+  limit?: number;
+};
+/** Body for the bulk delete, purge, subscribe and unsubscribe actions: up to 1000 contact ids. */
+export interface BulkContactActionRequest {
+  contactIds: string[];
+}
+export interface LookupContactsRequest {
+  /** Up to 500 addresses. */
+  emails: string[];
+}
+export interface LookupContactsResponse {
+  found: string[];
+  notFound: string[];
+}
+export type ExportContactsQuery = {
+  /** Part of an email address. */
+  search?: string;
+  subscribed?: boolean;
+};
+/** A CSV to import: a `Blob`/`File`, or the CSV text itself. */
+export type ContactImportFile = Blob | string;
+
+// -- Events
+
+export interface ContactEventsResponse {
+  events: ApiObject[];
+}
+export type ListContactEventsQuery = {
+  /** Up to 100. */
+  limit?: number;
+};
+
+// -- Mailboxes
+
+export type ListInboxConversationsQuery = {
+  view?: "inbox" | "spam";
+  status?: "open" | "snoozed" | "closed" | "all";
+  /** Searches subject and sender. */
+  q?: string;
+  /** A conversation id from a previous page's `nextCursor`. */
+  cursor?: string;
+  /** 1 to 50. Defaults to 30. */
+  limit?: number;
+};
+export interface InboxConversationPage {
+  items: ApiObject[];
+  nextCursor: string | null;
+}
+export interface SetConversationStatusRequest {
+  status?: "OPEN" | "SNOOZED" | "CLOSED";
+  /** A project member's id; `null` unassigns. */
+  assigneeId?: string | null;
+}
+export interface MarkConversationSpamRequest {
+  /** `true` files it as spam; `false` moves it back to the inbox. */
+  spam: boolean;
+}
+
+// -- Segments
+
+export interface AddSegmentMembersRequest {
+  /** Up to 100,000. More than 1000 is handled in the background. */
+  emails: string[];
+  /** Create contacts that do not exist yet. */
+  createMissing?: boolean;
+  /** Subscribed status given to the contacts `createMissing` creates. */
+  subscribed?: boolean;
+}
+export interface RemoveSegmentMembersRequest {
+  emails: string[];
+}
+export interface SegmentRefreshed {
+  memberCount: number;
+}
+
+// -- Lists / analytics / audit log
+
+export type ListListMembersQuery = LegacyCursorQuery & {
+  /** A membership status such as `SUBSCRIBED`. */
+  status?: string;
+};
+export type ListActivityQuery = LegacyCursorQuery & {
+  contactId?: string;
+  /** Comma-separated, e.g. `email.sent,email.bounced`. */
+  types?: string;
+  startDate?: string;
+  endDate?: string;
+};
+export type ActivityCountQuery = {
+  /** 1 to 60. */
+  minutes?: number;
+};
+export type ActivityDateRangeQuery = {
+  startDate?: string;
+  endDate?: string;
+};
+export type ListUpcomingActivityQuery = {
+  /** Up to 100. */
+  limit?: number;
+  /** Up to 90. */
+  daysAhead?: number;
+};
+export type ListTopEventsQuery = ActivityDateRangeQuery & {
+  /** Up to 20. */
+  limit?: number;
+};
+export type ListAuditLogQuery = LegacyCursorQuery & {
+  /** An action prefix such as `contact.`. */
+  action?: string;
+};
+
+// -- Templates
+
+export interface UploadedImage {
+  url: string;
+  key: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
+// -- Webhooks
+
+export interface TestWebhookRequest {
+  /** The event to send a sample of. Defaults to the server's choice. */
+  eventType?: string;
+}
+export interface ReplayFailedWebhookCallsRequest {
+  /** Only calls that failed at or after this instant (ISO 8601 with offset). */
+  since?: string;
+  /** 1 to 1000. */
+  limit?: number;
+}
+
+// -- Workflows
+
+export type ListWorkflowFieldsQuery = {
+  eventName?: string;
+};
+export interface AddWorkflowStepRequest {
+  type: string;
+  name: string;
+  position: ApiObject;
+  config: ApiObject;
+  templateId?: string;
+  /** Link the new step after the current last step. */
+  autoConnect?: boolean;
+}
+export interface UpdateWorkflowStepRequest {
+  name?: string;
+  position?: ApiObject;
+  config?: ApiObject;
+  /** `null` detaches the template. */
+  templateId?: string | null;
+}
+export interface DeleteWorkflowStepOptions {
+  /** Reconnect the step's predecessors to its successors instead of leaving a gap. */
+  splice?: boolean;
+}
+export interface AddWorkflowTransitionRequest {
+  fromStepId: string;
+  toStepId: string;
+  /** From a CONDITION step, which branch this follows, e.g. `{ branch: "yes" }`. */
+  condition?: ApiObject;
+  /** Lower is followed first. Defaults to 0. */
+  priority?: number;
+}
+export interface CreateConversionGoalRequest {
+  name: string;
+  eventType: string;
+  /** 1 to 365. */
+  windowDays?: number;
+}
+export interface WorkflowVersionReverted {
+  version: number;
+}
+
+// -- Emails / domains / campaigns
+
+export interface RescheduleEmailRequest {
+  /** The new send time (ISO 8601), or `null` to send now. */
+  scheduledAt: string | null;
+}
+export interface ManageDomainWarmupRequest {
+  /** `finish` ends the ramp early; `restart` begins it again from day one. */
+  action: "finish" | "restart";
+}
+export interface SendCampaignTestRequest {
+  /** Must belong to a member of this project. */
+  email: string;
+}
+
+// -- Billing, connections, support (`/api/v1`)
+
+export type BillingStatusV1 = components["schemas"]["BillingStatus"];
+export type PlanListV1 = components["schemas"]["PlanList"];
+export type ConnectionsV1 = components["schemas"]["Connections"];
+export type ConnectLinksV1 = components["schemas"]["ConnectLinks"];
+export type CreateConnectLinksV1Request = NonNullable<
+  paths["/api/v1/connections/links"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type SupportTicketListV1 = components["schemas"]["SupportTicketList"];
+export type SupportTicketCreatedV1 = components["schemas"]["SupportTicketCreated"];
+export type CreateSupportTicketV1Request = NonNullable<
+  paths["/api/v1/support/tickets"]["post"]["requestBody"]
+>["content"]["application/json"];
+/** What a DoDomain re-check answers: accepted, with the verdict arriving later by webhook. */
+export type DomainReverifyAccepted = components["schemas"]["DomainReverifyAccepted"]["data"];
+
 // Re-export the raw shapes for advanced use.
 export type { components, operations, paths } from "./types.generated";

@@ -39,8 +39,11 @@ export { ProjectsResource } from "./resources/projects";
 export { TopicsResource } from "./resources/topics";
 export { ValidationResource } from "./resources/validation";
 export { DeliverabilityResource } from "./resources/deliverability";
+export { BillingResource } from "./resources/billing";
+export { ConnectionsResource } from "./resources/connections";
+export { SupportResource } from "./resources/support";
 
-export { paginateCursor } from "./pagination";
+export { paginateCursor, paginateLegacyCursor } from "./pagination";
 export type { CursorPage, CursorPageQuery } from "./pagination";
 
 export {

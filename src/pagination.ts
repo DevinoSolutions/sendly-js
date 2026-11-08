@@ -6,6 +6,8 @@
  * resource's `<method>All` generator just supplies the fetch.
  */
 
+import type { LegacyCursorPage } from "./types";
+
 /** The list envelope every `/api/v1` collection endpoint returns. */
 export interface CursorPage<T> {
   data: T[];
@@ -45,5 +47,30 @@ export async function* paginateCursor<T>(
     const next = page.next_cursor;
     if (!page.has_more || next === null || next === undefined || next === after) return;
     after = next;
+  }
+}
+
+/**
+ * Walk a legacy-dialect collection answered as `{ data, cursor, hasMore }`,
+ * yielding items rather than pages.
+ *
+ * The legacy `/api/*` lists page on `limit` + `cursor`, and three different
+ * response shapes exist side by side; this is the one the activity feed, the
+ * audit log and list membership share. It stops on `hasMore: false`, a missing
+ * cursor, or a repeated cursor.
+ */
+export async function* paginateLegacyCursor<T>(
+  fetchPage: (cursor: string | undefined) => Promise<LegacyCursorPage<T>>,
+  startCursor?: string,
+): AsyncGenerator<T, void, undefined> {
+  let cursor = startCursor;
+  for (;;) {
+    const page = await fetchPage(cursor);
+    for (const item of page.data ?? []) {
+      yield item;
+    }
+    const next = page.cursor;
+    if (!page.hasMore || next === null || next === undefined || next === cursor) return;
+    cursor = next;
   }
 }
