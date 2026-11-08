@@ -118,4 +118,19 @@ describe("templates and uploads (legacy dialect)", () => {
     expect(error.statusCode).toBe(413);
     expect(error.errorCode).toBe("PAYLOAD_TOO_LARGE");
   });
+
+  test.each([
+    ["LOGO.PNG", "image/png"],
+    ["a.webp", "image/webp"],
+    ["b.JPG", "image/jpeg"],
+    ["c.jpeg", "image/jpeg"],
+    ["d.Gif", "image/gif"],
+  ])("uploads.image maps the extension of %s to %s from an explicit table", async (name, type) => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { url: "u" }));
+    await client.uploads.image(png, name);
+    const sent = (getCall(fetchMock).init.body as FormData).get("image") as File;
+    expect(sent.type).toBe(type);
+    expect(sent.name).toBe(name);
+  });
 });
