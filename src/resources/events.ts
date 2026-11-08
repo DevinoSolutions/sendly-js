@@ -1,11 +1,14 @@
 import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import type {
+  ApiObject,
+  ContactEventsResponse,
   EventListV1,
   EventNamesV1,
   EventStatsV1,
   EventStatsV1Query,
   EventV1,
+  ListContactEventsQuery,
   ListEventsV1Query,
   RecordEventV1Request,
   TrackEventData,
@@ -98,5 +101,42 @@ export class EventsResource {
       path: "/api/v1/events/stats",
       query,
     });
+  }
+
+  /*
+   * Event names and per-contact history, on the legacy `/api/events` routes.
+   * These need a full key.
+   */
+
+  /**
+   * DELETE an event name and every event recorded under it. Workflows and
+   * segments that use the name stop matching, so read {@link getUsage} first.
+   * Resolves the deletion result as the API reports it.
+   */
+  async delete(eventName: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "DELETE",
+      path: `/api/events/${encodeURIComponent(eventName)}`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Which workflows and segments use an event name. */
+  async getUsage(eventName: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/events/${encodeURIComponent(eventName)}/usage`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** The events recorded for one contact, newest first (`limit` up to 100). */
+  async listForContact(contactId: string, query?: ListContactEventsQuery): Promise<ContactEventsResponse> {
+    const envelope = await this.client.request<{ success: true; data: ContactEventsResponse }>({
+      method: "GET",
+      path: `/api/events/contact/${encodeURIComponent(contactId)}`,
+      query,
+    });
+    return this.client.unwrap(envelope);
   }
 }
