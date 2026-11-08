@@ -1,8 +1,11 @@
 import type { Sendly, SendlyFile } from "../client";
 import type {
+  ApiObject,
   AppPasswordRecord,
   ComposeMailboxMessageRequest,
   DraftMailboxMessageRequest,
+  InboxConversationPage,
+  ListInboxConversationsQuery,
   ListMailboxConversationsQuery,
   MailboxConversation,
   MailboxConversationPage,
@@ -10,7 +13,9 @@ import type {
   MailboxDetail,
   MailboxMessage,
   MailboxRecord,
+  MarkConversationSpamRequest,
   paths,
+  SetConversationStatusRequest,
 } from "../types";
 
 /** What {@link MailboxesResource.replyToConversation} resolves: the reply was handed to the mail server. */
@@ -239,5 +244,92 @@ export class MailboxesResource {
       method: "GET",
       path: `/api/mailboxes/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
     });
+  }
+
+  /*
+   * CONVERSATION MANAGEMENT. Reading a thread's contact and the project-wide inbox
+   * needs `mailbox-conversations:read`; changing or deleting a thread needs
+   * `mailboxes:write`.
+   */
+
+  /**
+   * One page of conversations across EVERY mailbox in the project, newest first.
+   * `view` picks the inbox or spam, `status` narrows by state, and `q` searches
+   * subject and sender. Page by passing `nextCursor` back as `cursor` until it
+   * is null; {@link listAllInboxConversations} does that for you.
+   */
+  async listInboxConversations(query?: ListInboxConversationsQuery): Promise<InboxConversationPage> {
+    const envelope = await this.client.request<{ success: true; data: InboxConversationPage }>({
+      method: "GET",
+      path: "/api/inbox/conversations",
+      query,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Iterate every conversation in the project's inbox across pages, one at a time. */
+  async *listAllInboxConversations(query?: ListInboxConversationsQuery): AsyncGenerator<ApiObject, void, undefined> {
+    let cursor = query?.cursor;
+    do {
+      const page = await this.listInboxConversations({ ...query, cursor });
+      yield* page.items;
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+  }
+
+  /** The Sendly contact behind a conversation and their recent email and event timeline. */
+  async getConversationContact(id: string, conversationId: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "GET",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/contact`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Open, snooze or close a conversation, and/or assign it to a project member
+   * (`assigneeId: null` unassigns). An `assigneeId` who is not a member of the
+   * project is refused with `422 INVALID_ASSIGNEE`.
+   */
+  async setConversationStatus(
+    id: string,
+    conversationId: string,
+    body: SetConversationStatusRequest,
+  ): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "PATCH",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/status`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * File a conversation as spam, or pass `spam: false` to move it back to the
+   * inbox. Mail clients connected to the mailbox see the same move.
+   */
+  async markConversationSpam(
+    id: string,
+    conversationId: string,
+    body: MarkConversationSpamRequest,
+  ): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}/spam`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * PERMANENTLY DELETE a conversation and its messages from the mailbox,
+   * mail server included. It cannot be undone.
+   */
+  async deleteConversation(id: string, conversationId: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "DELETE",
+      path: `/api/mailboxes/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}`,
+    });
+    return this.client.unwrap(envelope);
   }
 }
