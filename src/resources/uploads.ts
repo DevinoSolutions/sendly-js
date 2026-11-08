@@ -14,7 +14,9 @@ const IMAGE_TYPES_BY_EXTENSION: Record<string, string> = {
 function inferImageType(filename: string): string | undefined {
   const dot = filename.lastIndexOf(".");
   if (dot < 0) return undefined;
-  return IMAGE_TYPES_BY_EXTENSION[filename.slice(dot + 1).toLowerCase()];
+  const extension = filename.slice(dot + 1).toLowerCase();
+  // Own keys only: `x.constructor` must not resolve to Object.prototype.constructor.
+  return Object.hasOwn(IMAGE_TYPES_BY_EXTENSION, extension) ? IMAGE_TYPES_BY_EXTENSION[extension] : undefined;
 }
 
 /**
@@ -51,8 +53,9 @@ export class UploadsResource {
   async image(image: Blob | ArrayBuffer | Uint8Array, filename?: string, contentType?: string): Promise<UploadedImage> {
     const name = filename ?? (image instanceof File ? image.name : "image");
     const declared = image instanceof Blob ? image.type : "";
-    const type = contentType ?? (declared in IMAGE_TYPES_BY_TYPE ? declared : undefined) ?? inferImageType(name);
-    if (!type || !(type in IMAGE_TYPES_BY_TYPE)) {
+    const type =
+      contentType ?? (Object.hasOwn(IMAGE_TYPES_BY_TYPE, declared) ? declared : undefined) ?? inferImageType(name);
+    if (!type || !Object.hasOwn(IMAGE_TYPES_BY_TYPE, type)) {
       throw new SendlyError(
         0,
         "invalid_options",

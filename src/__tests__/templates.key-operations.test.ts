@@ -133,4 +133,19 @@ describe("templates and uploads (legacy dialect)", () => {
     expect(sent.type).toBe(type);
     expect(sent.name).toBe(name);
   });
+
+  test("uploads.image: prototype keys are not image types", async () => {
+    const { client, fetchMock } = makeClient();
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+
+    const byType = await rejection(client.uploads.image(png, "a", "constructor"));
+    expect(byType.errorCode).toBe("invalid_options");
+
+    const byName = await rejection(client.uploads.image(png, "a.tostring"));
+    expect(byName.errorCode).toBe("invalid_options");
+    const byProto = await rejection(client.uploads.image(png, "a.constructor"));
+    expect(byProto.errorCode).toBe("invalid_options");
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
