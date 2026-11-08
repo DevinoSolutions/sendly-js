@@ -154,7 +154,8 @@ export class EmailsResource {
   /**
    * Move a still-PENDING scheduled email to a new send time, or pass
    * `scheduledAt: null` to send it now. An email that has already left
-   * PENDING answers `409`; use {@link cancelSchedule} to stop one instead.
+   * PENDING answers `409`, and so does one that changed while this request ran:
+   * fetch it again and retry. Use {@link cancelSchedule} to stop a scheduled one.
    */
   async reschedule(id: string, body: RescheduleEmailRequest): Promise<EmailResponse> {
     return this.client.request<EmailResponse>({

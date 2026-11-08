@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getCall, jsonResponse, makeClient } from "./helpers";
+import { getCall, jsonResponse, makeClient, rejection } from "./helpers";
 
 const envelope = (data: unknown) => jsonResponse(200, { success: true, data });
 
@@ -62,5 +62,48 @@ describe("templates and uploads (legacy dialect)", () => {
     expect(sent.type).toBe("image/png");
     expect((init.headers as Record<string, string>)["Content-Type"]).toBeUndefined();
     expect(result).toEqual(uploaded);
+  });
+
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+
+  test("uploads.image keeps the type of a File and takes its name", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { url: "u" }));
+    await client.uploads.image(new File([png], "photo.webp", { type: "image/webp" }));
+    const sent = (getCall(fetchMock).init.body as FormData).get("image") as File;
+    expect(sent.type).toBe("image/webp");
+    expect(sent.name).toBe("photo.webp");
+  });
+
+  test("uploads.image infers the type of raw bytes from the filename extension", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { url: "u" }));
+    await client.uploads.image(png, "Logo.PNG");
+    expect(((getCall(fetchMock).init.body as FormData).get("image") as File).type).toBe("image/png");
+
+    await client.uploads.image(png.buffer as ArrayBuffer, "a.jpeg");
+    expect(((getCall(fetchMock, 1).init.body as FormData).get("image") as File).type).toBe("image/jpeg");
+  });
+
+  test("uploads.image infers the type of an untyped Blob from the filename", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { url: "u" }));
+    await client.uploads.image(new Blob([png]), "a.gif");
+    expect(((getCall(fetchMock).init.body as FormData).get("image") as File).type).toBe("image/gif");
+  });
+
+  test("uploads.image: an explicit contentType wins", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(jsonResponse(200, { url: "u" }));
+    await client.uploads.image(png, "noext", "image/png");
+    expect(((getCall(fetchMock).init.body as FormData).get("image") as File).type).toBe("image/png");
+  });
+
+  test("uploads.image refuses, before any request, when no image type can be found", async () => {
+    const { client, fetchMock } = makeClient();
+    const error = await rejection(client.uploads.image(png, "photo.tiff"));
+    expect(error.errorCode).toBe("invalid_options");
+    await expect(client.uploads.image(new Blob([png], { type: "text/plain" }), "x")).rejects.toThrow(/image/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
