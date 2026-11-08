@@ -3,6 +3,7 @@ import { paginateCursor } from "../pagination";
 import { idemHeader } from "./idempotency";
 import type { IdempotencyOptions } from "./idempotency";
 import type {
+  ApiObject,
   CampaignDeletedV1,
   CampaignFailureListV1,
   CampaignFailureV1,
@@ -13,6 +14,7 @@ import type {
   CreateCampaignV1Request,
   ListCampaignFailuresV1Query,
   ListCampaignsV1Query,
+  SendCampaignTestRequest,
   SendCampaignV1Request,
   UpdateCampaignV1Request,
 } from "../types";
@@ -178,6 +180,33 @@ export class CampaignsResource {
     return this.client.request<CampaignRetryFailedV1>({
       method: "POST",
       path: `/api/v1/campaigns/${encodeURIComponent(id)}/retry-failed`,
+    });
+  }
+
+  /*
+   * Two operations that exist only on the legacy `/api/campaigns` routes, so
+   * they carry the plain name here with no `V1` counterpart to confuse them with.
+   */
+
+  /** Copy a campaign as a new draft with the same content, sender and audience. */
+  async duplicate(id: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/campaigns/${encodeURIComponent(id)}/duplicate`,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Send ONE test copy of a campaign, marked `[TEST]`, to `email`. The address
+   * must belong to a member of this project: any other is refused, which is why
+   * this needs only `emails:test` and cannot be used to mail a stranger.
+   */
+  async sendTest(id: string, body: SendCampaignTestRequest): Promise<{ success: true; message: string }> {
+    return this.client.request<{ success: true; message: string }>({
+      method: "POST",
+      path: `/api/campaigns/${encodeURIComponent(id)}/test`,
+      body,
     });
   }
 }
