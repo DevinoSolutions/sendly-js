@@ -1,11 +1,14 @@
 import type { Sendly } from "../client";
-import { paginateCursor } from "../pagination";
+import { paginateCursor, paginateLegacyCursor } from "../pagination";
 import type {
+  ApiObject,
   CreateListV1Request,
   EmailValidationRunV1,
+  LegacyCursorPage,
   ListDeletedV1,
-  ListListV1,
+  ListListMembersQuery,
   ListListsV1Query,
+  ListListV1,
   ListSubscribeData,
   ListSubscribeRequest,
   ListSubscribeResponse,
@@ -151,5 +154,27 @@ export class ListsResource {
       method: "POST",
       path: `/api/v1/lists/${encodeURIComponent(id)}/validation-runs`,
     });
+  }
+
+  /**
+   * One page of the contacts on a list, on the legacy `/api/lists` route.
+   *
+   * Pages on `limit` (up to 100) + `cursor` and answers `{ data, cursor, hasMore }`,
+   * a different envelope from the `V1` lists: pass `cursor` back until `hasMore`
+   * is false, or let {@link listAllMembers} do it. `status` narrows to one
+   * membership status such as `SUBSCRIBED`.
+   */
+  async listMembers(id: string, query?: ListListMembersQuery): Promise<LegacyCursorPage<ApiObject>> {
+    const envelope = await this.client.request<{ success: true; data: LegacyCursorPage<ApiObject> }>({
+      method: "GET",
+      path: `/api/lists/${encodeURIComponent(id)}/members`,
+      query,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Iterate every member of a list across pages, one membership at a time. */
+  async *listAllMembers(id: string, query?: ListListMembersQuery): AsyncGenerator<ApiObject, void, undefined> {
+    yield* paginateLegacyCursor<ApiObject>((cursor) => this.listMembers(id, { ...query, cursor }), query?.cursor);
   }
 }
