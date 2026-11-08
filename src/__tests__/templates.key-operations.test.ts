@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { SendlyError } from "../index";
 import { getCall, jsonResponse, makeClient, rejection } from "./helpers";
 
 const envelope = (data: unknown) => jsonResponse(200, { success: true, data });
@@ -105,5 +106,16 @@ describe("templates and uploads (legacy dialect)", () => {
     expect(error.errorCode).toBe("invalid_options");
     await expect(client.uploads.image(new Blob([png], { type: "text/plain" }), "x")).rejects.toThrow(/image/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("uploads.image: a 413 keeps its status and code on the thrown error", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(
+      jsonResponse(413, { success: false, error: { message: "Image too large", code: "PAYLOAD_TOO_LARGE" } }),
+    );
+    const error = await rejection(client.uploads.image(png, "big.png"));
+    expect(error).toBeInstanceOf(SendlyError);
+    expect(error.statusCode).toBe(413);
+    expect(error.errorCode).toBe("PAYLOAD_TOO_LARGE");
   });
 });

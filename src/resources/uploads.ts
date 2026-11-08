@@ -36,7 +36,12 @@ export class UploadsResource {
    * own. When none of the three gives an image type this throws
    * `SendlyError("invalid_options")` rather than sending a request that cannot
    * succeed. The server also checks the file's contents against the declared
-   * type. A `File` supplies its own `filename`.
+   * type, so a wrong declared type fails too (`400`). A `File` supplies its own
+   * `filename`.
+   *
+   * The limit is 10 MB. The route refuses a larger upload on the declared
+   * `Content-Length`, before buffering it, with `413 PAYLOAD_TOO_LARGE`, thrown
+   * here as a `SendlyValidationError` that keeps the status and `errorCode`.
    *
    * Sent as `multipart/form-data` under the `image` field. The route also takes
    * JSON (`{ url }` or `{ base64, filename, contentType }`), but the contract

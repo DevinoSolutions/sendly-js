@@ -107,6 +107,17 @@ describe("contacts: export, import and lookup", () => {
     expect(result.message).toBe("Import queued successfully");
   });
 
+  test("importCsv always sends the part typed text/csv, whatever the Blob said", async () => {
+    const { client, fetchMock } = makeClient();
+    fetchMock.mockResolvedValue(envelope({ message: "ok" }));
+    await client.contacts.importCsv(
+      new Blob(["email\na@example.com\n"], { type: "application/octet-stream" }),
+      "x.txt",
+    );
+    const sent = (getCall(fetchMock).init.body as FormData).get("file") as File;
+    expect(sent.type).toBe("text/csv");
+  });
+
   test("importCsv accepts a Blob and keeps the default filename", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(envelope({ message: "ok" }));

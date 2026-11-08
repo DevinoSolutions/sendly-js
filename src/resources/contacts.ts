@@ -279,17 +279,18 @@ export class ContactsResource {
   }
 
   /**
-   * Import contacts from a CSV, up to 5 MB, as a background job: the first row
+   * Import contacts from a CSV, up to 5 MB (larger answers `400 VALIDATION_ERROR`), as a background job: the first row
    * is the header and must include an `email` column, and every other column
    * becomes a custom field. Pass a `File`/`Blob`, or the CSV text itself.
    * Resolves once the import is queued, not once it has finished. The file is
-   * sent as multipart form data under `file`; the route also takes JSON
+   * sent as multipart form data under `file`, always typed `text/csv` (the route
+   * accepts a `.csv` name or that type, and the SDK guarantees the type); the route also takes JSON
    * (`{ csv, filename? }`), but the contract publishes no request body for either.
    * `400 IMPORT_LIMIT_EXCEEDED` means the file has more rows than the project's
    * trust tier allows.
    */
   async importCsv(file: ContactImportFile, filename = "contacts.csv"): Promise<MessageAck> {
-    const csv = typeof file === "string" ? new Blob([file], { type: "text/csv" }) : file;
+    const csv = file instanceof Blob && file.type === "text/csv" ? file : new Blob([file], { type: "text/csv" });
     const form = new FormData();
     form.append("file", csv, filename);
     const envelope = await this.client.request<{ success: true; data: MessageAck }>({
