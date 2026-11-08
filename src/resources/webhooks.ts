@@ -1,9 +1,12 @@
 import type { Sendly } from "../client";
 import { paginateCursor } from "../pagination";
 import type {
+  ApiObject,
   CreateWebhookRequest,
   CreateWebhookV1Request,
   ListWebhooksV1Query,
+  ReplayFailedWebhookCallsRequest,
+  TestWebhookRequest,
   UpdateWebhookRequest,
   UpdateWebhookV1Request,
   WebhookCallsListResponse,
@@ -202,5 +205,46 @@ export class WebhooksResource {
       method: "POST",
       path: `/api/v1/webhooks/${encodeURIComponent(id)}/rotate-secret`,
     });
+  }
+
+  /*
+   * REDELIVERY AND TESTING, on the legacy `/api/webhooks` routes. These need a
+   * full key.
+   */
+
+  /**
+   * Send a sample event to a webhook and resolve the delivery attempt that
+   * records how the receiver responded. `eventType` picks which event the sample
+   * is of.
+   */
+  async test(id: string, body?: TestWebhookRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/webhooks/${encodeURIComponent(id)}/test`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /**
+   * Deliver every failed call to a webhook again. `since` (ISO 8601 with an
+   * offset) and `limit` (1 to 1000) narrow which ones.
+   */
+  async replayFailed(id: string, body?: ReplayFailedWebhookCallsRequest): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/webhooks/${encodeURIComponent(id)}/replay-failed`,
+      body,
+    });
+    return this.client.unwrap(envelope);
+  }
+
+  /** Deliver one call again, with its original payload, and resolve the new attempt. */
+  async retryCall(id: string, callId: string): Promise<ApiObject> {
+    const envelope = await this.client.request<{ success: true; data: ApiObject }>({
+      method: "POST",
+      path: `/api/webhooks/${encodeURIComponent(id)}/calls/${encodeURIComponent(callId)}/retry`,
+    });
+    return this.client.unwrap(envelope);
   }
 }
