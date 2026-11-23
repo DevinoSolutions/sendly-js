@@ -351,7 +351,7 @@ export interface paths {
          * Send mail (SendGrid v3 dialect)
          * @description Drop-in for SendGrid's `POST /v3/mail/send`. Authenticate as SendGrid does, with `Authorization: Bearer <sendly key>` (the legacy `x-api-key-token` header is also read). A `pk_` send-only key is accepted. The key must hold `emails:send`.
          *
-         *     Each `personalizations` entry is translated to one native send. The whole fan-out is validated, and content review runs over it, before any send runs; the sends themselves then run in order, so a later send that fails can leave the earlier ones queued. At most 100 `personalizations` are accepted per request, as on the native batch; more answers `400` and nothing is sent. Success is `202` with an EMPTY body and an `X-Message-Id` header carrying the first queued email id — the semantics @sendgrid/mail expects. There is no `Idempotency-Key` support on this route.
+         *     Each `personalizations` entry is translated to one native send. The whole fan-out is validated, and content review runs over it, before any send runs, and so does a render of every personalization's subject and body (a template the renderer refuses answers `400` with nothing queued); the sends themselves then run in order, so a later send that fails for another reason can leave the earlier ones queued. At most 100 `personalizations` are accepted per request, as on the native batch; more answers `400` and nothing is sent. Success is `202` with an EMPTY body and an `X-Message-Id` header carrying the first queued email id — the semantics @sendgrid/mail expects. There is no `Idempotency-Key` support on this route.
          *
          *     A feature the vendor offers that Sendly has no equivalent for is refused with its own status (code `COMPAT_UNSUPPORTED`) rather than silently dropped.
          */
@@ -626,8 +626,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Import contacts from CSV text, up to 5 MB
-         * @description Import contacts from CSV text, up to 5 MB. The first row is the header and must include an email column; other columns become custom fields. The import runs in the background, so new contacts appear in list_contacts as it finishes.
+         * Import contacts from a CSV file
+         * @description Queue an import of contacts from a CSV file. Send it as `multipart/form-data` with the file in the `file` field, or as `application/json` for a caller that cannot send multipart: `{ csv, filename? }`, the whole file as text. The first row is the header and must include an `email` column; other columns become custom fields.
+         *
+         *     The file may be up to 5 MB and must hold no more rows than the project's per-import limit; a file over either limit, or one with no `email` column, is refused with `400` `VALIDATION_ERROR` (`IMPORT_LIMIT_EXCEEDED` for the row limit) before anything is queued, as is a call with no body, a body that is neither multipart nor valid JSON, or no `file` part. A JSON body that is not `{ csv, filename? }` answers `422` `VALIDATION_ERROR`. The import runs in the background, so new contacts appear in the contact list as it finishes.
          *
          *     Requires the `contacts:write` scope — Create, update, and delete your contacts.
          */
@@ -753,7 +755,7 @@ export interface paths {
         put?: never;
         /**
          * Add a sending domain
-         * @description Register a new domain with SES and persist its DKIM tokens.
+         * @description Register a new domain with SES and persist its DKIM tokens. The response lists every DNS record to publish in `dnsRecords`; publish them, then poll `GET /api/domains/{id}/verify`.
          *
          *     Requires the `domains:write` scope — Add and remove sending domains, and trigger verification.
          */
@@ -967,7 +969,7 @@ export interface paths {
         put?: never;
         /**
          * Send a batch of emails
-         * @description Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array.
+         * @description Send up to 100 emails in one request. Returns 207 Multi-Status if any entry failed, or 200 if all succeeded. Per-entry results are reported in the `data` array. An entry with a recipient at a reserved domain (`.test`, `.example`, `.invalid`, `.localhost`, `.local`, example.com and the like, which can never receive mail) fails alone with `RESERVED_RECIPIENT_DOMAIN`; the other entries are still sent.
          *
          *     The whole batch is ONE idempotent unit: an `Idempotency-Key` replayed with the same entry list replays the same per-index results, and replaying it with an edited list answers `422 IDEMPOTENCY_KEY_REUSED` rather than returning results for indexes the new body no longer has.
          *
@@ -1005,7 +1007,7 @@ export interface paths {
         head?: never;
         /**
          * Reschedule a still-PENDING email
-         * @description Move a still-pending email to a new send time, or pass `scheduledAt: null` to send it now. Returns 409 if the email has already left PENDING.
+         * @description Move a still-pending email to a new send time, or pass `scheduledAt: null` to send it now. Returns 409 if the email is no longer waiting to be sent, or changed while the request ran (fetch it again and retry).
          *
          *     Requires the `emails:send` scope — Send emails from your verified domains.
          */
@@ -1024,7 +1026,7 @@ export interface paths {
         post?: never;
         /**
          * Cancel a scheduled (still-PENDING) email
-         * @description Mark a still-pending email as CANCELLED before the worker picks it up. Returns 409 if the email has already left PENDING.
+         * @description Mark a still-pending email as CANCELLED before the worker picks it up. Returns 409 if the email is no longer waiting to be sent.
          *
          *     Requires the `emails:send` scope — Send emails from your verified domains.
          */
@@ -1489,6 +1491,8 @@ export interface paths {
          *
          *     Supply either a plain-text body or a structured React Email document. Sendly renders HTML and a matching plain-text alternative.
          *
+         *     **The mailbox's signature is opt-in per send.** `includeSignature` defaults to false; set it to true to have Sendly add the saved signature under your text and above the quoted original, in both parts.
+         *
          *     Refusals worth handling by name:
          *
          *     - `422 UNPROCESSABLE` — the thread has no inbound message to answer, or the mailbox is not provisioned.
@@ -1602,11 +1606,14 @@ export interface paths {
          *
          *     Supply either `body` (plain text) or `document` (a branded React Email document with images, GIFs, buttons and columns). Sendly renders both HTML and a matching text alternative. Caller HTML, JSX and arbitrary CSS are not accepted.
          *
+         *     **The mailbox's signature is opt-in per send.** `includeSignature` defaults to false, so a body that ends with its own sign-off is sent exactly as written; set it to true to have Sendly add the saved signature to both parts (see `updateMailboxSignature`).
+         *
          *     Bcc recipients are delivered to but appear in no header, which also means the copy filed in the mailbox's Sent folder does not record them.
          *
          *     Refusals worth handling by name:
          *
          *     - `422 RECIPIENT_SUPPRESSED` — one or more recipients are on this project's suppression list. The message names them; remove them or take them off the list.
+         *     - `422 RESERVED_RECIPIENT_DOMAIN` — a recipient is at a reserved domain (`.test`, `.example`, `.invalid`, `.localhost`, `.local`, example.com and the like) that can never receive mail. The message names the domain.
          *     - `422 CONTENT_REFUSED` — the outbound content scanner refused the message.
          *     - `503 CONTENT_SCAN_UNAVAILABLE` — screening could not reach a verdict for a young project. Nothing was sent; retry shortly.
          *     - `429` — a mailbox may send 60 messages an hour through this endpoint.
@@ -1640,6 +1647,36 @@ export interface paths {
          */
         get: operations["getMailboxProject"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mailboxes/{id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a mailbox's signature
+         * @description Set, change or remove the mailbox's email signature, and choose whether it belongs on new messages and on replies. Send any of the three keys; a key left out is unchanged. `text: null` removes the signature.
+         *
+         *     **The signature is plain text.** At most 1000 characters and 12 lines; control characters and trailing whitespace are removed before it is stored, and the response shows the stored form. There is no `html` field, and unknown keys are refused: the mailbox render path accepts no caller markup and builds no link out of text.
+         *
+         *     **Saving a signature changes no message by itself.** A send through `sendMailboxMessage` or `replyToMailboxConversation` carries it only when that request sets `includeSignature: true`. The dashboard composer reads `includeOnNewMessages` / `includeOnReplies` and puts the signature in the draft, where the sender can edit or delete it before sending.
+         *
+         *     The current value is read on `getMailbox` (`signature`). Sendly's copy is the one it sends with; the text is also stored on the mailbox's JMAP Identity (`textSignature` / `htmlSignature`) so a JMAP mail client offers the same signature. IMAP has no signature setting, so an IMAP client keeps its own.
+         *
+         *     Any member of the project may call this, and so may an API key holding `mailboxes:write`.
+         *
+         *     Requires the `mailboxes:write` scope — Create and delete mailboxes on your verified domains.
+         */
+        put: operations["updateMailboxSignature"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1818,7 +1855,7 @@ export interface paths {
         put?: never;
         /**
          * Create an API key
-         * @description Mint a new API key on the project. The token is NOT returned — the response carries the key's metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.
+         * @description Mint a new API key on the project. What comes back depends on who is calling. A signed-in dashboard session receives the key's metadata and the token itself in `plaintextToken`, once. Any other caller (an OAuth token, so an agent or MCP tool) does not receive the token: the response carries the metadata plus a one-time `revealUrl` that only a signed-in dashboard session can open.
          *
          *     **Scope attenuation:** a key created with a delegated credential (an OAuth token or another API key) may not carry a scope that credential does not itself hold. A request that asks for more is refused with `400 SCOPE_ESCALATION` rather than quietly narrowed, so the mistake is reported where it was made instead of surfacing later as an unexplained 403. Naming only `legacyGrantPreset` counts as asking for every scope that preset implies.
          *
@@ -1870,7 +1907,7 @@ export interface paths {
         put?: never;
         /**
          * Rotate an API key's secret
-         * @description Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the new secret is not returned: the response carries `lastFour` and a one-time `revealUrl`. A revoked key cannot be rotated (`400 KEY_REVOKED`).
+         * @description Replace the key's secret in place, keeping its id, name and scopes. The PREVIOUS secret stops authenticating immediately — there is no overlap window — so anything still using it starts failing on its next request. As with creation, the response depends on the caller: a signed-in dashboard session receives the new secret in `plaintextToken`, once; any other caller receives `lastFour` and a one-time `revealUrl` and never the secret. A revoked key cannot be rotated (`400 KEY_REVOKED`).
          *
          *     Requires the `api-keys:write` scope — Create, rotate, and revoke API keys — these keep working even after you disconnect this app.
          */
@@ -2369,8 +2406,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Host an image (JPEG, PNG, GIF or WebP) for use in emails and answer its hosted URL
-         * @description Host an image (JPEG, PNG, GIF or WebP) for use in emails and answer its hosted URL. Pass either url (a public address Sendly fetches) or base64 with filename and contentType.
+         * Host an image for use in emails
+         * @description Host an image for use in emails and answer its hosted URL. Send it as `multipart/form-data` with the file in the `image` field, or as `application/json` for a caller that cannot send multipart: either `{ url }` (a public http(s) address Sendly fetches) or `{ base64, filename, contentType }`.
+         *
+         *     Only JPEG, PNG, GIF and WebP are accepted, up to 10 MB. The file's own bytes are checked against its declared type, so a mislabelled file is refused with `400` `VALIDATION_ERROR`, as is a call with no body, a body that is neither multipart nor valid JSON, or no `image` part. A larger file answers `413` `PAYLOAD_TOO_LARGE`. A JSON body that fits neither shape, or a `url` that cannot be fetched (private address, unreachable, or a non-2xx answer), answers `422` `VALIDATION_ERROR`.
          *
          *     Requires the `templates:write` scope — Create, edit, and delete your email templates.
          */
@@ -3692,7 +3731,7 @@ export interface paths {
          * Send a sandbox test email
          * @description Prove that sending works — before any domain, DNS record or verification exists.
          *
-         *     The message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.
+         *     The message is sent FROM this project's sandbox address (`sandbox_address` on `GET /api/v1/projects`) and can only reach ONE recipient: the project owner's own verified account email, which is also what `to` defaults to — or, for a keyless start's key, the address that start confirmed with `POST /api/v1/keyless/verify`. Naming any other recipient answers 403, and naming a `from` answers 422 — the sender is resolved server-side and a request that expects a different one is refused rather than quietly re-addressed.
          *
          *     That restriction is the reason `emails:test` is a separate, non-sensitive scope: a call under it cannot put mail in a stranger's inbox, so it can sit in a default grant where `emails:send` may not. It is not a way to send real mail cheaply — use `POST /api/v1/emails` for that.
          *
@@ -3785,6 +3824,98 @@ export interface paths {
         get: operations["v1GetEventStats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/keyless": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a keyless start's status
+         * @description Where a keyless start stands: the address, whether it is confirmed, the free test emails left, and the claim link. Bearer: the keyless key.
+         *
+         *     Requires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.
+         */
+        get: operations["v1GetKeyless"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/keyless/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend a keyless start's code
+         * @description Mail a new 6-digit code, replacing the old code and its tries. Bearer: the keyless key. At most 3 codes in a start's life (the first included), at least 60 seconds apart.
+         *
+         *     Requires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.
+         */
+        post: operations["v1ResendKeylessCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/keyless/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a keyless test project
+         * @description Send Sendly's free test emails to your OWN inbox with no account and no API key.
+         *
+         *     Answers a test project, a `pk_test_` key holding only `emails:test` (shown once, here), and mails a 6-digit code to `email`. Confirm the code with `POST /api/v1/keyless/verify`; from then on `POST /api/v1/emails/test` with the same key reaches that address and no other, until the free test emails are used up. `claim_url` lets a person adopt the project into a real account.
+         *
+         *     The first call answers 428 `proof_required`: `details` carries a `challenge` and the number of leading zero bits (`difficultyBits`) a SHA-256 of `<challenge>:<nonce>` must have, plus ready-to-run solvers in `details.howTo`. Send the same request again with the header `Sendly-Keyless-Proof: <challenge>:<nonce>`. A challenge lasts 5 minutes and works once.
+         *
+         *     Limits: 3 starts per address and 5 per network a day, and a global daily ceiling. Sandbox, disposable and role addresses (`info@`, `admin@`, …) are refused.
+         */
+        post: operations["v1StartKeyless"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/keyless/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a keyless start's email
+         * @description Confirm the address a keyless start mailed its code to. Bearer: the keyless key. A code lasts 15 minutes and allows 5 tries; confirming an already confirmed start answers success again.
+         *
+         *     Requires the `emails:test` scope — Send test emails to your own address from the Sendly sandbox.
+         */
+        post: operations["v1VerifyKeyless"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6004,9 +6135,9 @@ export interface components {
         };
         /** @description Resend `emails.get()` body. */
         CompatResendEmail: {
-            /** @description Always `null`. */
+            /** @description Always `null`. Addresses blind-copied on a send are stored on the first recipient's row only and are not reported by this dialect. */
             bcc: null;
-            /** @description Always `null`. */
+            /** @description Always `null`. Addresses copied on a send are stored on the first recipient's row only and are not reported by this dialect. */
             cc: null;
             /** Format: date-time */
             created_at: string;
@@ -6249,6 +6380,8 @@ export interface components {
                 /** @description Inbox preview text */
                 preview?: string;
             };
+            /** @description Add the mailbox's saved signature under the message. Default false: a body that already ends with a sign-off is sent exactly as written. When true and the mailbox has a signature, it is added to the HTML and the plain-text parts (above the quoted original on a reply); a body that already ends with the signature does not get a second one. The response's `signatureIncluded` says what happened. */
+            includeSignature?: boolean;
             subject: string;
             to: string[];
         };
@@ -6451,6 +6584,13 @@ export interface components {
             } | unknown[] | null;
             subscribed?: boolean;
         };
+        ContactsImportForm: {
+            /**
+             * Format: binary
+             * @description The CSV file. Its name must end in `.csv`, or its type must be `text/csv`.
+             */
+            file: string;
+        };
         CreateApiKeyBody: {
             /** Format: uuid */
             domainId?: string | null;
@@ -6534,6 +6674,71 @@ export interface components {
             eventTypes: ("email.sent" | "email.delivered" | "email.opened" | "email.clicked" | "email.bounced" | "email.complained" | "email.failed" | "contact.created" | "contact.unsubscribed" | "contacts.bulk_created")[];
             /** Format: uri */
             url: string;
+        };
+        /** @description A newly added sending identity, with the DNS records to publish for it. */
+        CreatedDomain: {
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            createdAt: string;
+            /** @description The address a send on this stream uses when it names none. Always on this identity's own host. */
+            defaultFromAddress?: string | null;
+            /** @description The display name recipients see beside any address on this identity when a send names none, e.g. `Acme` in `Acme <receipts@mail.example.com>`. A send's own `name` and its template's from-name both win over it; `null` falls back to the project name. */
+            defaultFromName?: string | null;
+            /**
+             * @description Result of the last DNS check for this record type.
+             * @enum {string|null}
+             */
+            dkimStatus?: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /** @description SES DKIM tokens to publish as CNAME records before the domain can verify. */
+            dkimTokens?: string[] | null;
+            /**
+             * @description Result of the last DNS check for this record type.
+             * @enum {string|null}
+             */
+            dmarcStatus?: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /** @description Every record to publish for sending: the DKIM CNAMEs, the MAIL FROM MX and SPF TXT, and the starter DMARC TXT. Publish them at your DNS host, then check `/verify`. Inbound-mail MX records are not listed. */
+            dnsRecords: components["schemas"]["DnsRecord"][];
+            /** @description The bare domain, e.g. `mail.acme.com`. */
+            domain: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            lastHealthCheckAt?: string | null;
+            /** @description Custom MAIL FROM subdomain SES has on record (normally `sendly.<domain>`). */
+            mailFromDomain?: string | null;
+            /**
+             * @description SES custom MAIL FROM setup state. Only `Success` means SES is using it.
+             * @enum {string|null}
+             */
+            mailFromDomainStatus?: "Pending" | "Success" | "Failed" | "TemporaryFailure" | "NotConfigured" | null;
+            /** Format: uuid */
+            projectId: string;
+            /** @description Whether inbound mail for this domain is routed to Sendly mailboxes. */
+            receivingEnabled: boolean;
+            region?: string | null;
+            /**
+             * @description Result of the last DNS check for this record type.
+             * @enum {string|null}
+             */
+            spfStatus?: "NOT_CHECKED" | "PENDING" | "VERIFIED" | "FAILED" | null;
+            /**
+             * @description Which traffic this identity carries. `null` means unassigned, and an unassigned identity carries every stream — the behaviour of every domain added before per-stream identities. A send whose stream does not match an ASSIGNED identity is refused.
+             * @enum {string|null}
+             */
+            stream?: "TRANSACTIONAL" | "MARKETING" | null;
+            /** @description Whether this is the project's default identity for its stream — the one a send picks when it names no from-address. At most one per (project, stream). */
+            streamDefault?: boolean;
+            /**
+             * Format: date-time
+             * @description ISO 8601 datetime string
+             */
+            updatedAt: string;
+            verified: boolean;
         };
         DataExportList: {
             data: {
@@ -6692,6 +6897,23 @@ export interface components {
             intake_configured: boolean;
             /** @description Pass as `after` to fetch the next page. `null` on the last page. */
             next_cursor: string | null;
+        };
+        /** @description A DNS record to publish for a sending domain. */
+        DnsRecord: {
+            /** @description The full record name (host) to publish it at, e.g. `abc123._domainkey.mail.acme.com`. */
+            name: string;
+            /**
+             * @description What the record is for: DKIM signing, the custom MAIL FROM subdomain, or the DMARC policy.
+             * @enum {string}
+             */
+            purpose: "dkim" | "mail_from" | "dmarc";
+            /**
+             * @description Record type: `CNAME`, `MX` or `TXT`.
+             * @example CNAME
+             */
+            type: string;
+            /** @description The record value. An `MX` value starts with its priority, e.g. `10 feedback-smtp.us-east-1.amazonses.com`. */
+            value: string;
         };
         /** @description A sending identity: one domain registered with SES, with its own DKIM keys, its own MAIL FROM and its own reputation. */
         Domain: {
@@ -6930,6 +7152,8 @@ export interface components {
             dkimStatus: "VERIFIED" | "PENDING" | "FAILED";
             /** @enum {string} */
             dmarcStatus: "VERIFIED" | "FAILED" | "NOT_CHECKED";
+            /** @description Every record to publish for sending: the DKIM CNAMEs, the MAIL FROM MX and SPF TXT, and the starter DMARC TXT. Publish them at your DNS host, then check `/verify`. Inbound-mail MX records are not listed. */
+            dnsRecords: components["schemas"]["DnsRecord"][];
             domain: string;
             mailFromDomain: string | null;
             /**
@@ -7119,6 +7343,15 @@ export interface components {
              * @enum {string}
              */
             status: "PENDING" | "SENDING" | "SENT" | "DELIVERED" | "RECEIVED" | "BOUNCED" | "FAILED" | "REJECTED" | "RENDERING_FAILURE" | "DELIVERY_DELAY" | "CANCELLED";
+            /** @description Where the project stands against its free test emails (sends from the sandbox address with no domain and no billing). Null once the project has a verified domain or a subscription: from then on test sends meet only the daily cap. When `remaining` reaches 0, the next test send is refused with `quota_exhausted` and `next: add_domain`. */
+            test_allowance: {
+                /** @description Free test emails a project gets before it sets anything up. */
+                limit: number;
+                /** @description How many are left. At 0 the next test send is refused. */
+                remaining: number;
+                /** @description How many of them this project has used, this send included. */
+                used: number;
+            } | null;
             /**
              * Format: email
              * @description The recipient the message was queued for.
@@ -7302,6 +7535,161 @@ export interface components {
             };
             /** @enum {boolean} */
             success: true;
+        };
+        ImageUploadForm: {
+            /**
+             * Format: binary
+             * @description The image file: JPEG, PNG, GIF or WebP.
+             */
+            image: string;
+        };
+        /** @description A new code, sent. */
+        KeylessResendV1: {
+            /**
+             * Format: date-time
+             * @description When the new code stops working.
+             */
+            code_expires_at: string;
+            /** @description How many more codes this start can be sent. */
+            codes_left: number;
+            /**
+             * Format: email
+             * @description The address the new code was sent to.
+             */
+            email: string;
+            /** @description The next step. */
+            next: {
+                /** @description The call to make next, as `METHOD /path`. */
+                call: string;
+                /** @description A sentence an agent can relay to its user unchanged. */
+                say: string;
+            };
+        };
+        /** @description A keyless test project, started. */
+        KeylessStartV1: {
+            /**
+             * Format: uri
+             * @description Where a person claims this test project into a free account. The key rides in the URL fragment, which a browser never sends to a server.
+             */
+            claim_url: string;
+            /**
+             * Format: date-time
+             * @description When the code stops working (15 minutes).
+             */
+            code_expires_at: string;
+            /**
+             * Format: email
+             * @description The address the code was sent to, lower-cased.
+             */
+            email: string;
+            /** @description The keyless key (`pk_test_...`), shown ONCE. It can only send test emails, through POST /api/v1/emails/test, to the confirmed address, and call the keyless routes. Every other endpoint refuses it. */
+            key: string;
+            /** @description The next step. */
+            next: {
+                /** @description The call to make next, as `METHOD /path`. */
+                call: string;
+                /** @description A sentence an agent can relay to its user unchanged. */
+                say: string;
+            };
+            /**
+             * Format: uuid
+             * @description The keyless test project.
+             */
+            project_id: string;
+            /** @description Where the project stands against its free test emails. */
+            test_allowance: {
+                /** @description Free test emails a keyless project gets. */
+                limit: number;
+                /** @description How many are left. At 0 the next test send is refused. */
+                remaining: number;
+                /** @description How many it has used. */
+                used: number;
+            };
+            /**
+             * @description Always false here: the address is confirmed by the code.
+             * @enum {boolean}
+             */
+            verified: false;
+        };
+        /** @description Body for POST /api/v1/keyless/start. */
+        KeylessStartV1Request: {
+            /**
+             * Format: email
+             * @description The address the code is mailed to, and the ONLY address this project's test emails can then reach. Disposable and role addresses are refused.
+             */
+            email: string;
+        };
+        /** @description Where a keyless start stands. */
+        KeylessStatusV1: {
+            /**
+             * Format: uri
+             * @description Where a person claims this test project into a free account. The key rides in the URL fragment, which a browser never sends to a server.
+             */
+            claim_url: string;
+            /** @description Whether a person claimed the project. Always false here: a claim revokes this key. */
+            claimed: boolean;
+            /** @description The mail carrying the current code. Null once the address is confirmed, or when there is no mail to read. */
+            code_email: {
+                /** @description Why it was not sent or bounced, as a sentence; else null. */
+                reason: string | null;
+                /** @description A sentence an agent can relay to its user unchanged. */
+                say: string;
+                /**
+                 * @description `queued`: taken, not sent yet. `sent`: handed to the mail provider. `delivered`: the recipient's mail server accepted it. `bounced`: that server refused it. `unconfirmed`: the mail provider never answered, so it may have arrived. `not_sent`: Sendly could not send it; a resend does not count against the start's codes (up to 5 such resends).
+                 * @enum {string}
+                 */
+                status: "queued" | "sent" | "delivered" | "bounced" | "unconfirmed" | "not_sent";
+            } | null;
+            /**
+             * Format: email
+             * @description The start's address.
+             */
+            email: string;
+            /** @description Where the project stands against its free test emails. */
+            test_allowance: {
+                /** @description Free test emails a keyless project gets. */
+                limit: number;
+                /** @description How many are left. At 0 the next test send is refused. */
+                remaining: number;
+                /** @description How many it has used. */
+                used: number;
+            };
+            /** @description Whether the address is confirmed. */
+            verified: boolean;
+        };
+        /** @description The keyless start's address, confirmed. */
+        KeylessVerifyV1: {
+            /**
+             * Format: email
+             * @description The confirmed address: the one test emails can reach.
+             */
+            email: string;
+            /** @description The next step. */
+            next: {
+                /** @description The call to make next, as `METHOD /path`. */
+                call: string;
+                /** @description A sentence an agent can relay to its user unchanged. */
+                say: string;
+            };
+            /** @description Where the project stands against its free test emails. */
+            test_allowance: {
+                /** @description Free test emails a keyless project gets. */
+                limit: number;
+                /** @description How many are left. At 0 the next test send is refused. */
+                remaining: number;
+                /** @description How many it has used. */
+                used: number;
+            };
+            /**
+             * @description The address is confirmed.
+             * @enum {boolean}
+             */
+            verified: true;
+        };
+        /** @description Body for POST /api/v1/keyless/verify. */
+        KeylessVerifyV1Request: {
+            /** @description The 6-digit code Sendly emailed to the start's address. */
+            code: string;
         };
         /** @description Body for POST /api/lists/{id}/subscribe. */
         ListSubscribe: {
@@ -7577,6 +7965,8 @@ export interface components {
                 /** @description Inbox preview text */
                 preview?: string;
             };
+            /** @description Add the mailbox's saved signature under the message. Default false: a body that already ends with a sign-off is sent exactly as written. When true and the mailbox has a signature, it is added to the HTML and the plain-text parts (above the quoted original on a reply); a body that already ends with the signature does not get a second one. The response's `signatureIncluded` says what happened. */
+            includeSignature?: boolean;
         };
         /** @description A mailbox plus its IMAP/SMTP connection settings. */
         MailboxDetail: components["schemas"]["Mailbox"] & {
@@ -7599,6 +7989,7 @@ export interface components {
                     username: string;
                 };
             };
+            signature: components["schemas"]["MailboxSignature"];
         };
         /** @description One message in a conversation, inbound or outbound. */
         MailboxMessage: {
@@ -7634,6 +8025,20 @@ export interface components {
             size: number | null;
             /** @description Path of `GET /api/mailboxes/{id}/attachments/{attachmentId}` for this attachment. Relative to the API host; fetch it with the same credential. */
             url: string;
+        };
+        /** @description A mailbox's email signature. Plain text only: nothing in it is rendered as markup, and a URL is linkified by the recipient's mail client like any other. It is added to a message sent through the API only when that send sets `includeSignature: true`; the two switches describe the dashboard composer, which puts the signature in the draft for the sender to see, edit or remove. */
+        MailboxSignature: {
+            /** @description Whether the dashboard composer starts a new message with the signature in the draft. */
+            includeOnNewMessages: boolean;
+            /** @description Whether the dashboard composer starts a reply with the signature in the draft. */
+            includeOnReplies: boolean;
+            /**
+             * @description The signature as plain text, or null when the mailbox has none.
+             * @example Ada Lovelace
+             *     Support, Analytical Engines
+             *     https://example.com
+             */
+            text: string | null;
         };
         NotificationPreferences: {
             data: {
@@ -7740,6 +8145,11 @@ export interface components {
             id: string;
             /** @description ISO 639-1 code for customer-facing content. */
             language: string;
+            /**
+             * @description Operator-set. Which mail transport carries this project's email: `AUTO` follows the percentage rollout, `SES` and `KUMO` pin it. Mirrors the `MailTransportPolicy` enum.
+             * @enum {string}
+             */
+            mailTransport: "AUTO" | "SES" | "KUMO";
             name: string;
             organizationId: string | null;
             /** @description Operator-set. False when an operator has waived the small “Sent with Sendly” footer for this project (comped accounts, and Sendly's own platform project), whatever its plan. A project with a subscription never carries the footer regardless. */
@@ -7748,6 +8158,8 @@ export interface components {
             sandboxAddress: string | null;
             /** @description Local-part of the sandbox quick-start sender; null until first derived. */
             sandboxHandle: string | null;
+            /** @description How many of the free test emails this project has sent from its sandbox address. They apply while the project has no verified domain and no subscription; `POST /v1/emails/test` reports the limit and what is left. */
+            sandboxTestSendsUsed: number;
             sesRegion: string | null;
             stripeCustomerId: string | null;
             stripeSubscriptionId: string | null;
@@ -7977,8 +8389,10 @@ export interface components {
                 disposition: "attachment" | "inline";
                 filename: string;
             }[];
+            /** @description Addresses blind-copied on the message: each receives it, and none is named in any header the other recipients can read. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. When `to` names several addresses Sendly sends one message per `to`, and the copies are stored on, and delivered with, the FIRST `to`'s message only, so a copied address receives one copy of the send, not one per `to`. That also means the copies depend on that first message: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent. */
             bcc?: string[];
             body?: string;
+            /** @description Addresses copied on the message: each receives it, and every recipient sees them in the `Cc` header. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. When `to` names several addresses Sendly sends one message per `to`, and the copies are stored on, and delivered with, the FIRST `to`'s message only, so a copied address receives one copy of the send, not one per `to`. That also means the copies depend on that first message: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent. */
             cc?: string[];
             /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
             data?: {
@@ -7999,7 +8413,14 @@ export interface components {
              * @example https://example.com/unsubscribe?token=abc123
              */
             listUnsubscribe?: string;
+            /** @description The sender's display name, shown beside the from address (`Acme <hello@acme.com>`). Used only when `from` does not carry a name of its own: a `name` inside the `from` object wins, and a send that names neither falls back to the template's from-name, then the project name. It is not the recipient's name; put that in `to`. */
             name?: string;
+            /**
+             * @description Where this send waits when Sendly is pacing your sending: `high` for mail a person is waiting on right now (verification codes, password resets, magic links), `bulk` for mail that can wait (reminders, digests, batch notifications), `normal` otherwise. It orders your OWN queued mail: a `high` send goes ahead of your queued `normal` and `bulk` sends. A `bulk` send can be passed by your `normal` mail sent up to 15 minutes after it and your `high` mail sent up to 30 minutes after it, never by later mail; this orders the queue, it is not a delivery deadline. Projects take turns, so one project's backlog never holds another project's mail, whatever its priority. Up to 60 `high` sends per project per rolling hour, across all of its sending regions, are treated as `high`; past that they queue as `normal`. It does not change the rate you may send at. Defaults to `normal`.
+             * @example high
+             * @enum {string}
+             */
+            priority?: "high" | "normal" | "bulk";
             /** Format: email */
             reply?: string;
             subject?: string;
@@ -8044,7 +8465,7 @@ export interface components {
             /** @enum {boolean} */
             success: true;
         };
-        /** @description Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient. */
+        /** @description Body for POST /api/v1/emails. Either `template` or `subject`+`body` is required, and `to` names exactly one recipient; copy others with `cc` and `bcc`. Errors are RFC 9457 `application/problem+json`. */
         SendEmailV1: {
             attachments?: {
                 content: string;
@@ -8057,8 +8478,10 @@ export interface components {
                 disposition: "attachment" | "inline";
                 filename: string;
             }[];
+            /** @description Addresses blind-copied on the message: each receives it, and none is named in any header the other recipients can read. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. This send has exactly one `to`, so there is one message and the copies are delivered with it: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent. */
             bcc?: string[];
             body?: string;
+            /** @description Addresses copied on the message: each receives it, and every recipient sees them in the `Cc` header. A copied address is a recipient of the message, so it counts like one: toward your usage and the monthly allowance, the daily and hourly sending limits, and the per-recipient price. An address on your suppression list is skipped (and not charged), and the message still goes to everyone else. Addresses are lowercased and de-duplicated; an address already in `to`, or a `bcc` already in `cc`, is not copied twice. This send has exactly one `to`, so there is one message and the copies are delivered with it: if it is cancelled, fails or is blocked, they are not sent. A message that carries copies has no open or click tracking, because an open or a click by a copied person cannot be told apart from the recipient's, and its subject and body must not use `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}`: they resolve to the first recipient's own account links, so a copied address would hold the power to unsubscribe them. A send that does is refused with `422` `validation_error` and nothing is sent. */
             cc?: string[];
             /** @description Arbitrary JSON value (string, number, boolean, null, array, or object). */
             data?: {
@@ -8079,7 +8502,14 @@ export interface components {
              * @example https://example.com/unsubscribe?token=abc123
              */
             listUnsubscribe?: string;
+            /** @description The sender's display name, shown beside the from address (`Acme <hello@acme.com>`). Used only when `from` does not carry a name of its own: a `name` inside the `from` object wins, and a send that names neither falls back to the template's from-name, then the project name. It is not the recipient's name; put that in `to`. */
             name?: string;
+            /**
+             * @description Where this send waits when Sendly is pacing your sending: `high` for mail a person is waiting on right now (verification codes, password resets, magic links), `bulk` for mail that can wait (reminders, digests, batch notifications), `normal` otherwise. It orders your OWN queued mail: a `high` send goes ahead of your queued `normal` and `bulk` sends. A `bulk` send can be passed by your `normal` mail sent up to 15 minutes after it and your `high` mail sent up to 30 minutes after it, never by later mail; this orders the queue, it is not a delivery deadline. Projects take turns, so one project's backlog never holds another project's mail, whatever its priority. Up to 60 `high` sends per project per rolling hour, across all of its sending regions, are treated as `high`; past that they queue as `normal`. It does not change the rate you may send at. Defaults to `normal`.
+             * @example high
+             * @enum {string}
+             */
+            priority?: "high" | "normal" | "bulk";
             /** Format: email */
             reply?: string;
             subject?: string;
@@ -8523,6 +8953,12 @@ export interface components {
             };
             subscribed?: boolean;
         };
+        /** @description Body for PUT /api/mailboxes/{id}/signature. Send any of the three keys; a key left out is unchanged. `text` is plain text (at most 1000 characters and 12 lines), stored after control characters and trailing whitespace are removed; `null` or an empty string removes the signature. */
+        UpdateMailboxSignature: {
+            includeOnNewMessages?: boolean;
+            includeOnReplies?: boolean;
+            text?: string | null;
+        };
         /** @description Body for PATCH /api/snippets/{id}. */
         UpdateSnippet: {
             body?: string;
@@ -8584,7 +9020,7 @@ export interface components {
                 limit: number | null;
             };
             /**
-             * @description `custom` when an operator set per-category limits, `pro` on an active subscription or store entitlement, else `free`.
+             * @description `custom` when an operator set the project's limits (per-category limits, or none at all for Sendly's own internal projects), `pro` on an active subscription or store entitlement, else `free`.
              * @enum {string}
              */
             plan: "free" | "pro" | "custom";
@@ -8961,14 +9397,22 @@ export interface components {
              */
             timestamp: string;
         };
-        /** @description `data` of `email.failed`, fired when a send ends in a terminal failure. Three sources share it: Sendly refusing the send (`error` + `failureKind`), SES rejecting it (`reason`), and a template rendering failure (`errorMessage` + `templateName`). Which of those fields are present tells them apart. */
+        /** @description `data` of `email.failed`, fired when a send ends in a terminal failure. Four sources share it: Sendly refusing the send (`error` + `failureKind`), SES rejecting it (`reason`), a template rendering failure (`errorMessage` + `templateName`), and the mail server giving up on a message it accepted, for instance after it kept deferring past its maximum age (`bounceType` + `bounceSubType` + `bounceStatusCode` + `bounceDiagnosticCode`). That last case says nothing against the recipient's address: the contact stays subscribed and nothing is suppressed. Which of those fields are present tells them apart. */
         WebhookEmailFailedData: {
+            /** @description The receiving server's last reply, when there was one, e.g. `552 5.2.2 mailbox full`. Free text from a remote server: show it to a person, do not parse it. Any email address it quoted is replaced with `[address removed]`, and it is cut at 500 characters. Null when the server gave none. */
+            bounceDiagnosticCode?: string | null;
+            /** @description The RFC 3463 enhanced status code of that last reply, e.g. `5.2.2`. Null when there was none or it was not in that form. */
+            bounceStatusCode?: string | null;
+            /** @description Why the mail server gave up, as its classifier spells it: for example `MessageExpired` (it kept deferring past its maximum age), `AdminBounce` (an operator removed it from the queue) or a refusal class such as `QuotaIssues` or `SpamBlock`. The set can grow: treat an unknown value as `General`. Present together with `bounceType`. */
+            bounceSubType?: string | null;
+            /** @description Present when the mail server gave up on a message it had accepted. `Transient` means the failure says nothing against the recipient's address: it is not suppressed and the contact stays subscribed. */
+            bounceType?: string;
             campaignId: string | null;
             /** Format: email */
             contactEmail: string;
             /** Format: uuid */
             emailId: string;
-            /** @description Why the send died, as a sentence for the sender. Present when Sendly itself refused or failed the send. */
+            /** @description Why the send died, as a sentence for the sender. Present when Sendly itself refused or failed the send, or the mail server gave up on it. */
             error?: string;
             /** @description Present when the template failed to render. */
             errorMessage?: string;
@@ -10198,8 +10642,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11011,7 +11455,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Validation failed, or the body could not be read: a body that is not JSON answers `Request body must be valid JSON.` and valid JSON whose root is not an object answers `Request body must be a JSON object.`. A `personalizations` array longer than 100 is refused the same way, before any send. All are a single `errors[]` entry. */
+            /** @description Validation failed, or the body could not be read: a body that is not JSON answers `Request body must be valid JSON.` and valid JSON whose root is not an object answers `Request body must be a JSON object.`. A `personalizations` array longer than 100 is refused the same way, before any send. So is a subject or body the template renderer refuses (an unclosed `{{#if}}`, a nesting or output limit) in ANY personalization, and `{{unsubscribeUrl}}`, `{{subscribeUrl}}`, `{{manageUrl}}` or `{{id}}` in one that has `cc` or `bcc`. SendGrid's `mail/send` has no `422`, so every one of these is `400`. All are a single `errors[]` entry. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11040,15 +11484,6 @@ export interface operations {
             };
             /** @description The request body is larger than 33554432 bytes (32 MiB), the cap every batch-shaped send route shares. It is refused before anything is parsed, and nothing is sent; split it across requests. */
             413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CompatSendGridError"];
-                };
-            };
-            /** @description Validation failed, the key was reused for a different message, or a vendor feature Sendly does not support was used. */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11437,14 +11872,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: {
+                            message: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -11513,14 +11952,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: {
+                            message: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -11589,14 +12032,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: {
+                            message: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -11665,14 +12112,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: {
+                            message: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -11893,14 +12344,19 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: {
+                            /** @enum {string} */
+                            status: "queued";
+                        };
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -12123,16 +12579,28 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    csv: string;
+                    filename?: string;
+                };
+                "multipart/form-data": components["schemas"]["ContactsImportForm"];
+            };
+        };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: {
+                            message: string;
+                        };
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -12165,6 +12633,15 @@ export interface operations {
             };
             /** @description Resource not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `VALIDATION_ERROR` — the JSON body is not `{ csv, filename? }`. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12762,7 +13239,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["Domain"];
+                        data: components["schemas"]["CreatedDomain"];
                         /** @enum {boolean} */
                         success: true;
                     };
@@ -13750,7 +14227,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `OUTCOME_UNCERTAIN` — a request with this key failed after part of it may already have been sent (`error.details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13857,7 +14334,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            /** @description `CONFLICT` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `OUTCOME_UNCERTAIN` — a request with this key failed after part of it may already have been sent (`error.details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14052,7 +14529,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description `EMAIL_NOT_RESCHEDULABLE` — the email already left PENDING */
+            /** @description `EMAIL_NOT_RESCHEDULABLE` — the email is no longer waiting to be sent (it was sent, handed off, failed, cancelled, or is the record of a message a mailbox already relayed), or it changed while this request ran; fetch it again and retry */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14137,7 +14614,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Email already past PENDING */
+            /** @description `EMAIL_NOT_CANCELLABLE` — the email is no longer waiting to be sent: it was sent, handed off, failed or already cancelled, or it is the record of a message a mailbox already relayed */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -15989,6 +16466,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
+                            /** @description Present only when the request set `includeSignature`: whether the mailbox's saved signature is in the message that was sent (false when the mailbox has none). */
+                            signatureIncluded?: boolean;
                             /** @enum {string} */
                             status: "queued";
                             /** @enum {boolean} */
@@ -16343,6 +16822,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The AI is busy right now. Nothing was drafted; try again in a moment. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     sendMailboxMessage: {
@@ -16378,6 +16866,8 @@ export interface operations {
                              * @description The stored outbound message.
                              */
                             messageId: string;
+                            /** @description Present only when the request set `includeSignature`: whether the mailbox's saved signature is in the message that was sent (false when the mailbox has none). */
+                            signatureIncluded?: boolean;
                             /** @enum {boolean} */
                             submitted: true;
                         };
@@ -16529,6 +17019,99 @@ export interface operations {
             };
             /** @description Resource not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Rate limit or billing limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateMailboxSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMailboxSignature"];
+            };
+        };
+        responses: {
+            /** @description The signature as stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MailboxSignature"];
+                        /** @enum {boolean} */
+                        success: true;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized — missing or invalid auth */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden — insufficient permissions or project disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The body is empty, names an unknown key, or the signature is too long. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17193,7 +17776,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description API key created; the secret is behind the reveal link. */
+            /** @description API key created. The secret is in `plaintextToken` for a dashboard session, behind `revealUrl` for everyone else. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -17202,16 +17785,18 @@ export interface operations {
                     "application/json": {
                         /** @description An API key's metadata. Never carries the token or its hash — `lastFour` is the only surviving fragment of the secret once the key has been created. */
                         data: components["schemas"]["ApiKey"] & {
+                            /** @description The new secret, shown once. Returned ONLY to a signed-in dashboard session; an OAuth or agent caller never receives it and gets `revealUrl` instead. Store it now: it cannot be read again. */
+                            plaintextToken?: string;
                             /**
                              * Format: date-time
-                             * @description When the reveal link stops working. Create or rotate again to get a new one.
+                             * @description When the reveal link stops working. Present with `revealUrl`. Create or rotate again to get a new one.
                              */
-                            revealExpiresAt: string;
+                            revealExpiresAt?: string;
                             /**
                              * Format: uri
-                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
+                             * @description Returned instead of `plaintextToken` to every caller that is not a dashboard session. A one-time, session-authenticated URL where the person who owns this project can see the secret: opening it requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
                              */
-                            revealUrl: string;
+                            revealUrl?: string;
                         };
                         /** @enum {boolean} */
                         success: true;
@@ -17441,7 +18026,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description API key rotated; the new secret is behind the reveal link. */
+            /** @description API key rotated. The new secret is in `plaintextToken` for a dashboard session, behind `revealUrl` for everyone else. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -17450,16 +18035,18 @@ export interface operations {
                     "application/json": {
                         data: {
                             lastFour: string;
+                            /** @description The new secret, shown once. Returned ONLY to a signed-in dashboard session; an OAuth or agent caller never receives it and gets `revealUrl` instead. Store it now: it cannot be read again. */
+                            plaintextToken?: string;
                             /**
                              * Format: date-time
-                             * @description When the reveal link stops working. Create or rotate again to get a new one.
+                             * @description When the reveal link stops working. Present with `revealUrl`. Create or rotate again to get a new one.
                              */
-                            revealExpiresAt: string;
+                            revealExpiresAt?: string;
                             /**
                              * Format: uri
-                             * @description A one-time, session-authenticated URL where the person who owns this project can see the secret. The secret itself is never returned to an API or agent caller: opening this link requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
+                             * @description Returned instead of `plaintextToken` to every caller that is not a dashboard session. A one-time, session-authenticated URL where the person who owns this project can see the secret: opening it requires a signed-in dashboard session, so the credential that created the key cannot redeem it. Single use — the first successful open consumes it.
                              */
-                            revealUrl: string;
+                            revealUrl?: string;
                         };
                         /** @enum {boolean} */
                         success: true;
@@ -18180,14 +18767,19 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: {
+                            /** @enum {string} */
+                            status: "queued";
+                        };
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -19610,14 +20202,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        data: components["schemas"]["Template"];
+                        /** @enum {boolean} */
+                        success: true;
                     };
                 };
             };
@@ -19988,7 +20582,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uri */
+                    url: string;
+                } | {
+                    base64: string;
+                    contentType: string;
+                    filename: string;
+                };
+                "multipart/form-data": components["schemas"]["ImageUploadForm"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -20035,6 +20641,24 @@ export interface operations {
             };
             /** @description Resource not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `PAYLOAD_TOO_LARGE` — the image is over 10 MB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `VALIDATION_ERROR` — the JSON body fits neither shape, or the `url` could not be fetched. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22088,6 +22712,8 @@ export interface operations {
         parameters: {
             query?: {
                 currency?: string;
+                /** @description What sent the reader to the paywall: `branding_banner`, `quick_start`, `inbox_quota_refusal`, `direct` or `unknown`. Echoed on the Checkout return URLs as `from` so the funnel can attribute the purchase; any other value is ignored. */
+                source?: string;
             };
             header?: never;
             path: {
@@ -22365,7 +22991,7 @@ export interface operations {
                     "application/json": components["schemas"]["AnalyticsCampaignStatsV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22435,7 +23061,7 @@ export interface operations {
                     "application/json": components["schemas"]["AnalyticsTimeseriesV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22506,7 +23132,7 @@ export interface operations {
                     "application/json": components["schemas"]["AnalyticsTopCampaignsV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22571,7 +23197,7 @@ export interface operations {
                     "application/json": components["schemas"]["BillingStatus"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22636,7 +23262,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlanList"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22708,7 +23334,7 @@ export interface operations {
                     "application/json": components["schemas"]["SubscriptionChange"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22777,7 +23403,7 @@ export interface operations {
                     "application/json": components["schemas"]["CampaignV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22858,7 +23484,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -22885,7 +23511,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `outcome_uncertain` — a request with this key failed after part of it may already have been sent (`details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -22944,7 +23570,7 @@ export interface operations {
                     "application/json": components["schemas"]["CampaignV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23030,7 +23656,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23120,7 +23746,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23206,7 +23832,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23287,7 +23913,7 @@ export interface operations {
                     "application/json": components["schemas"]["CampaignV1FailureList"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23373,7 +23999,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23459,7 +24085,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23545,7 +24171,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23647,7 +24273,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23674,7 +24300,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `outcome_uncertain` — a request with this key failed after part of it may already have been sent (`details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -23733,7 +24359,7 @@ export interface operations {
                     "application/json": components["schemas"]["CampaignV1Stats"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23807,7 +24433,7 @@ export interface operations {
                     "application/json": components["schemas"]["Connections"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23883,7 +24509,7 @@ export interface operations {
                     "application/json": components["schemas"]["ConnectLinks"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -23956,7 +24582,7 @@ export interface operations {
                     "application/json": components["schemas"]["ContactV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24025,7 +24651,7 @@ export interface operations {
                     "application/json": components["schemas"]["ContactV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24102,7 +24728,7 @@ export interface operations {
                     "application/json": components["schemas"]["ContactV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24179,7 +24805,7 @@ export interface operations {
                     "application/json": components["schemas"]["ContactV1Deleted"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24260,7 +24886,7 @@ export interface operations {
                     "application/json": components["schemas"]["ContactV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24337,7 +24963,7 @@ export interface operations {
                     "application/json": components["schemas"]["ContactTopicPreferencesV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24418,7 +25044,7 @@ export interface operations {
                     "application/json": components["schemas"]["DeliverabilityDiagnosisV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24491,7 +25117,7 @@ export interface operations {
                     "application/json": components["schemas"]["DmarcReportV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24564,7 +25190,7 @@ export interface operations {
                     "application/json": components["schemas"]["RecipientDomainStatsV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24633,7 +25259,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24702,7 +25328,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24788,7 +25414,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24865,7 +25491,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainV1Deleted"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -24951,7 +25577,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainLogoV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25032,7 +25658,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainLogoV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25109,7 +25735,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainLogoV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25186,7 +25812,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainLogoReadinessV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25263,7 +25889,7 @@ export interface operations {
                     "application/json": components["schemas"]["DomainV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25341,7 +25967,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailValidationBatchV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25413,7 +26039,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25440,7 +26066,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. */
+            /** @description `conflict` — a request with this `Idempotency-Key` is still in flight. Retry shortly. Or `outcome_uncertain` — a request with this key failed after part of it may already have been sent (`details.cause` holds the status and code it would otherwise have answered with). Ask `POST /api/emails/outcome` what it did; do not send it again under a new key. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -25449,7 +26075,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `validation_error` — the body did not match the schema; or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key. */
+            /** @description `validation_error` — the body did not match the schema, or a recipient (`to`, `cc` or `bcc`) is at a reserved domain that can never receive mail (`.test`, `.example`, `.invalid`, `.localhost`, `.local`, `.onion`, `.internal`, `.home.arpa`, `.alt`, example.com/.net/.org and their subdomains; legacy code `RESERVED_RECIPIENT_DOMAIN`, and the detail names the domain, not the address; nothing was sent); or `idempotency_key_reused` — this `Idempotency-Key` was already spent on a request with a different body. Send a new key. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -25509,7 +26135,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailTestV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25518,7 +26144,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient), or `content_rejected` from automated content review. */
+            /** @description `scope_missing`, `project_disabled`, or `forbidden` — the recipient is not the project owner's own verified account email (including the case where that address is not verified yet, so there is no default recipient; a keyless start that has not confirmed its code is the same case; a confirmed keyless start reaches only the address it was started with), `quota_exhausted` — the project's free test emails are used up (`next` names `add_domain`), or `content_rejected` from automated content review. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25527,7 +26153,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner; no retry fixes it. */
+            /** @description `conflict` — this project has no sandbox sender. The handle is derived from the project owner's email and this project has no owner (and is not a keyless start); no retry fixes it. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -25598,7 +26224,7 @@ export interface operations {
                     "application/json": components["schemas"]["EventV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25667,7 +26293,7 @@ export interface operations {
                     "application/json": components["schemas"]["EventV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25741,7 +26367,7 @@ export interface operations {
                     "application/json": components["schemas"]["EventNamesV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25811,7 +26437,7 @@ export interface operations {
                     "application/json": components["schemas"]["EventStatsV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25858,6 +26484,367 @@ export interface operations {
             };
         };
     };
+    v1GetKeyless: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Keyless start status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeylessStatusV1"];
+                };
+            };
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — the key is not a keyless start's key, or that start was already claimed into an account (claiming revokes the key, so this mostly answers 401 instead). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1ResendKeylessCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New code mailed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeylessResendV1"];
+                };
+            };
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — the key is not a keyless start's key, or that start was already claimed into an account (claiming revokes the key, so this mostly answers 401 instead). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — the address is already confirmed, or `details.reason` is `codes_exhausted`: this start has had all 3 codes. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — query, path, or body parameters did not match the schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — `details.reason` is `resend_too_soon`; `Retry-After` says how many seconds to wait. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected. Or `service_unavailable` — the code could not be mailed. Safe to retry. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1StartKeyless: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description `<challenge>:<nonce>` — the solved proof of work from a 428 answer. */
+                "Sendly-Keyless-Proof"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeylessStartV1Request"];
+            };
+        };
+        responses: {
+            /** @description Test project created and the code mailed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeylessStartV1"];
+                };
+            };
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — the body did not match the schema, or the address is refused: not an email, a Sendly sandbox address, a disposable domain, or a role address. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `proof_required` — send the request again with a solved proof of work. `details.reason` says why (`proof_missing`, `proof_invalid`, `proof_expired`, `proof_used`, `proof_too_easy`); `details` carries `challenge`, `algorithm`, `difficultyBits`, `expiresAt`, `header` and `howTo` (python, pythonWindows and node one-liners). */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — `details.reason` is `email_daily_starts`, `network_daily_starts` or `global_daily_starts`; `details.resetsAt` and `Retry-After` say when the UTC day turns over. Or a request-rate limit: see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected. Or `service_unavailable` — the start could not be counted or its code could not be mailed (nothing was created). Safe to retry after `Retry-After`. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    v1VerifyKeyless: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeylessVerifyV1Request"];
+            };
+        };
+        responses: {
+            /** @description Address confirmed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeylessVerifyV1"];
+                };
+            };
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `scope_missing`, `project_access_denied`, or `project_disabled`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `resource_not_found` — the key is not a keyless start's key, or that start was already claimed into an account (claiming revokes the key, so this mostly answers 401 instead). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `conflict` — `details.reason` is `code_expired` or `code_attempts_exhausted`: ask for a new code with `POST /api/v1/keyless/resend`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `validation_error` — the body did not match the schema, or `details.reason` is `code_incorrect` with `details.attemptsLeft`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `rate_limited` — see `Retry-After` and the `RateLimit` headers. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `internal_error`. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `keyless_disabled` — keyless start is switched off. `details.signUpUrl` is where a person makes an account instead; every other part of Sendly is unaffected. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     v1ListLists: {
         parameters: {
             query?: {
@@ -25880,7 +26867,7 @@ export interface operations {
                     "application/json": components["schemas"]["ListV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -25949,7 +26936,7 @@ export interface operations {
                     "application/json": components["schemas"]["ListV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26017,7 +27004,7 @@ export interface operations {
                     "application/json": components["schemas"]["ListV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26094,7 +27081,7 @@ export interface operations {
                     "application/json": components["schemas"]["ListV1Deleted"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26175,7 +27162,7 @@ export interface operations {
                     "application/json": components["schemas"]["ListV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26252,7 +27239,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailValidationRunV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26326,7 +27313,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProjectV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26404,7 +27391,7 @@ export interface operations {
                     "application/json": components["schemas"]["SegmentV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26482,7 +27469,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26550,7 +27537,7 @@ export interface operations {
                     "application/json": components["schemas"]["SegmentV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26627,7 +27614,7 @@ export interface operations {
                     "application/json": components["schemas"]["SegmentV1Deleted"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26726,7 +27713,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26807,7 +27794,7 @@ export interface operations {
                     "application/json": components["schemas"]["SegmentContactV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26881,7 +27868,7 @@ export interface operations {
                     "application/json": components["schemas"]["SupportTicketList"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -26961,7 +27948,7 @@ export interface operations {
                     "application/json": components["schemas"]["SupportTicketCreated"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27032,7 +28019,7 @@ export interface operations {
                     "application/json": components["schemas"]["SuppressionV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27101,7 +28088,7 @@ export interface operations {
                     "application/json": components["schemas"]["SuppressionV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27169,7 +28156,7 @@ export interface operations {
                     "application/json": components["schemas"]["SuppressionV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27246,7 +28233,7 @@ export interface operations {
                     "application/json": components["schemas"]["SuppressionV1Deleted"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27318,7 +28305,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27387,7 +28374,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27455,7 +28442,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27532,7 +28519,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateV1Deleted"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27622,7 +28609,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27701,7 +28688,7 @@ export interface operations {
                     "application/json": components["schemas"]["TopicListV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27770,7 +28757,7 @@ export interface operations {
                     "application/json": components["schemas"]["TopicV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27838,7 +28825,7 @@ export interface operations {
                     "application/json": components["schemas"]["TopicV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -27919,7 +28906,7 @@ export interface operations {
                     "application/json": components["schemas"]["TopicV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28000,7 +28987,7 @@ export interface operations {
                     "application/json": components["schemas"]["TopicSubscriptionV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28074,7 +29061,7 @@ export interface operations {
                     "application/json": components["schemas"]["UsageV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28142,7 +29129,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailValidationRunV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28225,7 +29212,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailValidationResultListV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28303,7 +29290,7 @@ export interface operations {
                     "application/json": components["schemas"]["WebhookV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28372,7 +29359,7 @@ export interface operations {
                     "application/json": components["schemas"]["WebhookV1Created"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28440,7 +29427,7 @@ export interface operations {
                     "application/json": components["schemas"]["WebhookV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28517,7 +29504,7 @@ export interface operations {
                     "application/json": components["schemas"]["WebhookV1Deleted"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28598,7 +29585,7 @@ export interface operations {
                     "application/json": components["schemas"]["WebhookV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28675,7 +29662,7 @@ export interface operations {
                     "application/json": components["schemas"]["WebhookV1SecretRotated"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28753,7 +29740,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28822,7 +29809,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28890,7 +29877,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowExecutionV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -28967,7 +29954,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29044,7 +30031,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowDeletedV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29134,7 +30121,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29224,7 +30211,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29307,7 +30294,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowExecutionV1List"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29388,7 +30375,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowExecutionV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29474,7 +30461,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowGraphV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29555,7 +30542,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowGraphV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29641,7 +30628,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowStateChangeV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29718,7 +30705,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowStateChangeV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -29798,7 +30785,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowStatsV1"];
                 };
             };
-            /** @description `invalid_api_key` or `invalid_session` — missing or invalid credentials. */
+            /** @description `invalid_api_key`, `invalid_session` or `missing_credentials` — missing or invalid credentials. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -30817,8 +31804,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -31131,8 +32118,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -31367,8 +32354,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

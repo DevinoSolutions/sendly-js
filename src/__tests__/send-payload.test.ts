@@ -173,6 +173,19 @@ describe("emails.send refuses keys outside the send schema (#9)", () => {
     expect(getCallBody(fetchMock)).toEqual(payload);
   });
 
+  test.each(["high", "normal", "bulk"] as const)(
+    "priority %s is forwarded, not refused as an unknown field (Codex T-20910 r1 M2)",
+    async (priority) => {
+      const { client, fetchMock } = makeClient();
+      fetchMock.mockResolvedValue(jsonResponse(202, RECEIPT));
+      const payload: SendEmailV1Request = { to: "test+user@example.com", subject: "Your code", priority };
+
+      await client.emails.send(payload);
+
+      expect(getCallBody(fetchMock)).toEqual(payload);
+    },
+  );
+
   test("only unknown keys are refused client-side; value validation stays the server's", async () => {
     const { client, fetchMock } = makeClient();
     fetchMock.mockResolvedValue(jsonResponse(202, RECEIPT));

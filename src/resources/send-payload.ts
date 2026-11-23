@@ -27,6 +27,7 @@ export const SEND_EMAIL_V1_KEYS = [
   "headers",
   "listUnsubscribe",
   "name",
+  "priority",
   "reply",
   "subject",
   "subscribed",
