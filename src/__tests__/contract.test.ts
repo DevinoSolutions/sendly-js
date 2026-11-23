@@ -61,13 +61,21 @@ const spec = JSON.parse(readFileSync(SPEC_PATH, "utf8")) as OpenApiSpec;
 
 /**
  * NOT YET — a genuine gap: key-callable operations the contract publishes that no
- * resource method wraps yet. Empty since T-15370, which wrapped the 67 that the
+ * resource method wraps yet. T-15370 wrapped the 67 that the
  * re-sync from the released contract (docs.sendly.now/openapi.json) surfaced when the
  * spec grew from 106 to 198 paths. A new gap is added here with its operation, needs a
  * method (and a manifest entry) before it leaves; the test below fails if one is
  * implemented but left here.
  */
-export const NOT_YET_IMPLEMENTED: readonly string[] = [];
+export const NOT_YET_IMPLEMENTED: readonly string[] = [
+  // 1.5.0 re-synced the contract for `priority` (T-20910) and found these five published since
+  // 1.4.0: the keyless test-project start and the mailbox signature. Each needs its own method.
+  "GET /api/v1/keyless",
+  "POST /api/v1/keyless/resend",
+  "POST /api/v1/keyless/start",
+  "POST /api/v1/keyless/verify",
+  "PUT /api/mailboxes/{id}/signature",
+];
 
 /**
  * Other providers' wire formats, served so that a Resend, SendGrid, Postmark,

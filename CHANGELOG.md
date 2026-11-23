@@ -3,6 +3,28 @@
 All notable changes to `sendly-sdk` are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## 1.5.0 — 2026-11-23
+
+### Added
+
+- **`priority` on `emails.send`.** `"high" | "normal" | "bulk"`, default `normal`. It orders your OWN
+  queued mail while Sendly paces sending: a `high` send (a verification code, a password reset, a
+  magic link) goes ahead of your queued `normal` and `bulk` mail, and a `bulk` send waits behind your
+  newer mail for at most about 15 minutes. Projects take turns, so it never moves another project's
+  mail, and up to 60 `high` sends per project per rolling hour are treated as `high`; past that they
+  queue as `normal`. It does not change the rate you may send at. Before this release the SDK refused
+  the field with `unknown_field`.
+
+  ```ts
+  await sendly.emails.send({ to, subject, body, priority: "high" });
+  ```
+
+### Changed
+
+- Types regenerated from the current published contract. Five operations published since 1.4.0 (the
+  keyless test-project start, `GET|POST /api/v1/keyless*`, and `PUT /api/mailboxes/{id}/signature`)
+  are not wrapped yet and are listed as such by the contract test.
+
 ## 1.4.0 — 2026-11-07
 
 ### Added
